@@ -88,7 +88,7 @@ export type FieldGuideProgress = {
 export function fieldGuideProgress(
   town: BundledTown,
   records: CatchRecord[],
-  reviews: ReviewRecord[] = [],
+  reviews: ReviewRecord[],
 ): FieldGuideProgress {
   const caught = caughtIds(records);
   const states = reviewStates(records, reviews);

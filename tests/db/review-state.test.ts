@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ensureProfile } from "@/lib/profile";
-import { rebuildReviewState } from "@/lib/review-state";
+import { rebuildReviewState, refreshReviewState } from "@/lib/review-state";
 import { adminClient, forgetEmail, signedInUser } from "./helpers";
 
 process.env.NEXT_PUBLIC_SUPABASE_URL = inject("supabaseUrl");
@@ -117,5 +117,22 @@ describe("the review state cache", () => {
 
     expect(output).toMatch(/review_state: rebuilt \d+ row\(s\) for \d+ user\(s\)/);
     expect(await stateOf(user.client)).toEqual(before);
+  });
+
+  it("never lets an older result overwrite a newer one", async () => {
+    // Two devices save at the same time. Device A read the log before device B's review was saved.
+    const before = await stateOf(user.client);
+    const { data: stale } = await user.client.from("review_state").select("*").eq("item_id", "cache").single();
+    await post(token, [reviewEvent("cache", daysAgo(1), "good", 7, 14)]);
+    const newer = await stateOf(user.client);
+    expect(newer).not.toEqual(before);
+
+    const { error } = await user.client.rpc("save_review_state", { states: [stale] });
+    expect(error).toBeNull();
+    expect(await stateOf(user.client)).toEqual(newer);
+
+    // A normal refresh still works.
+    await refreshReviewState(user.client, user.id, ["cache"]);
+    expect(await stateOf(user.client)).toEqual(newer);
   });
 });

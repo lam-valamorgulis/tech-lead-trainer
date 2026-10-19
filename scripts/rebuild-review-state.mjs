@@ -1,6 +1,6 @@
 // Recomputes the review_state cache of every user from the event log (design 12.2).
 //   npm run rebuild:review-state
-// Local Supabase only. The live project gets the same run after the export in the ship steps.
+// Local Supabase only for now: it refuses any database that is not on this Mac.
 import { createClient } from "@supabase/supabase-js";
 import { rebuildReviewState } from "../src/lib/review-state.ts";
 import { readLocalSupabase } from "./local-supabase.mjs";

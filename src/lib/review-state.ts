@@ -7,7 +7,16 @@ import { selectAll } from "./select-all.ts";
 
 type CatchRow = { item_id: string; correct: boolean; learning_day: string };
 type ReviewRow = { item_id: string; learning_day: string; grade: Grade };
-type StateRow = { user_id: string; item_id: string; step: number; due_day: string | null; caught_day: string; stage: number };
+type StateRow = {
+  user_id: string;
+  item_id: string;
+  step: number;
+  due_day: string | null;
+  caught_day: string;
+  stage: number;
+  event_count: number;
+  updated_at: string;
+};
 
 async function loadLog(client: SupabaseClient, userId: string, itemIds?: string[]) {
   const catches = await selectAll((from, to) => {
@@ -28,6 +37,9 @@ function toRows(userId: string, log: { catches: CatchRow[]; reviews: ReviewRow[]
     log.catches.map((row) => ({ itemId: row.item_id, correct: row.correct, learningDay: row.learning_day })),
     log.reviews.map((row) => ({ itemId: row.item_id, learningDay: row.learning_day, grade: row.grade })),
   );
+  const eventCount = new Map<string, number>();
+  for (const row of [...log.catches, ...log.reviews]) eventCount.set(row.item_id, (eventCount.get(row.item_id) ?? 0) + 1);
+  const now = new Date().toISOString();
   return [...states.values()].map((state) => ({
     user_id: userId,
     item_id: state.itemId,
@@ -35,26 +47,36 @@ function toRows(userId: string, log: { catches: CatchRow[]; reviews: ReviewRow[]
     due_day: state.dueDay,
     caught_day: state.caughtDay,
     stage: state.stage,
+    event_count: eventCount.get(state.itemId)!,
+    updated_at: now,
   }));
 }
 
-/** Recomputes the cached state of some items from their full history. Runs as the user. */
+/**
+ * Recomputes the cached state of some items from their full history. Runs as the user.
+ * The database keeps a row that was built from more events, so a slow request cannot win.
+ */
 export async function refreshReviewState(client: SupabaseClient, userId: string, itemIds: string[]): Promise<void> {
   if (itemIds.length === 0) return;
   const rows = toRows(userId, await loadLog(client, userId, itemIds));
   if (rows.length === 0) return;
-  const { error } = await client.from("review_state").upsert(rows, { onConflict: "user_id,item_id" });
+  const { error } = await client.rpc("save_review_state", { states: rows });
   if (error) throw error;
 }
 
-/** Throws away one user's cached state and recomputes all of it from the event log. */
+/**
+ * Recomputes all of one user's cached state from the event log, and removes rows for items
+ * the log does not know. It writes first and deletes after, so a failure never empties the cache.
+ */
 export async function rebuildReviewState(admin: SupabaseClient, userId: string): Promise<number> {
   const rows = toRows(userId, await loadLog(admin, userId));
-  const deleted = await admin.from("review_state").delete().eq("user_id", userId);
-  if (deleted.error) throw deleted.error;
   if (rows.length > 0) {
-    const inserted = await admin.from("review_state").insert(rows);
-    if (inserted.error) throw inserted.error;
+    const written = await admin.from("review_state").upsert(rows, { onConflict: "user_id,item_id" });
+    if (written.error) throw written.error;
   }
+  let extra = admin.from("review_state").delete().eq("user_id", userId);
+  if (rows.length > 0) extra = extra.not("item_id", "in", `(${rows.map((row) => `"${row.item_id}"`).join(",")})`);
+  const deleted = await extra;
+  if (deleted.error) throw deleted.error;
   return rows.length;
 }

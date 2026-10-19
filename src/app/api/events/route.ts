@@ -1,4 +1,4 @@
-import { EventWriteError, eventBatchSchema, writeEvents } from "@/lib/events/write-events";
+import { EventWriteError, eventBatchSchema, touchedItemIds, writeEvents } from "@/lib/events/write-events";
 import { refreshReviewState } from "@/lib/review-state";
 import { bearerToken, serverUserClient } from "@/lib/supabase/user";
 
@@ -26,10 +26,7 @@ export async function POST(request: Request): Promise<Response> {
 
     // The review state is a cache. If this update fails, the events are still saved,
     // and the rebuild script can recompute it.
-    const touched = [
-      ...new Set(batch.data.events.flatMap((event) => (event.type === "session" ? [] : [event.itemId]))),
-    ];
-    await refreshReviewState(client, user.user.id, touched).catch((error) =>
+    await refreshReviewState(client, user.user.id, touchedItemIds(batch.data.events)).catch((error) =>
       console.error("review_state refresh failed", error),
     );
   } catch (error) {

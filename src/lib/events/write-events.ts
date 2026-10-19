@@ -135,3 +135,8 @@ export async function writeEvents(client: SupabaseClient, events: LearningEvent[
     if (error) throw new EventWriteError(`Could not write ${type} events: ${error.message}`, REFUSED_CODES.has(error.code));
   }
 }
+
+/** The creatures and moves a batch is about. Their review state must be refreshed. */
+export function touchedItemIds(events: LearningEvent[]): string[] {
+  return [...new Set(events.flatMap((event) => ("itemId" in event ? [event.itemId] : [])))];
+}

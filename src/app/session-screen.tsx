@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { currentTown, reviewItem } from "@/content";
 import { nextCatch, type CatchItem } from "@/core/catch";
-import { backlogPaused, dueReviews, reviewStates } from "@/core/review";
+import { backlogPaused, DAILY_REVIEW_LIMIT, dueReviews, reviewStates } from "@/core/review";
 import type { ThirtyDayRate } from "@/core/day";
 import { loadCatchRecords } from "@/lib/catch-log";
 import { loadReviewRecords } from "@/lib/review-log";
@@ -110,7 +110,11 @@ function RunningSession({
       <section className="stack" aria-labelledby="session-title">
         <h2 id="session-title">{committedMinutes}-minute session</h2>
         <p>Active time: {formatMinutes(activeSeconds)}</p>
-        {paused && <p className="notice">{PAUSED_MESSAGE}</p>}
+        {paused && (
+          <p className="notice" role="status">
+            {PAUSED_MESSAGE}
+          </p>
+        )}
       </section>
       {plan.state === "reviews" && (
         <ReviewFlow
@@ -144,7 +148,7 @@ type TodaysPlan =
   | { state: "catch"; item: CatchItem; next: () => void };
 
 /** The backlog guard explains itself in one sentence (ticket #8). */
-const PAUSED_MESSAGE = "New catches wait until 8 or fewer reviews are due, so your reviews never pile up.";
+const PAUSED_MESSAGE = `New catches wait until ${DAILY_REVIEW_LIMIT} or fewer reviews are due, so your reviews never pile up.`;
 
 const PLAN_MESSAGES: Record<Exclude<TodaysPlan["state"], "reviews" | "catch">, string> = {
   loading: "Loading today's plan…",
@@ -173,7 +177,7 @@ function useTodaysPlan(committedMinutes: CommittedMinutes): { plan: TodaysPlan; 
         (state) => ({ state, item: reviewItem(state.itemId)! }),
       );
       const town = currentTown();
-      const paused = committedMinutes !== 3 && backlogPaused(catches, reviews, today, isReviewable);
+      const paused = backlogPaused(catches, reviews, today, isReviewable);
       const catchItem = town ? nextCatch({ town, records: catches, today, committedMinutes, paused }) : null;
       return { today, reviews: due, catchItem, paused };
     })()
@@ -184,20 +188,26 @@ function useTodaysPlan(committedMinutes: CommittedMinutes): { plan: TodaysPlan; 
     };
   }, [committedMinutes]);
 
-  return { plan: currentStep(), paused: work?.paused ?? false };
+  return { plan: planStep(work, phase, failed, setPhase), paused: work?.paused ?? false };
+}
 
-  function currentStep(): TodaysPlan {
-    if (failed) return { state: "failed" };
-    if (!work) return { state: "loading" };
-    if (phase === "reviews" && work.reviews.length > 0) {
-      return { state: "reviews", today: work.today, reviews: work.reviews, next: () => setPhase("catch") };
-    }
-    if (phase !== "done" && work.catchItem) {
-      return { state: "catch", item: work.catchItem, next: () => setPhase("done") };
-    }
-    if (work.reviews.length === 0 && !work.catchItem) return { state: "nothing" };
-    return { state: "done" };
+/** Where today's work is: reviews first, then the catch, then done. */
+function planStep(
+  work: TodaysWork | null,
+  phase: "reviews" | "catch" | "done",
+  failed: boolean,
+  setPhase: (phase: "reviews" | "catch" | "done") => void,
+): TodaysPlan {
+  if (failed) return { state: "failed" };
+  if (!work) return { state: "loading" };
+  if (phase === "reviews" && work.reviews.length > 0) {
+    return { state: "reviews", today: work.today, reviews: work.reviews, next: () => setPhase("catch") };
   }
+  if (phase !== "done" && work.catchItem) {
+    return { state: "catch", item: work.catchItem, next: () => setPhase("done") };
+  }
+  if (work.reviews.length === 0 && !work.catchItem) return { state: "nothing" };
+  return { state: "done" };
 }
 
 function formatMinutes(seconds: number): string {
