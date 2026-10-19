@@ -63,6 +63,8 @@ describe("GET /api/export", () => {
     const file = await exportOf(a);
 
     expect(file.schemaVersion).toBe(1);
+    expect(file.userId).toBe(a.id);
+    expect(file.today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(Date.now() - Date.parse(file.exportedAt)).toBeLessThan(60_000);
     expect(file.profile).toMatchObject({ home_time_zone: "Asia/Ho_Chi_Minh", day_cutoff_hour: 4 });
     expect(Object.keys(file.events).sort()).toEqual([...EVENT_TABLES].sort());
@@ -76,6 +78,7 @@ describe("GET /api/export", () => {
 
     for (const rows of Object.values(file.events) as unknown[][]) expect(rows).toEqual([]);
     expect(file.profile.user_id).toBe(b.id);
+    expect(file.userId).toBe(b.id);
     expect(JSON.stringify(file)).not.toContain(a.id);
     expect(file.daysLearnedLast30.learnedDays).toBe(0);
   });

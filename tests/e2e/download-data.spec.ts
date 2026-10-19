@@ -53,6 +53,8 @@ test("on iPhone, Download my data opens the share sheet with the JSON file, for 
   try {
     await learnThenOpenSettings(page);
     await page.getByRole("button", { name: "Download my data" }).click();
+    // The share sheet needs a fresh tap, so it has its own button.
+    await page.getByRole("button", { name: "Save to Files" }).click();
     await expect(page.getByText("Your data file is ready.")).toBeVisible();
 
     const [file] = await page.evaluate(() => (window as unknown as { __shared: { name: string; text: string }[] }).__shared);

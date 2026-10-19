@@ -61,7 +61,7 @@ export type LearningEvent = z.infer<typeof eventSchema>;
 
 const TABLES = { session: "session_events", catch: "catch_events", review: "review_events" } as const satisfies Record<LearningEvent["type"], string>;
 
-/** Every event table. The export and the backup read this list. */
+/** Every event table. "Download my data" exports each one. */
 export const EVENT_TABLES = Object.values(TABLES);
 
 function toRow(event: LearningEvent) {

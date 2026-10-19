@@ -16,3 +16,13 @@ export function bearerToken(request: Request): string | undefined {
   const match = header.match(/^Bearer (.+)$/);
   return match?.[1];
 }
+
+/** The signed-in user of a request, with a client that acts as them. Null when not signed in. */
+export async function authenticate(request: Request): Promise<{ client: SupabaseClient; userId: string } | null> {
+  const token = bearerToken(request);
+  if (!token) return null;
+  const client = serverUserClient(token);
+  const { data, error } = await client.auth.getUser(token);
+  if (error || !data.user) return null;
+  return { client, userId: data.user.id };
+}

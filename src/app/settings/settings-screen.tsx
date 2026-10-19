@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { downloadMyData } from "@/lib/download-data";
+import { fetchMyData, saveFile, shareFile, usesShareSheet } from "@/lib/download-data";
 import { browserClient } from "@/lib/supabase/browser";
 import type { SignedIn } from "../auth-gate";
 
@@ -73,39 +73,65 @@ function formatDay(isoDate: string): string {
   });
 }
 
-const DOWNLOAD_MESSAGES = {
-  idle: null,
+type DownloadStatus =
+  | { name: "idle" | "working" | "done" | "cancelled" | "failed" }
+  | { name: "ready"; file: File };
+
+const DOWNLOAD_MESSAGES: Record<DownloadStatus["name"], string> = {
+  idle: "",
   working: "Preparing your data file…",
+  ready: "Your file is ready. Tap Save to Files.",
   done: "Your data file is ready.",
   cancelled: "The download was cancelled.",
   failed: "The download failed. Check your connection and try again.",
-} as const;
+};
 
 function DataSection() {
-  const [status, setStatus] = useState<keyof typeof DOWNLOAD_MESSAGES>("idle");
+  const [status, setStatus] = useState<DownloadStatus>({ name: "idle" });
 
-  async function download() {
-    setStatus("working");
+  async function prepare() {
+    setStatus({ name: "working" });
     try {
-      const result = await downloadMyData();
-      setStatus(result === "cancelled" ? "cancelled" : "done");
+      const file = await fetchMyData();
+      // iPhone opens the share sheet only from a fresh tap, so it gets a second button.
+      if (usesShareSheet() && navigator.canShare({ files: [file] })) {
+        setStatus({ name: "ready", file });
+      } else {
+        saveFile(file);
+        setStatus({ name: "done" });
+      }
     } catch {
-      setStatus("failed");
+      setStatus({ name: "failed" });
     }
+  }
+
+  function share(file: File) {
+    shareFile(file).then(
+      (result) => setStatus({ name: result === "shared" ? "done" : "cancelled" }),
+      () => setStatus({ name: "failed" }),
+    );
   }
 
   return (
     <section className="stack" aria-labelledby="data-title">
       <h2 id="data-title">Your data</h2>
       <p className="lead">One JSON file with everything you did in the app. On iPhone, choose Save to Files.</p>
-      <button type="button" className="button-quiet" disabled={status === "working"} onClick={() => void download()}>
-        Download my data
-      </button>
-      {DOWNLOAD_MESSAGES[status] && (
-        <p role="status" className={status === "failed" ? "error" : undefined}>
-          {DOWNLOAD_MESSAGES[status]}
-        </p>
+      {status.name === "ready" ? (
+        <button type="button" className="button-main" onClick={() => share(status.file)}>
+          Save to Files
+        </button>
+      ) : (
+        <button type="button" className="button-quiet" disabled={status.name === "working"} onClick={() => void prepare()}>
+          Download my data
+        </button>
       )}
+      {/* The live regions stay on the page, so a screen reader hears every change. */}
+      <p role="status" className="lead">
+        {status.name === "failed" ? "" : DOWNLOAD_MESSAGES[status.name]}
+      </p>
+      <p role="alert" className="error">
+        {status.name === "failed" ? DOWNLOAD_MESSAGES.failed : ""}
+      </p>
     </section>
   );
 }
