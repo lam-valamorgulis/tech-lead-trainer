@@ -3,8 +3,7 @@
 :root {
   /* Contrast on --color-bg: text 16.5:1, muted 9.3:1, accent 12.6:1, success 9.6:1.
      Accent text on accent: 12.6:1. Rule 11 needs 4.5:1 for text and 3:1 for UI. */
-  --color-bg: #14132b;
-  --color-surface: #22204a;
+  --color-bg: #14132b; /* Same as APP_BACKGROUND in src/app/brand.ts. */
   --color-text: #f4f3ff;
   --color-muted: #b9b6d9;
   --color-accent: #ffd166;
@@ -73,7 +72,7 @@ p {
   color: var(--color-muted);
 }
 
-/* Rule 6: the shell is exactly one screen tall and keeps clear of the notch and home bar. */
+/* Rule 6: the shell is at least one screen tall and keeps clear of the notch and home bar. */
 .shell {
   display: flex;
   flex-direction: column;

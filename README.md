@@ -20,7 +20,7 @@ npx playwright install webkit chromium
 npm run dev
 ```
 
-Open http://localhost:3000. To try it on an iPhone, use the preview link from the pull request, then Share → Add to Home Screen.
+Open http://localhost:3000. To try it on an iPhone, open the preview link from the pull request. Then tap Share → Add to Home Screen.
 
 ## Local Supabase
 
@@ -41,7 +41,7 @@ The tests use three seams.
 | Seam | What it tests | Command | Needs |
 | --- | --- | --- | --- |
 | A | Game rules core: pure functions, no UI, no database | `npm test` | nothing |
-| B | Storage: real queries against local Supabase | `npm run test:db` | `npm run db:start` |
+| B | Storage: real calls to local Supabase | `npm run test:db` | `npm run db:start` |
 | C | The real app in iPhone (WebKit) and Desktop Chrome, with an accessibility check | `npm run test:e2e` | nothing (starts the dev server) |
 
 Seam B reads its URL and key from `supabase status`, not from env files. It stops with an error if the URL is not `127.0.0.1` or `localhost`.
@@ -50,4 +50,8 @@ Other checks: `npm run typecheck`, `npm run lint`, `npm run content:check`.
 
 ## CI
 
-Every pull request runs, in order: content check, typecheck, lint, seam A, build, local Supabase with seam B, then seam C.
+Every pull request runs these steps in order:
+
+1. Content check, typecheck and lint
+2. Seam A, then build
+3. Local Supabase with seam B, then seam C

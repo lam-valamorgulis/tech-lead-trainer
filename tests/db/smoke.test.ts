@@ -12,10 +12,12 @@ describe("local Supabase", () => {
     expect(created.error).toBeNull();
     const id = created.data.user!.id;
 
-    const found = await admin.auth.admin.getUserById(id);
-    expect(found.data.user?.email).toBe(email);
-
-    const deleted = await admin.auth.admin.deleteUser(id);
-    expect(deleted.error).toBeNull();
+    try {
+      const found = await admin.auth.admin.getUserById(id);
+      expect(found.data.user?.email).toBe(email);
+    } finally {
+      const deleted = await admin.auth.admin.deleteUser(id);
+      expect(deleted.error).toBeNull();
+    }
   });
 });

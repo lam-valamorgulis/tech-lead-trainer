@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Press_Start_2P } from "next/font/google";
+import { APP_BACKGROUND, APP_DESCRIPTION, APP_NAME } from "./brand";
 import "./globals.css";
 
 const pixelFont = Press_Start_2P({
@@ -9,17 +10,17 @@ const pixelFont = Press_Start_2P({
 });
 
 export const metadata: Metadata = {
-  title: "Tech Lead Trainer",
-  description: "Learn to be a tech lead, a little every day.",
+  title: APP_NAME,
+  description: APP_DESCRIPTION,
   appleWebApp: {
     capable: true,
-    title: "Tech Lead Trainer",
+    title: APP_NAME,
     statusBarStyle: "black-translucent",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#14132b",
+  themeColor: APP_BACKGROUND,
   viewportFit: "cover",
 };
 

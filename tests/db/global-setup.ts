@@ -16,14 +16,20 @@ export default function setup(project: TestProject) {
   try {
     output = execFileSync("npx", ["supabase", "status", "-o", "json"], {
       encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
+      stdio: ["ignore", "pipe", "pipe"],
     });
-  } catch {
-    throw new Error("Local Supabase is not running. Start it with `npm run db:start`.");
+  } catch (error) {
+    const stderr = (error as { stderr?: string }).stderr?.trim();
+    throw new Error(
+      `Cannot read local Supabase status. Is it running? Start it with \`npm run db:start\`.\n${stderr ?? ""}`,
+    );
   }
   const status = JSON.parse(output) as { API_URL?: string; SECRET_KEY?: string };
 
   assertLocalDatabase(status.API_URL);
+  if (!status.SECRET_KEY) {
+    throw new Error("`supabase status` did not return SECRET_KEY. Update the Supabase CLI.");
+  }
   project.provide("supabaseUrl", status.API_URL!);
-  project.provide("supabaseSecretKey", status.SECRET_KEY!);
+  project.provide("supabaseSecretKey", status.SECRET_KEY);
 }

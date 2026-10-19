@@ -26,7 +26,7 @@ test("home screen fills the screen and keeps sentences readable", async ({ page 
   expect(fontSize).toBeLessThanOrEqual(17);
 });
 
-test("app can be installed to the Home Screen and opens full screen", async ({ page, request }) => {
+test("page has the tags and manifest iPhone needs to install it full screen", async ({ page, request }) => {
   await page.goto("/");
 
   await expect(page.locator('meta[name="mobile-web-app-capable"]')).toHaveAttribute("content", "yes");
