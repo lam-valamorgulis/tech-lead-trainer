@@ -134,3 +134,19 @@ describe("the day rule in the database and in the game rules core", () => {
     }
   });
 });
+
+describe("today on the server", () => {
+  it("is the learning day of the database clock in the home time zone", async () => {
+    const user = await signedInUser("today");
+    try {
+      await ensureProfile(user.client);
+      const before = learningDay(new Date(), "Asia/Ho_Chi_Minh", 4);
+      const { data, error } = await user.client.rpc("current_learning_day");
+      const after = learningDay(new Date(), "Asia/Ho_Chi_Minh", 4);
+      expect(error).toBeNull();
+      expect([before, after]).toContain(data);
+    } finally {
+      await forgetEmail(user.email);
+    }
+  });
+});

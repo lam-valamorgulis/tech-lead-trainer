@@ -1,27 +1,27 @@
-import type { LearningEvent } from "./write-events";
 import { browserClient } from "@/lib/supabase/browser";
+import { Outbox, type SendResult } from "./outbox";
+import type { LearningEvent } from "./write-events";
 
-// Sends events to POST /api/events. An event that fails to send waits here and goes with the
-// next batch. Its client event id makes the retry safe.
-let waiting: LearningEvent[] = [];
+type SendOptions = { keepalive?: boolean };
 
-export async function postEvents(events: LearningEvent[], { keepalive = false } = {}): Promise<boolean> {
-  const batch = [...waiting, ...events];
-  waiting = [];
+async function send(batch: LearningEvent[], options?: SendOptions): Promise<SendResult> {
   const { data } = await browserClient().auth.getSession();
   const token = data.session?.access_token;
-  try {
-    if (!token) throw new Error("Not signed in.");
-    const response = await fetch("/api/events", {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-      body: JSON.stringify({ events: batch }),
-      keepalive,
-    });
-    if (!response.ok) throw new Error(`POST /api/events: ${response.status}`);
-    return true;
-  } catch {
-    waiting = batch;
-    return false;
-  }
+  if (!token) return "retry";
+  const response = await fetch("/api/events", {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+    body: JSON.stringify({ events: batch }),
+    keepalive: options?.keepalive ?? false,
+  });
+  if (response.ok) return "sent";
+  // 400: these events can never be saved. 401 and 5xx can work later.
+  return response.status === 400 ? "refused" : "retry";
+}
+
+const outbox = new Outbox<LearningEvent, SendOptions>(send);
+
+/** Sends events to POST /api/events. Resolves true when every waiting event is saved. */
+export function postEvents(events: LearningEvent[], options?: SendOptions): Promise<boolean> {
+  return outbox.add(events, options);
 }

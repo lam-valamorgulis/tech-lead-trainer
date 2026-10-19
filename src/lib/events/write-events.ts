@@ -40,6 +40,19 @@ function toRow(event: LearningEvent) {
   }
 }
 
+/** Postgres errors that mean the event itself is wrong, so sending it again cannot help. */
+const REFUSED_CODES = new Set(["22023", "23514", "23502", "22P02", "23503", "42501"]);
+
+export class EventWriteError extends Error {
+  constructor(
+    message: string,
+    /** True when the server will never accept these events. */
+    readonly refused: boolean,
+  ) {
+    super(message);
+  }
+}
+
 /**
  * Writes a batch as the signed-in user. Row-level security keeps each row to its owner,
  * and an event that was already written is skipped.
@@ -53,6 +66,6 @@ export async function writeEvents(client: SupabaseClient, events: LearningEvent[
     const { error } = await client
       .from(TABLES[type])
       .upsert(unique, { onConflict: "user_id,client_event_id", ignoreDuplicates: true });
-    if (error) throw new Error(`Could not write ${type} events: ${error.message}`);
+    if (error) throw new EventWriteError(`Could not write ${type} events: ${error.message}`, REFUSED_CODES.has(error.code));
   }
 }

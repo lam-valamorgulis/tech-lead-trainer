@@ -10,7 +10,7 @@ import { SessionScreen, type CommittedMinutes } from "./session-screen";
 
 const CHOICES: CommittedMinutes[] = [3, 15, 45];
 
-export function HomeScreen({ email, profile }: SignedIn) {
+export function HomeScreen({ email }: SignedIn) {
   const [session, setSession] = useState<CommittedMinutes | null>(null);
   const [rate, setRate] = useState<ThirtyDayRate | null>(null);
   const [rateFailed, setRateFailed] = useState(false);
@@ -18,16 +18,16 @@ export function HomeScreen({ email, profile }: SignedIn) {
   useEffect(() => {
     if (session !== null) return;
     let cancelled = false;
-    loadThirtyDayRate(browserClient(), profile)
+    loadThirtyDayRate(browserClient())
       .then((value) => !cancelled && setRate(value))
       .catch(() => !cancelled && setRateFailed(true));
     return () => {
       cancelled = true;
     };
-  }, [profile, session]);
+  }, [session]);
 
   if (session !== null) {
-    return <SessionScreen committedMinutes={session} profile={profile} onDone={() => setSession(null)} />;
+    return <SessionScreen committedMinutes={session} onDone={() => setSession(null)} />;
   }
 
   return (
@@ -37,7 +37,7 @@ export function HomeScreen({ email, profile }: SignedIn) {
           Learned <strong>{rate ? formatRate(rate) : "…"}</strong>
           {rateFailed && " (could not load)"}
         </p>
-        <p className="lead small">Signed in as {email}</p>
+        <p className="lead">Signed in as {email}</p>
         <nav className="row" aria-label="More">
           <Link href="/field-guide" className="button button-quiet">
             Field Guide

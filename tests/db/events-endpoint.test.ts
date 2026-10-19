@@ -80,3 +80,35 @@ describe("POST /api/events", () => {
     expect(response.status).toBe(400);
   });
 });
+
+describe("POST /api/events with an event in the future", () => {
+  let user: User;
+  let token: string;
+
+  beforeAll(async () => {
+    user = await signedInUser("endpoint-future");
+    await ensureProfile(user.client);
+    token = (await user.client.auth.getSession()).data.session!.access_token;
+  });
+
+  afterAll(async () => {
+    await forgetEmail(user.email);
+  });
+
+  it("refuses it with 400, so the app drops it instead of sending it again for ever", async () => {
+    const body = {
+      events: [
+        {
+          type: "session",
+          clientEventId: crypto.randomUUID(),
+          sessionId: crypto.randomUUID(),
+          occurredAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+          committedMinutes: 3,
+          activeSeconds: 0,
+          device: "test",
+        },
+      ],
+    };
+    expect((await POST(request(body, token))).status).toBe(400);
+  });
+});

@@ -62,3 +62,19 @@ create policy "Owner can delete own session events" on public.session_events
 
 -- The policies follow the table pattern. The grants make the log append-only.
 revoke update, delete, truncate on public.session_events from anon, authenticated;
+
+-- "Today" for the signed-in user: the database clock in the home time zone (design 12.4).
+-- The phone's clock and time zone are never used.
+create function public.current_learning_day()
+returns date
+language sql
+stable
+set search_path = ''
+as $$
+  select private.learning_day(now(), p.home_time_zone, p.day_cutoff_hour)
+  from public.profiles p
+  where p.user_id = (select auth.uid())
+$$;
+
+revoke execute on function public.current_learning_day() from public, anon;
+grant execute on function public.current_learning_day() to authenticated;

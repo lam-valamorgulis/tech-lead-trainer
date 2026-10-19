@@ -51,6 +51,18 @@ test("the home screen shows the 30-day rate, counting a day with 3 minutes of le
   }
 });
 
+test("the summary says so when the session could not be saved", async ({ page }) => {
+  const user = await signInNewUser(page, "offline");
+  try {
+    await page.route("**/api/events", (route) => route.fulfill({ status: 503, body: "{}" }));
+    await page.getByRole("button", { name: "15 minutes" }).click();
+    await page.getByRole("button", { name: "Finish" }).click();
+    await expect(page.getByRole("heading", { name: "Session not saved yet" })).toBeVisible();
+  } finally {
+    await user.forget();
+  }
+});
+
 test.describe("on a phone set to Paris time", () => {
   test.use({ timezoneId: "Europe/Paris" });
 

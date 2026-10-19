@@ -1,17 +1,19 @@
+const PLATFORMS: [RegExp, string][] = [
+  [/iPhone/, "iPhone"],
+  [/iPad/, "iPad"],
+  [/Android/, "Android"],
+  [/Mac/, "Mac"],
+  [/Windows/, "Windows"],
+];
+
 /** A short, readable label for the device, for example "iPhone, installed app". */
 export function deviceLabel(): string {
   const ua = navigator.userAgent;
-  const platform = /iPhone/.test(ua)
-    ? "iPhone"
-    : /iPad/.test(ua)
+  // iPadOS says "Macintosh" but has a touch screen.
+  const platform =
+    /Mac/.test(ua) && navigator.maxTouchPoints > 1
       ? "iPad"
-      : /Android/.test(ua)
-        ? "Android"
-        : /Mac/.test(ua)
-          ? "Mac"
-          : /Windows/.test(ua)
-            ? "Windows"
-            : "Other";
+      : (PLATFORMS.find(([pattern]) => pattern.test(ua))?.[1] ?? "Other");
   const installed = window.matchMedia("(display-mode: standalone)").matches;
   return `${platform}, ${installed ? "installed app" : "browser"}`;
 }
