@@ -12,6 +12,8 @@ export type Problem = { where: string; message: string };
 
 export const CARD_WORD_LIMIT = 150;
 export const SENTENCE_WORD_LIMIT = 20;
+/** Design section 8: 10 placement questions per town. */
+export const PLACEMENT_QUESTIONS = 10;
 
 /** Returns every problem in the content. An empty list means the content can ship. */
 export function checkContent(input: ContentInput): Problem[] {
@@ -54,7 +56,7 @@ function idProblems(towns: Town[], ledger: string[]): Problem[] {
   const where = new Map<string, string>();
   for (const town of towns) {
     where.set(town.id, town.id);
-    for (const item of items(town)) where.set(item.id, `${town.id}.${item.id}`);
+    for (const item of items(town)) where.set(item.id, itemLabel(town, item));
   }
 
   const seen = new Set<string>();
@@ -87,7 +89,7 @@ function townProblems(town: Town, allTowns: Town[]): Problem[] {
     for (const move of creature.moves) {
       if (!move.id.startsWith(`${creature.id}.`)) {
         problems.push({
-          where: `${town.id}.${move.id}`,
+          where: itemLabel(town, move),
           message: `A move of ${creature.id} must have an id that starts with ${creature.id}.`,
         });
       }
@@ -95,7 +97,7 @@ function townProblems(town: Town, allTowns: Town[]): Problem[] {
   }
 
   for (const item of items(town)) {
-    const at = `${town.id}.${item.id}`;
+    const at = itemLabel(town, item);
     const cardWords = countWords(item.card.text) + countWords(item.card.example);
     if (cardWords > CARD_WORD_LIMIT) {
       problems.push({
@@ -106,6 +108,14 @@ function townProblems(town: Town, allTowns: Town[]): Problem[] {
     for (const [field, value] of proseFields(item)) {
       problems.push(...sentenceProblems(`${at}.${field}`, value));
     }
+  }
+
+  const placementNeeded = Math.min(PLACEMENT_QUESTIONS, town.creatures.filter((c) => !c.retired).length);
+  if (town.placement.length !== placementNeeded) {
+    problems.push({
+      where: `${town.id}.placement`,
+      message: `The town has ${town.placement.length} placement question(s). It needs ${placementNeeded}: one per creature, up to ${PLACEMENT_QUESTIONS}.`,
+    });
   }
 
   const creatureIds = new Set(town.creatures.map((c) => c.id));
@@ -131,6 +141,10 @@ function townProblems(town: Town, allTowns: Town[]): Problem[] {
   });
 
   return problems;
+}
+
+function itemLabel(town: Town, item: Creature | Move): string {
+  return `${town.id}.${item.id}`;
 }
 
 /** Creatures and moves: the things a learner catches and reviews. */
@@ -167,8 +181,22 @@ function sentenceProblems(where: string, value: string): Problem[] {
     }));
 }
 
+// A word ending in . ! or ? ends a sentence, also when quotes or brackets follow it.
+const SENTENCE_END = /[.!?]["'”’)\]]*$/;
+const ABBREVIATIONS = new Set(["e.g.", "i.e.", "vs.", "dr.", "mr.", "ms."]);
+
 function sentences(value: string): string[] {
-  return value.split(/(?<=[.!?])\s+/).filter((s) => s.trim().length > 0);
+  const result: string[] = [];
+  let current: string[] = [];
+  for (const token of value.split(/\s+/).filter(Boolean)) {
+    current.push(token);
+    if (SENTENCE_END.test(token) && !ABBREVIATIONS.has(token.toLowerCase())) {
+      result.push(current.join(" "));
+      current = [];
+    }
+  }
+  if (current.length > 0) result.push(current.join(" "));
+  return result;
 }
 
 /** A word is any run of characters that holds a letter or a digit. */

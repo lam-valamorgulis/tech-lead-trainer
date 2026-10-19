@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-test("the Field Guide opens from its content-name link and has no accessibility violations", async ({ page }) => {
+test("the Field Guide page opens at /field-guide and has no accessibility violations", async ({ page }) => {
   await page.goto("/field-guide");
 
   await expect(page.getByRole("heading", { level: 1, name: "Field Guide" })).toBeVisible();

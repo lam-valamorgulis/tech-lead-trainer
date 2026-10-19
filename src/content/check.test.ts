@@ -107,4 +107,50 @@ describe("checkContent", () => {
       { where: "t99.confusablePairs.0", message: "cors is not a creature or move in any town." },
     ]);
   });
+
+  it("fails when the right choice of a catch question does not exist", () => {
+    const town = fixtureTown();
+    town.creatures[0].catch.correctChoice = 3;
+    expect(check(town)).toEqual([{ where: "t99.creatures.0.catch.correctChoice", message: expect.any(String) }]);
+  });
+
+  it("fails when a catch question has fewer than 3 choices, so a guess wins too often", () => {
+    const town = fixtureTown();
+    town.creatures[0].catch.choices = ["Yes", "No"];
+    expect(check(town)).toEqual([{ where: "t99.creatures.0.catch.choices", message: expect.any(String) }]);
+  });
+
+  it("fails when a card has no real example", () => {
+    const town = fixtureTown();
+    town.creatures[1].card.example = " ";
+    expect(check(town)).toEqual([{ where: "t99.creatures.1.card.example", message: expect.any(String) }]);
+  });
+
+  it("fails when a move id is not <creature>.<move>", () => {
+    const town = fixtureTown();
+    town.creatures[0].moves[0].id = "Cache TTL";
+    expect(check(town)).toEqual([{ where: "t99.creatures.0.moves.0.id", message: expect.any(String) }]);
+  });
+
+  it("fails when a town does not have one placement question per creature, up to 10", () => {
+    const town = fixtureTown();
+    town.placement.pop();
+    expect(check(town)).toEqual([
+      { where: "t99.placement", message: "The town has 1 placement question(s). It needs 2: one per creature, up to 10." },
+    ]);
+  });
+
+  it("counts a sentence that ends inside quotes or brackets", () => {
+    const town = fixtureTown();
+    town.creatures[0].review.answer = `The server says "${words(12)}." Then ${words(12)}.`;
+    expect(check(town)).toEqual([]);
+  });
+
+  it("does not end a sentence at e.g. or i.e.", () => {
+    const town = fixtureTown();
+    town.creatures[0].review.answer = `Use a cache, e.g. ${words(12)} i.e. ${words(10)}.`;
+    expect(check(town)).toEqual([
+      { where: "t99.cache.review.answer", message: 'A sentence has 27 words. The limit is 20: "Use a cache, …"' },
+    ]);
+  });
 });

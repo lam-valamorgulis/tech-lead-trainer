@@ -26,7 +26,8 @@ export const cardSchema = z.object({
 export const catchQuestionSchema = z
   .object({
     question: text,
-    choices: z.array(text).min(2).max(4),
+    // At least 3 choices, so a blind guess catches an item at most 1 time in 3.
+    choices: z.array(text).min(3).max(4),
     correctChoice: z.int().min(0),
     explanation: text,
   })
