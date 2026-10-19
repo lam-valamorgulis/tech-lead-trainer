@@ -7,6 +7,7 @@ All learning content lives here as JSON. The schema is `src/content/schema.ts`.
 | `towns/t01.json` | One town: its creatures, their moves, 10 placement questions and the confusable pairs |
 | `glossary.json` | Hard words with a simple English definition |
 | `ledger.json` | Every id that ever shipped. Never edit it by hand |
+| `weekends/month-01/` | Markdown tasks for the month 1 weekends, used until the weekend editor exists (Sprint 4) |
 
 ## Rules
 
