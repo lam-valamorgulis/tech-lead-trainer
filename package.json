@@ -8,20 +8,23 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
-    "content:check": "node scripts/content-check.mjs",
+    "content:check": "node scripts/content.mjs check",
     "test": "vitest run --project core",
     "test:db": "vitest run --project db",
     "test:e2e": "playwright test",
     "db:start": "supabase start -x studio,imgproxy,vector,logflare,supavisor,edge-runtime,realtime,storage-api,postgres-meta",
     "db:stop": "supabase stop",
     "db:status": "supabase status",
-    "env:local": "node scripts/write-local-env.mjs"
+    "env:local": "node scripts/write-local-env.mjs",
+    "content:build": "node scripts/content.mjs build",
+    "prebuild": "npm run content:check"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
     "next": "16.4.2",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
@@ -39,5 +42,6 @@
   },
   "engines": {
     "node": ">=24"
-  }
+  },
+  "type": "module"
 }

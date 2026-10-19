@@ -136,7 +136,8 @@ button,
 }
 
 .field input:focus-visible,
-button:focus-visible {
+button:focus-visible,
+a.button:focus-visible {
   outline: 3px solid var(--color-accent);
   outline-offset: 2px;
 }
@@ -154,4 +155,30 @@ button:disabled {
 
 .error {
   color: var(--color-error);
+}
+
+.creature-list {
+  list-style: none;
+  margin: 0 0 var(--space);
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.creature-list li {
+  min-height: var(--tap-min);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border: 2px solid var(--color-muted);
+  border-radius: 4px;
+}
+
+a.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  text-decoration: none;
+  align-self: flex-start;
 }

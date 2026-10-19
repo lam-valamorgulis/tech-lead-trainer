@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { ensureProfile, type Profile } from "@/lib/profile";
@@ -68,6 +69,9 @@ export function AuthGate() {
     <div className="stack">
       <p>Signed in as {state.email}</p>
       <p className="lead">Day 1 of your program: {formatDay(state.profile.programStartDate)}</p>
+      <Link href="/field-guide" className="button button-quiet">
+        Field Guide
+      </Link>
       <button type="button" className="button-quiet" onClick={() => void browserClient().auth.signOut()}>
         Sign out
       </button>

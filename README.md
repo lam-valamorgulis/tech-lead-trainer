@@ -83,7 +83,7 @@ The tests use three seams.
 
 Seams B and C read the URL and keys from `supabase status`, not from env files. They stop with an error if the URL is not `127.0.0.1` or `localhost`. Seam C reads the sign-in code from Mailpit.
 
-Other checks: `npm run typecheck`, `npm run lint`, `npm run content:check`.
+Other checks: `npm run typecheck`, `npm run lint`, `npm run content:check`. How to add content: `content/README.md`.
 
 ## CI
 

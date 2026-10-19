@@ -1,0 +1,217 @@
+import { glossarySchema, townSchema, type Creature, type Move, type Town } from "./schema.ts";
+
+export type ContentInput = {
+  /** The parsed JSON of each town file. Not trusted yet. */
+  towns: unknown[];
+  glossary: unknown;
+  /** Every id that ever shipped (content/ledger.json). */
+  ledger: string[];
+};
+
+export type Problem = { where: string; message: string };
+
+export const CARD_WORD_LIMIT = 150;
+export const SENTENCE_WORD_LIMIT = 20;
+/** Design section 8: 10 placement questions per town. */
+export const PLACEMENT_QUESTIONS = 10;
+
+/** Returns every problem in the content. An empty list means the content can ship. */
+export function checkContent(input: ContentInput): Problem[] {
+  const problems: Problem[] = [];
+  const towns: Town[] = [];
+
+  input.towns.forEach((raw, index) => {
+    const parsed = townSchema.safeParse(raw);
+    if (parsed.success) towns.push(parsed.data);
+    else problems.push(...schemaProblems(townLabel(raw, index), parsed.error.issues));
+  });
+
+  const glossary = glossarySchema.safeParse(input.glossary);
+  if (glossary.success) {
+    for (const { word, definition } of glossary.data.words) {
+      problems.push(...sentenceProblems(`glossary.${word}`, definition));
+    }
+  } else {
+    problems.push(...schemaProblems("glossary", glossary.error.issues));
+  }
+
+  // A town file that does not parse is already a problem. Its ids are not checked further.
+  if (towns.length < input.towns.length) return problems;
+
+  problems.push(...idProblems(towns, input.ledger));
+  for (const town of towns) {
+    problems.push(...townProblems(town, towns));
+  }
+  return problems;
+}
+
+/** Every id in the content, in file order: towns, creatures and moves. */
+export function contentIds(towns: Town[]): string[] {
+  return towns.flatMap((town) => [town.id, ...town.creatures.flatMap((c) => [c.id, ...c.moves.map((m) => m.id)])]);
+}
+
+function idProblems(towns: Town[], ledger: string[]): Problem[] {
+  const problems: Problem[] = [];
+  const ids = contentIds(towns);
+  const where = new Map<string, string>();
+  for (const town of towns) {
+    where.set(town.id, town.id);
+    for (const item of items(town)) where.set(item.id, itemLabel(town, item));
+  }
+
+  const seen = new Set<string>();
+  for (const id of ids) {
+    if (seen.has(id)) problems.push({ where: where.get(id)!, message: `The id ${id} is used more than once.` });
+    seen.add(id);
+  }
+
+  const shipped = new Set(ledger);
+  for (const id of new Set(ids)) {
+    if (!shipped.has(id)) {
+      problems.push({ where: where.get(id)!, message: `${id} is not in content/ledger.json. Run \`npm run content:build\`.` });
+    }
+  }
+  for (const id of ledger) {
+    if (!seen.has(id)) {
+      problems.push({
+        where: "ledger",
+        message: `${id} shipped before, but it is missing. Mark it retired instead of deleting it.`,
+      });
+    }
+  }
+  return problems;
+}
+
+function townProblems(town: Town, allTowns: Town[]): Problem[] {
+  const problems: Problem[] = [];
+
+  for (const creature of town.creatures) {
+    for (const move of creature.moves) {
+      if (!move.id.startsWith(`${creature.id}.`)) {
+        problems.push({
+          where: itemLabel(town, move),
+          message: `A move of ${creature.id} must have an id that starts with ${creature.id}.`,
+        });
+      }
+    }
+  }
+
+  for (const item of items(town)) {
+    const at = itemLabel(town, item);
+    const cardWords = countWords(item.card.text) + countWords(item.card.example);
+    if (cardWords > CARD_WORD_LIMIT) {
+      problems.push({
+        where: `${at}.card`,
+        message: `The card has ${cardWords} words. The limit is ${CARD_WORD_LIMIT}, with the example.`,
+      });
+    }
+    for (const [field, value] of proseFields(item)) {
+      problems.push(...sentenceProblems(`${at}.${field}`, value));
+    }
+  }
+
+  const placementNeeded = Math.min(PLACEMENT_QUESTIONS, town.creatures.filter((c) => !c.retired).length);
+  if (town.placement.length !== placementNeeded) {
+    problems.push({
+      where: `${town.id}.placement`,
+      message: `The town has ${town.placement.length} placement question(s). It needs ${placementNeeded}: one per creature, up to ${PLACEMENT_QUESTIONS}.`,
+    });
+  }
+
+  const creatureIds = new Set(town.creatures.map((c) => c.id));
+  town.placement.forEach((question, index) => {
+    const at = `${town.id}.placement.${index}`;
+    if (!creatureIds.has(question.creatureId)) {
+      problems.push({ where: at, message: `${question.creatureId} is not a creature of ${town.id}.` });
+    }
+    problems.push(...sentenceProblems(`${at}.question`, question.question));
+    problems.push(...sentenceProblems(`${at}.answer`, question.answer));
+  });
+
+  const everyItem = new Set(allTowns.flatMap((t) => items(t).map((item) => item.id)));
+  town.confusablePairs.forEach((pair, index) => {
+    for (const id of pair) {
+      if (!everyItem.has(id)) {
+        problems.push({
+          where: `${town.id}.confusablePairs.${index}`,
+          message: `${id} is not a creature or move in any town.`,
+        });
+      }
+    }
+  });
+
+  return problems;
+}
+
+function itemLabel(town: Town, item: Creature | Move): string {
+  return `${town.id}.${item.id}`;
+}
+
+/** Creatures and moves: the things a learner catches and reviews. */
+function items(town: Town): (Creature | Move)[] {
+  return town.creatures.flatMap((creature) => [creature, ...creature.moves]);
+}
+
+function proseFields(item: Creature | Move): [string, string][] {
+  const fields: [string, string][] = [
+    ["catch.question", item.catch.question],
+    ...item.catch.choices.map((choice, i): [string, string] => [`catch.choices.${i}`, choice]),
+    ["catch.explanation", item.catch.explanation],
+    ["card.text", item.card.text],
+    ["card.example", item.card.example],
+    ["review.question", item.review.question],
+    ["review.answer", item.review.answer],
+  ];
+  if ("workedExample" in item) {
+    fields.push(
+      ["workedExample.problem", item.workedExample.problem],
+      ...item.workedExample.steps.map((step, i): [string, string] => [`workedExample.steps.${i}`, step]),
+      ["workedExample.answer", item.workedExample.answer],
+    );
+  }
+  return fields;
+}
+
+function sentenceProblems(where: string, value: string): Problem[] {
+  return sentences(value)
+    .filter((sentence) => countWords(sentence) > SENTENCE_WORD_LIMIT)
+    .map((sentence) => ({
+      where,
+      message: `A sentence has ${countWords(sentence)} words. The limit is ${SENTENCE_WORD_LIMIT}: "${sentence.split(/\s+/).slice(0, 3).join(" ")} …"`,
+    }));
+}
+
+// A word ending in . ! or ? ends a sentence, also when quotes or brackets follow it.
+const SENTENCE_END = /[.!?]["'”’)\]]*$/;
+const ABBREVIATIONS = new Set(["e.g.", "i.e.", "vs.", "dr.", "mr.", "ms."]);
+
+function sentences(value: string): string[] {
+  const result: string[] = [];
+  let current: string[] = [];
+  for (const token of value.split(/\s+/).filter(Boolean)) {
+    current.push(token);
+    if (SENTENCE_END.test(token) && !ABBREVIATIONS.has(token.toLowerCase())) {
+      result.push(current.join(" "));
+      current = [];
+    }
+  }
+  if (current.length > 0) result.push(current.join(" "));
+  return result;
+}
+
+/** A word is any run of characters that holds a letter or a digit. */
+export function countWords(value: string): number {
+  return value.split(/\s+/).filter((token) => /[\p{L}\p{N}]/u.test(token)).length;
+}
+
+function townLabel(raw: unknown, index: number): string {
+  const id = (raw as { id?: unknown } | null)?.id;
+  return typeof id === "string" ? id : `town file ${index + 1}`;
+}
+
+function schemaProblems(prefix: string, issues: { path: PropertyKey[]; message: string }[]): Problem[] {
+  return issues.map((issue) => ({
+    where: [prefix, ...issue.path.map(String)].join("."),
+    message: issue.message,
+  }));
+}
