@@ -182,3 +182,24 @@ a.button {
   text-decoration: none;
   align-self: flex-start;
 }
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* UI rule 5: the commit buttons sit in the lower half of the screen. */
+.commit {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: var(--space);
+}
+
+.commit h2,
+.stack h2 {
+  font-size: 14px;
+  margin: 0;
+}

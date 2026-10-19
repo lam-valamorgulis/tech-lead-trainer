@@ -1,4 +1,7 @@
+"use client";
+
 import { AuthGate } from "./auth-gate";
+import { HomeScreen } from "./home-screen";
 
 export default function Home() {
   return (
@@ -7,7 +10,7 @@ export default function Home() {
       <p className="lead" data-testid="home-intro">
         Your daily practice starts here.
       </p>
-      <AuthGate />
+      <AuthGate>{(signedIn) => <HomeScreen {...signedIn} />}</AuthGate>
     </main>
   );
 }

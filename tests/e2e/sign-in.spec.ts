@@ -1,10 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { readLocalSupabase } from "../../scripts/local-supabase.mjs";
+import { local } from "../support/e2e";
 import { allowEmailIn, forgetEmail, testEmail } from "../support/local-admin";
 import { codeFrom, waitForMail } from "../support/mail";
-
-const local = readLocalSupabase();
 
 async function askForCode(page: Page, email: string) {
   await page.goto("/");
@@ -28,7 +26,7 @@ test("an allowed email signs in with the 6-digit code from the email", async ({ 
     await page.getByRole("button", { name: "Sign in" }).click();
 
     await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
-    await expect(page.getByText(/Day 1 of your program:/)).toBeVisible();
+    await expect(page.getByText("Today I commit to:")).toBeVisible();
 
     // The session stays after the app is closed and opened again.
     await page.reload();

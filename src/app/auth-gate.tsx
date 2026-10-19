@@ -1,19 +1,27 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { ensureProfile, type Profile } from "@/lib/profile";
 import { browserClient } from "@/lib/supabase/browser";
 import { SignInForm } from "./sign-in-form";
 
+export type SignedIn = {
+  userId: string;
+  email: string;
+  profile: Profile;
+  /** Call after the profile changes, so every screen shows the new values. */
+  setProfile: (profile: Profile) => void;
+};
+
 type State =
   | { name: "loading" }
   | { name: "signed-out" }
-  | { name: "signed-in"; email: string; profile: Profile }
+  | { name: "signed-in"; userId: string; email: string; profile: Profile }
   | { name: "error" };
 
-export function AuthGate() {
+/** Shows the sign-in form until someone is signed in, then the screen in `children`. */
+export function AuthGate({ children }: { children: (signedIn: SignedIn) => ReactNode }) {
   const [state, setState] = useState<State>({ name: "loading" });
 
   useEffect(() => {
@@ -36,7 +44,7 @@ export function AuthGate() {
         // The first sign-in creates the profile. Later sign-ins read it.
         const profile = await ensureProfile(client);
         if (unmounted || shownUserId !== userId) return;
-        setState({ name: "signed-in", email: session.user.email ?? "", profile });
+        setState({ name: "signed-in", userId, email: session.user.email ?? "", profile });
       } catch {
         if (unmounted || shownUserId !== userId) return;
         shownUserId = undefined;
@@ -64,27 +72,10 @@ export function AuthGate() {
       </p>
     );
   }
-
-  return (
-    <div className="stack">
-      <p>Signed in as {state.email}</p>
-      <p className="lead">Day 1 of your program: {formatDay(state.profile.programStartDate)}</p>
-      <Link href="/field-guide" className="button button-quiet">
-        Field Guide
-      </Link>
-      <button type="button" className="button-quiet" onClick={() => void browserClient().auth.signOut()}>
-        Sign out
-      </button>
-    </div>
-  );
-}
-
-function formatDay(isoDate: string): string {
-  // Noon UTC keeps the date the same in every time zone.
-  return new Date(`${isoDate}T12:00:00Z`).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
+  return children({
+    userId: state.userId,
+    email: state.email,
+    profile: state.profile,
+    setProfile: (profile) => setState({ ...state, profile }),
   });
 }

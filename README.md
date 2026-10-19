@@ -34,6 +34,7 @@ Development and tests use only the Supabase that runs on your Mac. Never point a
 | --- | --- |
 | `npm run db:start` | Starts local Supabase (API on port 55321, database on port 55322) |
 | `npm run db:status` | Shows the local URLs and keys |
+| `npm run db:reset` | Runs every migration again on an empty local database, then restarts. A plain `supabase db reset` loses the sign-in email template until the next restart |
 | `npm run db:stop` | Stops it |
 
 This project uses ports 553xx, so it can run next to another local Supabase project on 543xx.
