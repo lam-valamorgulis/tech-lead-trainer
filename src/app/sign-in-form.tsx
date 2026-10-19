@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { normalizeEmail } from "@/lib/auth/request-code";
+import { normalizeEmail } from "@/lib/auth/email";
 import { browserClient } from "@/lib/supabase/browser";
 import { sendSignInCode } from "./sign-in-actions";
 
-type Step = { name: "email" } | { name: "code"; email: string };
+type Step = { name: "email" } | { name: "code"; email: string; resent: boolean };
 
 const SEND_ERRORS = {
   "invalid-email": "Enter a full email address, for example name@example.com.",
@@ -17,15 +17,18 @@ export function SignInForm() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function onSendCode(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const email = String(new FormData(event.currentTarget).get("email") ?? "");
+  async function sendCode(email: string) {
     setBusy(true);
     setError(null);
     const result = await sendSignInCode(email).catch(() => ({ status: "failed" as const }));
     setBusy(false);
-    if (result.status === "sent") setStep({ name: "code", email: normalizeEmail(email) });
+    if (result.status === "sent") setStep({ name: "code", email: normalizeEmail(email), resent: step.name === "code" });
     else setError(SEND_ERRORS[result.status]);
+  }
+
+  function onSendCode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void sendCode(String(new FormData(event.currentTarget).get("email") ?? ""));
   }
 
   async function onVerify(event: FormEvent<HTMLFormElement>, email: string) {
@@ -56,7 +59,7 @@ export function SignInForm() {
 
   return (
     <form className="stack" onSubmit={(event) => onVerify(event, step.email)} noValidate>
-      <p>If this email can sign in, we sent it a 6-digit code.</p>
+      <p>{step.resent ? "We sent a new code. Use the newest email." : "If this email can sign in, we sent it a 6-digit code."}</p>
       <p className="lead">{step.email}</p>
       <label className="field">
         <span className="field-label">6-digit code</span>
@@ -73,6 +76,9 @@ export function SignInForm() {
       {error && <p role="alert" className="error">{error}</p>}
       <button type="submit" className="button-main" disabled={busy}>
         Sign in
+      </button>
+      <button type="button" className="button-quiet" disabled={busy} onClick={() => void sendCode(step.email)}>
+        Send a new code
       </button>
       <button
         type="button"

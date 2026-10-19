@@ -61,7 +61,7 @@ The dashboard menu names below were not checked against the live dashboard. The 
 
 How it works: the server checks `allowed_emails` first. For an allowed email it creates the account, because public sign-ups are off, and then sends the code. For any other email it shows the same neutral message and sends nothing.
 
-To invite a friend, add one row to `allowed_emails` in the live project's SQL editor. Removing a row stops new codes for an account the server creates; delete the user in Authentication → Users to stop an existing account too.
+To invite a friend, add one row to `allowed_emails` in the live project's SQL editor. Deleting the row blocks that account: it cannot sign in, even by calling Supabase directly. Adding the row back lets it sign in again. No learning data is deleted. This was tested on local Supabase only.
 
 The app needs these environment variables. Set them in Vercel for the live project:
 

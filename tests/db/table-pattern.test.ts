@@ -44,10 +44,16 @@ describe("every table in the public schema", () => {
   });
 
   it("has exactly four owner-only policies: select, insert, update and delete", async () => {
-    const result = await db.query<{ tablename: string; cmd: string; qual: string | null; with_check: string | null }>(
-      `select tablename, cmd, qual, with_check from pg_policies where schemaname = 'public'`,
-    );
-    const owner = "( SELECT auth.uid() AS uid) = user_id";
+    const result = await db.query<{
+      tablename: string;
+      cmd: string;
+      roles: string[];
+      qual: string | null;
+      with_check: string | null;
+    }>(`select tablename, cmd, roles::text[] as roles, qual, with_check from pg_policies where schemaname = 'public'`);
+    // Postgres prints the rule in its own words, so compare without spaces and brackets.
+    const flat = (rule: string) => rule.replace(/[\s()]/g, "").toLowerCase();
+    const owner = flat("( SELECT auth.uid() AS uid) = user_id");
     for (const { name } of tables.filter((t) => !NO_OWNER_TABLES.includes(t.name))) {
       const policies = result.rows.filter((p) => p.tablename === name);
       expect({ table: name, policies: policies.map((p) => p.cmd).sort() }).toEqual({
@@ -55,8 +61,13 @@ describe("every table in the public schema", () => {
         policies: ["DELETE", "INSERT", "SELECT", "UPDATE"],
       });
       for (const policy of policies) {
-        for (const rule of [policy.qual, policy.with_check].filter(Boolean)) {
-          expect({ table: name, cmd: policy.cmd, rule }).toEqual({ table: name, cmd: policy.cmd, rule: `(${owner})` });
+        expect({ table: name, cmd: policy.cmd, roles: policy.roles }).toEqual({
+          table: name,
+          cmd: policy.cmd,
+          roles: ["authenticated"],
+        });
+        for (const rule of [policy.qual, policy.with_check].filter((r): r is string => r !== null)) {
+          expect({ table: name, cmd: policy.cmd, rule: flat(rule) }).toEqual({ table: name, cmd: policy.cmd, rule: owner });
         }
       }
     }

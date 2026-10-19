@@ -17,22 +17,28 @@ export function AuthGate() {
 
   useEffect(() => {
     const client = browserClient();
-    let current: string | undefined;
+    // The user whose screen is showing or loading. A late answer for anyone else is dropped.
+    let shownUserId: string | undefined;
+    let unmounted = false;
 
-    async function show(session: Session | null) {
+    async function followSession(session: Session | null) {
+      if (unmounted) return;
       if (!session) {
-        current = undefined;
+        shownUserId = undefined;
         setState({ name: "signed-out" });
         return;
       }
-      if (current === session.user.id) return;
-      current = session.user.id;
+      const userId = session.user.id;
+      if (shownUserId === userId) return;
+      shownUserId = userId;
       try {
         // The first sign-in creates the profile. Later sign-ins read it.
         const profile = await ensureProfile(client);
+        if (unmounted || shownUserId !== userId) return;
         setState({ name: "signed-in", email: session.user.email ?? "", profile });
       } catch {
-        current = undefined;
+        if (unmounted || shownUserId !== userId) return;
+        shownUserId = undefined;
         setState({ name: "error" });
       }
     }
@@ -40,9 +46,12 @@ export function AuthGate() {
     // Fires once with the saved session, then on every sign-in and sign-out.
     const { data } = client.auth.onAuthStateChange((_event, session) => {
       // Supabase asks not to await other Supabase calls inside this callback.
-      setTimeout(() => void show(session), 0);
+      setTimeout(() => void followSession(session), 0);
     });
-    return () => data.subscription.unsubscribe();
+    return () => {
+      unmounted = true;
+      data.subscription.unsubscribe();
+    };
   }, []);
 
   if (state.name === "loading") return <p className="lead">Loading…</p>;

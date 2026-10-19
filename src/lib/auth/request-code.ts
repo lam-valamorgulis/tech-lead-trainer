@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { looksLikeEmail, normalizeEmail } from "./email";
 
 export type RequestCodeResult =
   | { status: "sent" }
@@ -12,12 +13,6 @@ type Deps = {
   publicClient: SupabaseClient;
 };
 
-const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-export function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
-
 /**
  * Sends a 6-digit sign-in code, but only to an email on the allow list.
  * An email that is not on the list gets the same "sent" answer and no code,
@@ -25,7 +20,7 @@ export function normalizeEmail(email: string): string {
  */
 export async function requestSignInCode(rawEmail: string, { admin, publicClient }: Deps): Promise<RequestCodeResult> {
   const email = normalizeEmail(rawEmail);
-  if (!EMAIL_SHAPE.test(email)) return { status: "invalid-email" };
+  if (!looksLikeEmail(email)) return { status: "invalid-email" };
 
   const allowed = await admin.from("allowed_emails").select("email").eq("email", email).maybeSingle();
   if (allowed.error) return { status: "failed" };

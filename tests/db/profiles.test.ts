@@ -1,22 +1,23 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ensureProfile } from "@/lib/profile";
-import { deleteUser, publicClient, signedInUser } from "./helpers";
+import { forgetEmail, signedInUser, sql } from "./helpers";
+
+type User = { id: string; email: string; client: SupabaseClient };
 
 describe("profiles row-level security", () => {
-  let a: { id: string; client: SupabaseClient };
-  let b: { id: string; client: SupabaseClient };
+  let a: User;
+  let b: User;
 
   beforeAll(async () => {
     a = await signedInUser("user-a");
     b = await signedInUser("user-b");
-    const created = await a.client.from("profiles").insert({}).select().single();
-    expect(created.error).toBeNull();
+    await ensureProfile(a.client);
   });
 
   afterAll(async () => {
-    await deleteUser(a.id);
-    await deleteUser(b.id);
+    await forgetEmail(a.email);
+    await forgetEmail(b.email);
   });
 
   it("lets user A read their own profile", async () => {
@@ -48,22 +49,24 @@ describe("profiles row-level security", () => {
 });
 
 describe("first sign-in", () => {
-  let user: { id: string; client: SupabaseClient };
+  let user: User;
 
   beforeAll(async () => {
     user = await signedInUser("first-sign-in");
   });
 
   afterAll(async () => {
-    await deleteUser(user.id);
+    await forgetEmail(user.email);
   });
 
-  it("creates a profile with the design defaults and today as day 1", async () => {
-    const profile = await ensureProfile(user.client);
+  // Day 1 is today in Ho Chi Minh City, where a day starts at 04:00.
+  const todayInHoChiMinh = () =>
+    new Date(Date.now() - 4 * 60 * 60 * 1000).toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
 
-    // Day 1 is today in Ho Chi Minh City, where a day starts at 04:00.
-    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
-    const today = fourHoursAgo.toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
+  it("creates a profile with the design defaults and today as day 1", async () => {
+    const before = todayInHoChiMinh();
+    const profile = await ensureProfile(user.client);
+    const after = todayInHoChiMinh();
 
     expect(profile).toEqual({
       homeTimeZone: "Asia/Ho_Chi_Minh",
@@ -75,7 +78,7 @@ describe("first sign-in", () => {
       soundOn: true,
       ifThenPlan: null,
       tiredDayPlan: null,
-      programStartDate: today,
+      programStartDate: expect.toBeOneOf([before, after]),
     });
   });
 
@@ -85,24 +88,42 @@ describe("first sign-in", () => {
     const second = await ensureProfile(user.client);
     expect(second).toEqual({ ...first, soundOn: false });
   });
+
+  it("never lets the user choose or change day 1", async () => {
+    const first = await ensureProfile(user.client);
+    await user.client.from("profiles").update({ program_start_date: "2020-01-01" }).eq("user_id", user.id);
+    expect((await ensureProfile(user.client)).programStartDate).toBe(first.programStartDate);
+  });
+
+  it("refuses a home time zone that does not exist", async () => {
+    const { error } = await user.client.from("profiles").update({ home_time_zone: "Mars/Olympus" }).eq("user_id", user.id);
+    expect(error?.code).toBe("23514");
+  });
+});
+
+describe("a new profile that sends its own day 1", () => {
+  it("still gets today as day 1", async () => {
+    const user = await signedInUser("own-day-1");
+    try {
+      await user.client.from("profiles").insert({ program_start_date: "2020-01-01" });
+      expect((await ensureProfile(user.client)).programStartDate).not.toBe("2020-01-01");
+    } finally {
+      await forgetEmail(user.email);
+    }
+  });
 });
 
 describe("learning day in the database", () => {
+  const learningDay = async (at: string) =>
+    (
+      await sql<{ day: string }>("select private.learning_day($1, 'Asia/Ho_Chi_Minh', 4::smallint)::text as day", [at])
+    )[0].day;
+
   it("counts 00:30 in Ho Chi Minh City for the day before", async () => {
-    const { data } = await publicClient().rpc("learning_day", {
-      at: "2026-10-20T17:30:00Z",
-      time_zone: "Asia/Ho_Chi_Minh",
-      cutoff_hour: 4,
-    });
-    expect(data).toBe("2026-10-20");
+    expect(await learningDay("2026-10-20T17:30:00Z")).toBe("2026-10-20");
   });
 
   it("starts the new day at 04:00", async () => {
-    const { data } = await publicClient().rpc("learning_day", {
-      at: "2026-10-20T21:00:00Z",
-      time_zone: "Asia/Ho_Chi_Minh",
-      cutoff_hour: 4,
-    });
-    expect(data).toBe("2026-10-21");
+    expect(await learningDay("2026-10-20T21:00:00Z")).toBe("2026-10-21");
   });
 });
