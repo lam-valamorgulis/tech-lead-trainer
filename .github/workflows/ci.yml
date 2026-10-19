@@ -40,6 +40,9 @@ jobs:
         run: npm run env:local
       - name: Build
         run: npm run build
+        env:
+          # Seam C runs this build, so it uses the fixture town. Vercel builds the real content.
+          NEXT_PUBLIC_CONTENT_SET: fixture
       - name: Seam B (local Supabase)
         run: npm run test:db
 

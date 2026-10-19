@@ -30,6 +30,8 @@ export default defineConfig({
       NEXT_PUBLIC_SUPABASE_URL: local.url,
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: local.publishableKey,
       SUPABASE_SECRET_KEY: local.secretKey,
+      // Seam C uses the fixture town, so tests do not change when monthly content changes.
+      NEXT_PUBLIC_CONTENT_SET: "fixture",
     },
   },
 });

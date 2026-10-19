@@ -5,12 +5,15 @@ import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildBundle } from "../src/content/bundle.ts";
 import { checkContent, contentIds } from "../src/content/check.ts";
+import { fixtureTown } from "../src/content/fixture-town.ts";
 import { addNewIds } from "../src/content/ledger.ts";
 import { townSchema } from "../src/content/schema.ts";
 
 const CONTENT = "content";
 const LEDGER = join(CONTENT, "ledger.json");
 const BUNDLE = join("src", "content", "bundle.generated.json");
+// The fixture town as a bundle, for seam C only (NEXT_PUBLIC_CONTENT_SET=fixture).
+const FIXTURE_BUNDLE = join("src", "content", "fixture.generated.json");
 
 const mode = process.argv[2];
 if (mode !== "check" && mode !== "build") {
@@ -39,20 +42,28 @@ if (problems.length > 0) {
   process.exit(1);
 }
 
-const bundle = `${JSON.stringify(buildBundle(towns.map((town) => townSchema.parse(town))), null, 2)}\n`;
+const toJson = (value) => `${JSON.stringify(value, null, 2)}\n`;
+const bundle = toJson(buildBundle(towns.map((town) => townSchema.parse(town))));
+const fixtureBundle = toJson(buildBundle([townSchema.parse(fixtureTown())]));
 
 if (mode === "build") {
   writeFileSync(LEDGER, `${JSON.stringify({ ids: ledger }, null, 2)}\n`);
   writeFileSync(BUNDLE, bundle);
+  writeFileSync(FIXTURE_BUNDLE, fixtureBundle);
   console.log(`content: ${townFiles.length} town(s), ${ledger.length} id(s) in the ledger. Wrote ${BUNDLE}.`);
 } else {
-  let current = "";
-  try {
-    current = readFileSync(BUNDLE, "utf8");
-  } catch {}
-  if (current !== bundle) {
-    console.error(`content: ${BUNDLE} is out of date. Run \`npm run content:build\` and commit the result.`);
-    process.exit(1);
+  for (const [path, expected] of [
+    [BUNDLE, bundle],
+    [FIXTURE_BUNDLE, fixtureBundle],
+  ]) {
+    let current = "";
+    try {
+      current = readFileSync(path, "utf8");
+    } catch {}
+    if (current !== expected) {
+      console.error(`content: ${path} is out of date. Run \`npm run content:build\` and commit the result.`);
+      process.exit(1);
+    }
   }
   console.log(`content: ${townFiles.length} town(s) ok, ${ledger.length} id(s) in the ledger.`);
 }
