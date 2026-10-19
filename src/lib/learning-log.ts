@@ -1,8 +1,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { addDays, RATE_WINDOW_DAYS, thirtyDayRate, type ThirtyDayRate } from "@/core/day";
+import { addDays, RATE_WINDOW_DAYS, thirtyDayRate, type SessionSnapshot, type ThirtyDayRate } from "@/core/day";
 import { selectAll } from "./select-all";
 
-type SnapshotRow = { session_id: string; occurred_at: string; learning_day: string; active_seconds: number };
+export type SnapshotRow = { session_id: string; occurred_at: string; learning_day: string; active_seconds: number };
+
+export function toSnapshot(row: SnapshotRow): SessionSnapshot {
+  return {
+    sessionId: row.session_id,
+    occurredAt: new Date(row.occurred_at),
+    learningDay: row.learning_day,
+    activeSeconds: row.active_seconds,
+  };
+}
 
 /** Today in the home time zone, from the database clock (design 12.4). */
 export async function currentLearningDay(client: SupabaseClient): Promise<string> {
@@ -24,12 +33,7 @@ export async function loadThirtyDayRate(client: SupabaseClient): Promise<ThirtyD
       .range(start, end)
       .returns<SnapshotRow[]>(),
   );
-  const snapshots = rows.map((row) => ({
-    sessionId: row.session_id,
-    occurredAt: new Date(row.occurred_at),
-    learningDay: row.learning_day,
-    activeSeconds: row.active_seconds,
-  }));
+  const snapshots = rows.map(toSnapshot);
   return thirtyDayRate(snapshots, today);
 }
 
