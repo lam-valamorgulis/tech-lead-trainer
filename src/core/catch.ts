@@ -1,6 +1,7 @@
 // Catch rules (design 6, ticket #6). Pure functions: no clock, no database.
 import type { BundledCreature, BundledMove, BundledTown } from "@/content/bundle";
 import type { LearningDay } from "./day.ts";
+import { reviewStates, type ReviewRecord, type Stage } from "./review.ts";
 
 export type ItemKind = "creature" | "move";
 
@@ -76,16 +77,21 @@ export type FieldGuideProgress = {
     id: string;
     name: string;
     status: CreatureStatus;
-    /** 1 when caught. Evolution (#8) raises it to 2 and 3. */
-    stage: number | null;
+    /** 1 when caught, then 2 and 3 as reviews pass (design 5). */
+    stage: Stage | null;
     movesCaught: number;
     movesTotal: number;
   }[];
 };
 
 /** The Field Guide for one town: seen, caught and not met yet. */
-export function fieldGuideProgress(town: BundledTown, records: CatchRecord[]): FieldGuideProgress {
+export function fieldGuideProgress(
+  town: BundledTown,
+  records: CatchRecord[],
+  reviews: ReviewRecord[],
+): FieldGuideProgress {
   const caught = caughtIds(records);
+  const states = reviewStates(records, reviews);
   const seen = new Set(records.map((r) => r.itemId));
   const creatures = town.creatures
     // A retired creature stays in the guide of someone who caught it.
@@ -97,7 +103,7 @@ export function fieldGuideProgress(town: BundledTown, records: CatchRecord[]): F
         id: creature.id,
         name: creature.name,
         status,
-        stage: status === "caught" ? 1 : null,
+        stage: status === "caught" ? (states.get(creature.id)?.stage ?? 1) : null,
         movesCaught: moves.filter((move) => caught.has(move.id)).length,
         movesTotal: moves.length,
       };

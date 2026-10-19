@@ -20,7 +20,27 @@ export type ReviewState = {
   /** null when the reviews of this item have ended. */
   dueDay: LearningDay | null;
   caughtDay: LearningDay;
+  /** Evolution: 1 when caught, 2 after passing the 7-day step, 3 after passing the 30-day step. */
+  stage: Stage;
 };
+
+export type Stage = 1 | 2 | 3;
+
+/** A Good or Easy that moves past one of these steps evolves the creature (design 5). */
+const EVOLVE_AFTER: [step: ReviewStep, stage: Stage][] = [
+  [7, 2],
+  [30, 3],
+];
+
+/** The stage after a review. Stages never go back, even after a later Again. */
+function stageAfter(stage: Stage, grade: Grade, next: { step: ReviewStep; dueDay: LearningDay | null }): Stage {
+  if (grade !== "good" && grade !== "easy") return stage;
+  let result = stage;
+  for (const [step, evolved] of EVOLVE_AFTER) {
+    if ((next.dueDay === null || next.step > step) && evolved > result) result = evolved;
+  }
+  return result;
+}
 
 const MOVE: Record<Grade, number> = { again: -1, hard: 0, good: 1, easy: 2 };
 const LAST = REVIEW_STEPS.length - 1;
@@ -55,12 +75,16 @@ export function reviewStates(catches: CatchRecord[], reviews: ReviewRecord[]): M
       step,
       dueDay: addDays(record.learningDay, step),
       caughtDay: record.learningDay,
+      stage: 1,
     });
   }
   for (const review of reviews) {
     const state = states.get(review.itemId);
     if (!state) continue;
-    Object.assign(state, gradeReview({ step: state.step, gradedDay: review.learningDay, grade: review.grade }));
+    const next = gradeReview({ step: state.step, gradedDay: review.learningDay, grade: review.grade });
+    state.stage = stageAfter(state.stage, review.grade, next);
+    state.step = next.step;
+    state.dueDay = next.dueDay;
   }
   return states;
 }
@@ -98,4 +122,30 @@ export function dueReviews({
   return allDue(states, today)
     .filter((state) => isReviewable(state.itemId))
     .slice(0, places);
+}
+
+/** The backlog guard looks at this many days in a row. */
+export const BACKLOG_DAYS = 3;
+
+/**
+ * Backlog guard (design 6): when more than 8 reviews were due on each of the last 3 days,
+ * new catches pause. They start again on a day with 8 or fewer due. Each day counts its queue
+ * at the start of the day, before that day's reviews.
+ */
+export function backlogPaused(
+  catches: CatchRecord[],
+  reviews: ReviewRecord[],
+  today: LearningDay,
+  isReviewable: (itemId: string) => boolean = () => true,
+): boolean {
+  for (let back = 0; back < BACKLOG_DAYS; back += 1) {
+    const day = addDays(today, -back);
+    const states = reviewStates(
+      catches.filter((c) => c.learningDay < day),
+      reviews.filter((r) => r.learningDay < day),
+    );
+    const due = allDue(states, day).filter((state) => isReviewable(state.itemId));
+    if (due.length <= DAILY_REVIEW_LIMIT) return false;
+  }
+  return true;
 }

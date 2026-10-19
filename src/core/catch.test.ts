@@ -87,7 +87,7 @@ describe("checkCatchAnswer", () => {
 describe("fieldGuideProgress", () => {
   it("shows caught, seen and not-met creatures, with caught moves", () => {
     const records = [record("cache", false), record("cache", true), record("cache.ttl", true)];
-    expect(fieldGuideProgress(town(), records)).toEqual({
+    expect(fieldGuideProgress(town(), records, [])).toEqual({
       townName: "Fixture Town",
       caughtCount: 1,
       creatures: [
@@ -101,11 +101,21 @@ describe("fieldGuideProgress", () => {
     const content = fixtureTown();
     Object.assign(content.creatures[1], { retired: true });
     const [retired] = buildBundle([townSchema.parse(content)]).towns;
-    expect(fieldGuideProgress(retired, []).creatures.map((c) => c.id)).toEqual(["cache"]);
-    expect(fieldGuideProgress(retired, [record("cookie", true)]).creatures.map((c) => c.id)).toEqual(["cache", "cookie"]);
+    expect(fieldGuideProgress(retired, [], []).creatures.map((c) => c.id)).toEqual(["cache"]);
+    expect(fieldGuideProgress(retired, [record("cookie", true)], []).creatures.map((c) => c.id)).toEqual(["cache", "cookie"]);
+  });
+
+  it("shows the stage a creature has evolved to", () => {
+    const records = [record("cache", true, "2026-10-01")];
+    const reviews = [
+      { itemId: "cache", learningDay: "2026-10-02", grade: "good" as const },
+      { itemId: "cache", learningDay: "2026-10-05", grade: "good" as const },
+      { itemId: "cache", learningDay: "2026-10-12", grade: "good" as const },
+    ];
+    expect(fieldGuideProgress(town(), records, reviews).creatures[0].stage).toBe(2);
   });
 
   it("shows a creature as seen after a wrong answer", () => {
-    expect(fieldGuideProgress(town(), [record("cookie", false)]).creatures[1].status).toBe("seen");
+    expect(fieldGuideProgress(town(), [record("cookie", false)], []).creatures[1].status).toBe("seen");
   });
 });

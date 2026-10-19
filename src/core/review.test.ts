@@ -51,7 +51,7 @@ describe("gradeReview", () => {
 describe("reviewStates", () => {
   it("makes a caught item due the next day, on the 1-day step", () => {
     expect(reviewStates([caught("cache", "2026-10-10")], [])).toEqual(
-      new Map([["cache", { itemId: "cache", step: 1, dueDay: "2026-10-11", caughtDay: "2026-10-10" }]]),
+      new Map([["cache", { itemId: "cache", step: 1, dueDay: "2026-10-11", caughtDay: "2026-10-10", stage: 1 }]]),
     );
   });
 

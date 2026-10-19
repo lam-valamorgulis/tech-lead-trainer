@@ -1,4 +1,5 @@
-import { EventWriteError, eventBatchSchema, writeEvents } from "@/lib/events/write-events";
+import { EventWriteError, eventBatchSchema, touchedItemIds, writeEvents } from "@/lib/events/write-events";
+import { refreshReviewState } from "@/lib/review-state";
 import { bearerToken, serverUserClient } from "@/lib/supabase/user";
 
 // The one endpoint that writes learning events. A retry with the same batch is always safe.
@@ -22,6 +23,12 @@ export async function POST(request: Request): Promise<Response> {
     if (authError || !user.user) return Response.json({ error: "Sign in first." }, { status: 401 });
 
     await writeEvents(client, batch.data.events);
+
+    // The review state is a cache. If this update fails, the events are still saved,
+    // and the rebuild script can recompute it.
+    await refreshReviewState(client, user.user.id, touchedItemIds(batch.data.events)).catch((error) =>
+      console.error("review_state refresh failed", error),
+    );
   } catch (error) {
     if (error instanceof EventWriteError && error.refused) {
       return Response.json({ error: "Some events are not valid." }, { status: 400 });
