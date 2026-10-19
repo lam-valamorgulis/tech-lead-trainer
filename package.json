@@ -14,7 +14,8 @@
     "test:e2e": "playwright test",
     "db:start": "supabase start -x studio,imgproxy,vector,logflare,supavisor,edge-runtime,realtime,storage-api,postgres-meta",
     "db:stop": "supabase stop",
-    "db:status": "supabase status"
+    "db:status": "supabase status",
+    "env:local": "node scripts/write-local-env.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
@@ -26,10 +27,12 @@
     "@axe-core/playwright": "^4.14.0",
     "@playwright/test": "^1.64.1",
     "@types/node": "^24.19.2",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.2",
+    "pg": "^8.23.1",
     "supabase": "^2.121.0",
     "typescript": "^5",
     "vitest": "^5.0.5"

@@ -1,3 +1,5 @@
+import { AuthGate } from "./auth-gate";
+
 export default function Home() {
   return (
     <main className="shell">
@@ -5,6 +7,7 @@ export default function Home() {
       <p className="lead" data-testid="home-intro">
         Your daily practice starts here.
       </p>
+      <AuthGate />
     </main>
   );
 }

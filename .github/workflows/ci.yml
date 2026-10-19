@@ -32,11 +32,14 @@ jobs:
         run: npm run lint
       - name: Seam A (game rules core)
         run: npm test
-      - name: Build
-        run: npm run build
 
+      # The build bakes the public Supabase URL and key into the app, so local Supabase starts first.
       - name: Start local Supabase
         run: npm run db:start
+      - name: Write local env
+        run: npm run env:local
+      - name: Build
+        run: npm run build
       - name: Seam B (local Supabase)
         run: npm run test:db
 

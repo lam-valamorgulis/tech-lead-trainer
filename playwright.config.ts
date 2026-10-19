@@ -1,7 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
+import { readLocalSupabase } from "./scripts/local-supabase.mjs";
 
 const PORT = 3100;
 const isCI = !!process.env.CI;
+// The app under test talks only to the local Supabase. Its keys come from `supabase status`.
+const local = readLocalSupabase();
 
 export default defineConfig({
   testDir: "tests/e2e",
@@ -23,5 +26,10 @@ export default defineConfig({
     url: `http://127.0.0.1:${PORT}`,
     reuseExistingServer: !isCI,
     timeout: 120_000,
+    env: {
+      NEXT_PUBLIC_SUPABASE_URL: local.url,
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: local.publishableKey,
+      SUPABASE_SECRET_KEY: local.secretKey,
+    },
   },
 });
