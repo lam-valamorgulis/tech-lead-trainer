@@ -18,6 +18,11 @@ export class Outbox<E, Options = undefined> {
     return this.waiting.length;
   }
 
+  /** The events that have not reached the server yet. */
+  pending(): readonly E[] {
+    return this.waiting;
+  }
+
   /** Adds events and sends everything that waits. Resolves true when nothing is left waiting. */
   add(events: E[], options?: Options): Promise<boolean> {
     this.waiting.push(...events);

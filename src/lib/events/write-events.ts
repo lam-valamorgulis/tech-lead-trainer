@@ -18,13 +18,27 @@ export const sessionEventSchema = z.object({
   device: z.string().max(100),
 });
 
-export const eventSchema = z.discriminatedUnion("type", [sessionEventSchema]);
+export const catchEventSchema = z.object({
+  type: z.literal("catch"),
+  ...base,
+  itemId: z.string().min(1).max(100),
+  itemKind: z.enum(["creature", "move"]),
+  contentHash: z.string().regex(/^[0-9a-f]{16}$/),
+  answerText: z.string().max(500),
+  correct: z.boolean(),
+  /** 1 = guess, 2 = think so, 3 = sure. */
+  confidence: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  phase: z.enum(["before-card", "after-card"]),
+});
+
+export const eventSchema = z.discriminatedUnion("type", [sessionEventSchema, catchEventSchema]);
 export const eventBatchSchema = z.object({ events: z.array(eventSchema).min(1).max(100) });
 
 export type SessionEvent = z.infer<typeof sessionEventSchema>;
+export type CatchEvent = z.infer<typeof catchEventSchema>;
 export type LearningEvent = z.infer<typeof eventSchema>;
 
-const TABLES = { session: "session_events" } as const satisfies Record<LearningEvent["type"], string>;
+const TABLES = { session: "session_events", catch: "catch_events" } as const satisfies Record<LearningEvent["type"], string>;
 
 function toRow(event: LearningEvent) {
   switch (event.type) {
@@ -36,6 +50,19 @@ function toRow(event: LearningEvent) {
         committed_minutes: event.committedMinutes,
         active_seconds: event.activeSeconds,
         device: event.device,
+      };
+    case "catch":
+      return {
+        client_event_id: event.clientEventId,
+        session_id: event.sessionId,
+        occurred_at: event.occurredAt,
+        item_id: event.itemId,
+        item_kind: event.itemKind,
+        content_hash: event.contentHash,
+        answer_text: event.answerText,
+        correct: event.correct,
+        confidence: event.confidence,
+        phase: event.phase,
       };
   }
 }

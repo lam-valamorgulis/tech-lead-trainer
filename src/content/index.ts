@@ -1,8 +1,10 @@
 import type { BundledTown, ContentBundle } from "./bundle.ts";
 import generated from "./bundle.generated.json";
+import fixture from "./fixture.generated.json";
 
 // The content the app ships with, checked and hashed at build time by `npm run content:build`.
-const bundle = generated as ContentBundle;
+// Seam C builds with NEXT_PUBLIC_CONTENT_SET=fixture, so tests do not depend on monthly content.
+const bundle = (process.env.NEXT_PUBLIC_CONTENT_SET === "fixture" ? fixture : generated) as ContentBundle;
 
 export const towns: BundledTown[] = bundle.towns.filter((town) => !town.retired);
 

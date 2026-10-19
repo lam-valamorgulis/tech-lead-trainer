@@ -25,3 +25,8 @@ const outbox = new Outbox<LearningEvent, SendOptions>(send);
 export function postEvents(events: LearningEvent[], options?: SendOptions): Promise<boolean> {
   return outbox.add(events, options);
 }
+
+/** Events that have not reached the server yet, for example a catch made while offline. */
+export function pendingEvents(): readonly LearningEvent[] {
+  return outbox.pending();
+}

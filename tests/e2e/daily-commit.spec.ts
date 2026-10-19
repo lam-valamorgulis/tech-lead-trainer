@@ -55,7 +55,7 @@ test("the summary says so when the session could not be saved", async ({ page })
   const user = await signInNewUser(page, "offline");
   try {
     await page.route("**/api/events", (route) => route.fulfill({ status: 503, body: "{}" }));
-    await page.getByRole("button", { name: "15 minutes" }).click();
+    await page.getByRole("button", { name: "3 minutes" }).click();
     await page.getByRole("button", { name: "Finish" }).click();
     await expect(page.getByRole("heading", { name: "Session not saved yet" })).toBeVisible();
   } finally {

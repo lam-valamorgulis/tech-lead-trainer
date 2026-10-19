@@ -82,6 +82,8 @@ The tests use three seams.
 | B | Storage: real calls to local Supabase | `npm run test:db` | `npm run db:start` |
 | C | The real app in iPhone (WebKit) and Desktop Chrome, with an accessibility check | `npm run test:e2e` | `npm run db:start` (it starts the dev server itself) |
 
+Seam C runs the app with `NEXT_PUBLIC_CONTENT_SET=fixture`: the small fixture town in `src/content/fixture-town.ts`, so tests do not change when monthly content changes. CI builds with the same setting. Vercel builds the real content.
+
 Seams B and C read the URL and keys from `supabase status`, not from env files. They stop with an error if the URL is not `127.0.0.1` or `localhost`. Seam C reads the sign-in code from Mailpit.
 
 Other checks: `npm run typecheck`, `npm run lint`, `npm run content:check`. How to add content: `content/README.md`.

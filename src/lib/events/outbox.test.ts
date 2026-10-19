@@ -26,6 +26,7 @@ describe("Outbox", () => {
     const { send, batches } = fakeSend(["retry"]);
     const outbox = new Outbox<Event>(send);
     expect(await outbox.add(events(2))).toBe(false);
+    expect(outbox.pending().map((e) => e.clientEventId)).toEqual(["e0", "e1"]);
     expect(await outbox.add(events(1, 2))).toBe(true);
     expect(batches.at(-1)!.map((e) => e.clientEventId)).toEqual(["e0", "e1", "e2"]);
   });
