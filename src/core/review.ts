@@ -44,7 +44,7 @@ export function gradeReview({
   return { step: next, dueDay: addDays(gradedDay, next) };
 }
 
-/** The review state of every caught item, replayed from the event log. Records are in time order. */
+/** The review state of every caught item, replayed from the event log. Records must be in time order. */
 export function reviewStates(catches: CatchRecord[], reviews: ReviewRecord[]): Map<string, ReviewState> {
   const states = new Map<string, ReviewState>();
   for (const record of catches) {
@@ -65,17 +65,37 @@ export function reviewStates(catches: CatchRecord[], reviews: ReviewRecord[]): M
   return states;
 }
 
+/** A review state that is due on a day, so its due day is never null. */
+export type DueState = ReviewState & { dueDay: LearningDay };
+
 /** All items due today or earlier, oldest overdue first. */
-export function allDue(states: Map<string, ReviewState>, today: LearningDay): ReviewState[] {
+export function allDue(states: Map<string, ReviewState>, today: LearningDay): DueState[] {
   return [...states.values()]
-    .filter((state) => state.dueDay !== null && state.dueDay <= today)
+    .filter((state): state is DueState => state.dueDay !== null && state.dueDay <= today)
     .sort(
       (a, b) =>
-        a.dueDay!.localeCompare(b.dueDay!) || a.caughtDay.localeCompare(b.caughtDay) || a.itemId.localeCompare(b.itemId),
+        a.dueDay.localeCompare(b.dueDay) || a.caughtDay.localeCompare(b.caughtDay) || a.itemId.localeCompare(b.itemId),
     );
 }
 
-/** Today's reviews: at most 8, oldest overdue first. */
-export function dueReviews(states: Map<string, ReviewState>, today: LearningDay): ReviewState[] {
-  return allDue(states, today).slice(0, DAILY_REVIEW_LIMIT);
+/**
+ * Today's reviews: at most 8 a day, across all of today's sessions, oldest overdue first.
+ * Items that can no longer be reviewed, for example retired content, never take a place.
+ */
+export function dueReviews({
+  states,
+  reviews,
+  today,
+  isReviewable = () => true,
+}: {
+  states: Map<string, ReviewState>;
+  reviews: ReviewRecord[];
+  today: LearningDay;
+  isReviewable?: (itemId: string) => boolean;
+}): DueState[] {
+  const doneToday = reviews.filter((review) => review.learningDay === today).length;
+  const places = Math.max(0, DAILY_REVIEW_LIMIT - doneToday);
+  return allDue(states, today)
+    .filter((state) => isReviewable(state.itemId))
+    .slice(0, places);
 }

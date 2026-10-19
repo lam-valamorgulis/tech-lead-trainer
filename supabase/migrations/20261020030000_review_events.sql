@@ -23,6 +23,7 @@ create table public.review_events (
   graded_at timestamptz not null,
   typed_answer text check (char_length(typed_answer) <= 2000),
   confidence smallint check (confidence between 1 and 3),
+  check (shown_at <= revealed_at and revealed_at <= graded_at),
   unique (user_id, client_event_id)
 );
 

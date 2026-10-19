@@ -79,12 +79,12 @@ describe("dueReviews", () => {
       [caught("a", "2026-10-15"), caught("b", "2026-10-10"), caught("c", "2026-10-19"), caught("d", "2026-10-20")],
       [],
     );
-    expect(dueReviews(states, "2026-10-20").map((s) => s.itemId)).toEqual(["b", "a", "c"]);
+    expect(dueReviews({ states, reviews: [], today: "2026-10-20" }).map((s) => s.itemId)).toEqual(["b", "a", "c"]);
   });
 
   it("shows at most 8 when 11 are overdue, the oldest first", () => {
     const records = Array.from({ length: 11 }, (_, i) => caught(`item${i}`, `2026-10-${String(i + 1).padStart(2, "0")}`));
-    const due = dueReviews(reviewStates(records, []), "2026-10-20");
+    const due = dueReviews({ states: reviewStates(records, []), reviews: [], today: "2026-10-20" });
     expect(due.map((s) => s.itemId)).toEqual(["item0", "item1", "item2", "item3", "item4", "item5", "item6", "item7"]);
   });
 
@@ -93,6 +93,25 @@ describe("dueReviews", () => {
     const reviews = (["good", "good", "good", "good", "good", "good", "good"] as const).map((grade, i) =>
       reviewed("cache", `2026-0${i + 1}-15`, grade),
     );
-    expect(dueReviews(reviewStates(records, reviews), "2027-12-31")).toEqual([]);
+    expect(dueReviews({ states: reviewStates(records, reviews), reviews, today: "2027-12-31" })).toEqual([]);
+  });
+
+  it("counts the reviews already done today against the 8, across sessions", () => {
+    const records = Array.from({ length: 11 }, (_, i) => caught(`item${i}`, `2026-10-${String(i + 1).padStart(2, "0")}`));
+    const doneToday = ["item0", "item1", "item2", "item3", "item4"].map((id) => reviewed(id, "2026-10-20", "good"));
+    const due = dueReviews({ states: reviewStates(records, doneToday), reviews: doneToday, today: "2026-10-20" });
+    expect(due.map((s) => s.itemId)).toEqual(["item5", "item6", "item7"]);
+  });
+
+  it("skips items that can no longer be reviewed before it takes the 8", () => {
+    const records = Array.from({ length: 10 }, (_, i) => caught(`item${i}`, `2026-10-${String(i + 1).padStart(2, "0")}`));
+    const retired = new Set(["item0", "item1"]);
+    const due = dueReviews({
+      states: reviewStates(records, []),
+      reviews: [],
+      today: "2026-10-20",
+      isReviewable: (id) => !retired.has(id),
+    });
+    expect(due.map((s) => s.itemId)).toEqual(["item2", "item3", "item4", "item5", "item6", "item7", "item8", "item9"]);
   });
 });

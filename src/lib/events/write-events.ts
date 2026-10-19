@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { REVIEW_STEPS } from "@/core/review";
 
 // The one write path for learning events (spec: "Interfaces and contracts").
 // Each event has a client event id, so sending a batch again is always safe.
@@ -31,7 +32,7 @@ export const catchEventSchema = z.object({
   phase: z.enum(["before-card", "after-card"]),
 });
 
-const reviewStep = z.union([1, 3, 7, 14, 30, 90, 180].map((days) => z.literal(days)));
+const reviewStep = z.literal(REVIEW_STEPS);
 
 export const reviewEventSchema = z.object({
   type: z.literal("review"),

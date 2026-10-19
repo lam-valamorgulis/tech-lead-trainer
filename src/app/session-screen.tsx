@@ -61,6 +61,7 @@ function RunningSession({
   const [sessionId] = useState(() => crypto.randomUUID());
   const [finishing, setFinishing] = useState(false);
   const plan = useTodaysPlan(committedMinutes);
+  const working = plan.state === "reviews" || plan.state === "catch";
 
   function snapshot(): SessionEvent {
     return {
@@ -120,11 +121,11 @@ function RunningSession({
         />
       )}
       {plan.state === "catch" && <CatchFlow item={plan.item} sessionId={sessionId} onDone={plan.next} />}
-      {plan.state !== "reviews" && plan.state !== "catch" && <p className="lead">{PLAN_MESSAGES[plan.state]}</p>}
+      {!working && <p className="lead">{PLAN_MESSAGES[plan.state]}</p>}
       {/* Any session can end at any time. 3 minutes still counts as a learned day. */}
       <button
         type="button"
-        className={plan.state === "reviews" || plan.state === "catch" ? "button-quiet" : "button-main"}
+        className={working ? "button-quiet" : "button-main"}
         disabled={finishing}
         onClick={() => void finish()}
       >
@@ -134,16 +135,17 @@ function RunningSession({
   );
 }
 
-type Steps = { today: string; reviews: DueReview[]; catchItem: CatchItem | null };
+type TodaysWork = { today: string; reviews: DueReview[]; catchItem: CatchItem | null };
 
 type TodaysPlan =
-  | { state: "loading" | "done" | "failed" }
+  | { state: "loading" | "done" | "nothing" | "failed" }
   | { state: "reviews"; today: string; reviews: DueReview[]; next: () => void }
   | { state: "catch"; item: CatchItem; next: () => void };
 
 const PLAN_MESSAGES: Record<Exclude<TodaysPlan["state"], "reviews" | "catch">, string> = {
   loading: "Loading today's plan…",
   done: "All done for today. Tap Finish.",
+  nothing: "Nothing is due today. Tap Finish, or stay a little longer.",
   failed: "We could not load today's plan. Check your connection.",
 };
 
@@ -152,8 +154,8 @@ const PLAN_MESSAGES: Record<Exclude<TodaysPlan["state"], "reviews" | "catch">, s
  * one new creature or move.
  */
 function useTodaysPlan(committedMinutes: CommittedMinutes): TodaysPlan {
-  const [steps, setSteps] = useState<Steps | null>(null);
-  const [stage, setStage] = useState<"reviews" | "catch" | "done">("reviews");
+  const [work, setWork] = useState<TodaysWork | null>(null);
+  const [phase, setPhase] = useState<"reviews" | "catch" | "done">("reviews");
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -162,15 +164,17 @@ function useTodaysPlan(committedMinutes: CommittedMinutes): TodaysPlan {
     (async () => {
       const today = await currentLearningDay(client);
       const [catches, reviews] = await Promise.all([loadCatchRecords(client, today), loadReviewRecords(client, today)]);
-      const due = dueReviews(reviewStates(catches, reviews), today).flatMap((state) => {
-        const item = reviewItem(state.itemId);
-        return item ? [{ state, item }] : [];
-      });
+      const due = dueReviews({
+        states: reviewStates(catches, reviews),
+        reviews,
+        today,
+        isReviewable: (id) => reviewItem(id) !== undefined,
+      }).map((state) => ({ state, item: reviewItem(state.itemId)! }));
       const town = currentTown();
       const catchItem = town ? nextCatch({ town, records: catches, today, committedMinutes }) : null;
       return { today, reviews: due, catchItem };
     })()
-      .then((value) => !cancelled && setSteps(value))
+      .then((value) => !cancelled && setWork(value))
       .catch(() => !cancelled && setFailed(true));
     return () => {
       cancelled = true;
@@ -178,13 +182,14 @@ function useTodaysPlan(committedMinutes: CommittedMinutes): TodaysPlan {
   }, [committedMinutes]);
 
   if (failed) return { state: "failed" };
-  if (!steps) return { state: "loading" };
-  if (stage === "reviews" && steps.reviews.length > 0) {
-    return { state: "reviews", today: steps.today, reviews: steps.reviews, next: () => setStage("catch") };
+  if (!work) return { state: "loading" };
+  if (phase === "reviews" && work.reviews.length > 0) {
+    return { state: "reviews", today: work.today, reviews: work.reviews, next: () => setPhase("catch") };
   }
-  if (stage !== "done" && steps.catchItem) {
-    return { state: "catch", item: steps.catchItem, next: () => setStage("done") };
+  if (phase !== "done" && work.catchItem) {
+    return { state: "catch", item: work.catchItem, next: () => setPhase("done") };
   }
+  if (work.reviews.length === 0 && !work.catchItem) return { state: "nothing" };
   return { state: "done" };
 }
 

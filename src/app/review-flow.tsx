@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ReviewItem } from "@/content";
-import { gradeReview, type Grade, type ReviewState } from "@/core/review";
+import { gradeReview, type DueState, type Grade } from "@/core/review";
 import { postEvents } from "@/lib/events/post-events";
 
-export type DueReview = { state: ReviewState; item: ReviewItem };
+export type DueReview = { state: DueState; item: ReviewItem };
 
 const GRADES: { grade: Grade; label: string }[] = [
   { grade: "again", label: "Again" },
@@ -92,7 +92,7 @@ function ReviewCard({
         stepBefore: state.step,
         stepAfter: next.step,
         grade: choice,
-        plannedDueDay: state.dueDay ?? today,
+        plannedDueDay: state.dueDay,
         shownAt,
         revealedAt,
         gradedAt,
@@ -114,7 +114,7 @@ function ReviewCard({
           {canType ? (
             <label className="field">
               <span className="field-label">Your answer (optional)</span>
-              <textarea rows={3} value={typed} onChange={(event) => setTyped(event.target.value)} />
+              <textarea rows={3} maxLength={2000} value={typed} onChange={(event) => setTyped(event.target.value)} />
             </label>
           ) : (
             <p className="lead">Think of the answer first.</p>
