@@ -1,6 +1,6 @@
 # Content
 
-All learning content lives here as JSON. The schema is `src/content/schema.ts`.
+All learning content lives here. Towns are JSON, with the schema in `src/content/schema.ts`. Weekend tasks are Markdown.
 
 | File | What it holds |
 | --- | --- |
