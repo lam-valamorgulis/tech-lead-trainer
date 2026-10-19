@@ -280,3 +280,8 @@ a.button {
 .back {
   margin-top: var(--space);
 }
+
+/* Headings that receive focus after a step change. */
+h2[tabindex="-1"]:focus {
+  outline: none;
+}

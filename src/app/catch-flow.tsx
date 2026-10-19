@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { checkCatchAnswer, type CatchAnswer, type CatchItem } from "@/core/catch";
 import { postEvents } from "@/lib/events/post-events";
 import type { CatchEvent } from "@/lib/events/write-events";
@@ -11,7 +11,9 @@ type Phase =
   | { name: "card"; caught: boolean }
   | { name: "result"; caught: boolean; answer: CatchAnswer };
 
-const CONFIDENCE: { value: CatchEvent["confidence"]; label: string }[] = [
+type Confidence = CatchEvent["confidence"];
+
+const CONFIDENCE: { value: Confidence; label: string }[] = [
   { value: 1, label: "Guess" },
   { value: 2, label: "Think so" },
   { value: 3, label: "Sure" },
@@ -33,9 +35,18 @@ export function CatchFlow({
   const [phase, setPhase] = useState<Phase>({ name: "ask", attempt: "before-card" });
   // The right answer is not always first.
   const [choices] = useState(() => shuffle(item.catch.choices));
-  const kind = item.kind === "creature" ? "creature" : "move";
+  // Each answer is saved once, even after a fast double tap.
+  const answered = useRef(new Set<CatchEvent["phase"]>());
+  const heading = useRef<HTMLHeadingElement>(null);
 
-  function answer(chosen: string, confidence: CatchEvent["confidence"], attempt: CatchEvent["phase"]) {
+  // A new step replaces the button that was tapped, so focus moves to the new heading.
+  useEffect(() => {
+    heading.current?.focus();
+  }, [phase.name]);
+
+  function answer(chosen: string, confidence: Confidence, attempt: CatchEvent["phase"]) {
+    if (answered.current.has(attempt)) return;
+    answered.current.add(attempt);
     const result = checkCatchAnswer(item, chosen);
     void postEvents([
       {
@@ -58,8 +69,8 @@ export function CatchFlow({
   if (phase.name === "ask") {
     return (
       <section className="stack" aria-labelledby="catch-title">
-        <h2 id="catch-title">
-          {phase.attempt === "before-card" ? `A new ${kind} appears` : "Try again"}
+        <h2 id="catch-title" ref={heading} tabIndex={-1}>
+          {phase.attempt === "before-card" ? `A new ${item.kind} appears` : "Try again"}
         </h2>
         {phase.attempt === "before-card" && (
           <p className="lead">Try to answer before you read about it. A guess is fine.</p>
@@ -76,8 +87,8 @@ export function CatchFlow({
   if (phase.name === "feedback") {
     return (
       <section className="stack" aria-labelledby="feedback-title">
-        <h2 id="feedback-title">{phase.answer.correct ? `You caught ${item.name}!` : "Not yet"}</h2>
-        <p role="status">
+        <h2 id="feedback-title" ref={heading} tabIndex={-1}>{phase.answer.correct ? `You caught ${item.name}!` : "Not yet"}</h2>
+        <p>
           {phase.answer.correct
             ? phase.answer.explanation
             : "That is not the answer. Read the card, then try once more."}
@@ -92,7 +103,9 @@ export function CatchFlow({
   if (phase.name === "card") {
     return (
       <section className="stack" aria-labelledby="card-title">
-        <h2 id="card-title">{item.name}</h2>
+        <h2 id="card-title" ref={heading} tabIndex={-1}>
+          {item.name}
+        </h2>
         <CardView card={item.card} />
         {phase.caught ? (
           <button type="button" className="button-main" onClick={() => onDone(true)}>
@@ -109,8 +122,8 @@ export function CatchFlow({
 
   return (
     <section className="stack" aria-labelledby="result-title">
-      <h2 id="result-title">{phase.caught ? `You caught ${item.name}!` : "Not this time"}</h2>
-      <p role="status">
+      <h2 id="result-title" ref={heading} tabIndex={-1}>{phase.caught ? `You caught ${item.name}!` : "Not this time"}</h2>
+      <p>
         {phase.caught
           ? phase.answer.explanation
           : `The answer is: ${phase.answer.rightAnswer}. ${phase.answer.explanation} ${item.name} comes back next time.`}
@@ -129,10 +142,11 @@ function QuestionForm({
 }: {
   question: string;
   choices: string[];
-  onAnswer: (chosen: string, confidence: CatchEvent["confidence"]) => void;
+  onAnswer: (chosen: string, confidence: Confidence) => void;
 }) {
   const [chosen, setChosen] = useState<string | null>(null);
-  const [confidence, setConfidence] = useState<CatchEvent["confidence"] | null>(null);
+  const [confidence, setConfidence] = useState<Confidence | null>(null);
+  const ready = chosen !== null && confidence !== null;
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -165,7 +179,8 @@ function QuestionForm({
           </label>
         ))}
       </fieldset>
-      <button type="submit" className="button-main" disabled={chosen === null || confidence === null}>
+      {!ready && <p className="lead">Pick an answer and how sure you are.</p>}
+      <button type="submit" className="button-main" disabled={!ready}>
         Check
       </button>
     </form>

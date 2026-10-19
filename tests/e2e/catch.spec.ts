@@ -19,7 +19,7 @@ test("commit 15 minutes, catch one creature, and see it in the Field Guide", asy
     await page.getByLabel("To make it smaller").check();
     await page.getByLabel("Guess").check();
     await page.getByRole("button", { name: "Check" }).click();
-    await expect(page.getByRole("heading", { name: "Not yet" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Not yet" })).toBeFocused();
 
     await page.getByRole("button", { name: "Read the card" }).click();
     await expect(page.getByText("A cache keeps a copy of a response.")).toBeVisible();
@@ -59,6 +59,39 @@ test("a 3-minute day offers no catch", async ({ page }) => {
     await page.getByRole("button", { name: "3 minutes" }).click();
     await expect(page.getByText("No new catch today.")).toBeVisible();
     await expect(page.getByRole("heading", { name: "A new creature appears" })).toHaveCount(0);
+  } finally {
+    await user.forget();
+  }
+});
+
+test("a session with a catch can still finish early", async ({ page }) => {
+  const user = await signInNewUser(page, "catch-early");
+  try {
+    await page.getByRole("button", { name: "15 minutes" }).click();
+    await expect(page.getByRole("heading", { name: "A new creature appears" })).toBeVisible();
+    await page.getByRole("button", { name: "Finish" }).click();
+    await expect(page.getByRole("heading", { name: "Session saved" })).toBeVisible();
+  } finally {
+    await user.forget();
+  }
+});
+
+test("a catch made offline still counts as today's catch", async ({ page }) => {
+  const user = await signInNewUser(page, "catch-offline");
+  try {
+    await page.route("**/api/events", (route) => route.fulfill({ status: 503, body: "{}" }));
+    await page.getByRole("button", { name: "15 minutes" }).click();
+    await page.getByLabel("To load it faster next time").check();
+    await page.getByLabel("Sure").check();
+    await page.getByRole("button", { name: "Check" }).click();
+    await expect(page.getByRole("heading", { name: "You caught Cache!" })).toBeVisible();
+    await page.getByRole("button", { name: "Read the card" }).click();
+    await page.getByRole("button", { name: "Done" }).click();
+    await page.getByRole("button", { name: "Finish" }).click();
+    await page.getByRole("button", { name: "Back home" }).click();
+
+    await page.getByRole("button", { name: "15 minutes" }).click();
+    await expect(page.getByText("No new catch today.")).toBeVisible();
   } finally {
     await user.forget();
   }

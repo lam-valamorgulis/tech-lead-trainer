@@ -108,15 +108,19 @@ function RunningSession({
         <p>Active time: {formatMinutes(activeSeconds)}</p>
       </section>
       {catchItem.state === "ready" ? (
-        <CatchFlow item={catchItem.item} sessionId={sessionId} onDone={() => catchItem.done()} />
+        <CatchFlow item={catchItem.item} sessionId={sessionId} onDone={catchItem.done} />
       ) : (
-        <>
-          <p className="lead">{CATCH_MESSAGES[catchItem.state]}</p>
-          <button type="button" className="button-main" disabled={finishing} onClick={() => void finish()}>
-            Finish
-          </button>
-        </>
+        <p className="lead">{CATCH_MESSAGES[catchItem.state]}</p>
       )}
+      {/* Any session can end at any time. 3 minutes still counts as a learned day. */}
+      <button
+        type="button"
+        className={catchItem.state === "ready" ? "button-quiet" : "button-main"}
+        disabled={finishing}
+        onClick={() => void finish()}
+      >
+        Finish
+      </button>
     </div>
   );
 }
@@ -142,7 +146,8 @@ function useTodaysCatch(committedMinutes: CommittedMinutes): TodaysCatch {
     if (!offersCatch || !town) return;
     let cancelled = false;
     const client = browserClient();
-    Promise.all([currentLearningDay(client), loadCatchRecords(client)])
+    currentLearningDay(client)
+      .then(async (today) => [today, await loadCatchRecords(client, today)] as const)
       .then(([today, records]) => {
         if (cancelled) return;
         const item = nextCatch({ town, records, today, committedMinutes });

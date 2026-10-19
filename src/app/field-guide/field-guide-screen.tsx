@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { currentTown } from "@/content";
 import { fieldGuideProgress, type CatchRecord, type CreatureStatus } from "@/core/catch";
 import { loadCatchRecords } from "@/lib/catch-log";
+import { currentLearningDay } from "@/lib/learning-log";
 import { browserClient } from "@/lib/supabase/browser";
 
 const STATUS_LABEL: Record<CreatureStatus, string> = {
@@ -19,7 +20,9 @@ export function FieldGuideScreen() {
 
   useEffect(() => {
     let cancelled = false;
-    loadCatchRecords(browserClient())
+    const client = browserClient();
+    currentLearningDay(client)
+      .then((today) => loadCatchRecords(client, today))
       .then((value) => !cancelled && setRecords(value))
       .catch(() => !cancelled && setFailed(true));
     return () => {
