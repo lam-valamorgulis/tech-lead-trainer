@@ -35,7 +35,7 @@ test("commit 15 minutes, catch one creature, and see it in the Field Guide", asy
     await expect(page.getByRole("heading", { name: "You caught Cache!" })).toBeVisible();
 
     await page.getByRole("button", { name: "Continue" }).click();
-    await expect(page.getByText("Today's catch is done.")).toBeVisible();
+    await expect(page.getByText("All done for today.")).toBeVisible();
     await page.getByRole("button", { name: "Finish" }).click();
     await page.getByRole("button", { name: "Back home" }).click();
 
@@ -47,7 +47,7 @@ test("commit 15 minutes, catch one creature, and see it in the Field Guide", asy
     // One new item per day: a second session today offers no catch.
     await page.getByRole("link", { name: "Back" }).click();
     await page.getByRole("button", { name: "15 minutes" }).click();
-    await expect(page.getByText("No new catch today.")).toBeVisible();
+    await expect(page.getByText("Nothing is due today.")).toBeVisible();
   } finally {
     await user.forget();
   }
@@ -57,7 +57,7 @@ test("a 3-minute day offers no catch", async ({ page }) => {
   const user = await signInNewUser(page, "catch-3");
   try {
     await page.getByRole("button", { name: "3 minutes" }).click();
-    await expect(page.getByText("No new catch today.")).toBeVisible();
+    await expect(page.getByText("Nothing is due today.")).toBeVisible();
     await expect(page.getByRole("heading", { name: "A new creature appears" })).toHaveCount(0);
   } finally {
     await user.forget();
@@ -91,7 +91,7 @@ test("a catch made offline still counts as today's catch", async ({ page }) => {
     await page.getByRole("button", { name: "Back home" }).click();
 
     await page.getByRole("button", { name: "15 minutes" }).click();
-    await expect(page.getByText("No new catch today.")).toBeVisible();
+    await expect(page.getByText("Nothing is due today.")).toBeVisible();
   } finally {
     await user.forget();
   }

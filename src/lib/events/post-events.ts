@@ -26,7 +26,16 @@ export function postEvents(events: LearningEvent[], options?: SendOptions): Prom
   return outbox.add(events, options);
 }
 
-/** Events that have not reached the server yet, for example a catch made while offline. */
-export function pendingEvents(): readonly LearningEvent[] {
-  return outbox.pending();
+/**
+ * Events of one type that have not reached the server yet, for example a catch made offline.
+ * An event the server already saved (its reply may still be on the way) is left out.
+ */
+export function pendingEvents<T extends LearningEvent["type"]>(
+  type: T,
+  savedClientEventIds: Set<string>,
+): Extract<LearningEvent, { type: T }>[] {
+  return outbox
+    .pending()
+    .filter((event): event is Extract<LearningEvent, { type: T }> => event.type === type)
+    .filter((event) => !savedClientEventIds.has(event.clientEventId));
 }
