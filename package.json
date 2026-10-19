@@ -18,7 +18,8 @@
     "env:local": "node scripts/write-local-env.mjs",
     "content:build": "node scripts/content.mjs build",
     "prebuild": "npm run content:check",
-    "db:reset": "supabase db reset && supabase stop && npm run db:start"
+    "db:reset": "supabase db reset && supabase stop && npm run db:start",
+    "rebuild:review-state": "node scripts/rebuild-review-state.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
