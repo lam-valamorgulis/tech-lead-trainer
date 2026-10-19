@@ -31,14 +31,34 @@ export const catchEventSchema = z.object({
   phase: z.enum(["before-card", "after-card"]),
 });
 
-export const eventSchema = z.discriminatedUnion("type", [sessionEventSchema, catchEventSchema]);
+const reviewStep = z.union([1, 3, 7, 14, 30, 90, 180].map((days) => z.literal(days)));
+
+export const reviewEventSchema = z.object({
+  type: z.literal("review"),
+  ...base,
+  itemId: z.string().min(1).max(100),
+  itemKind: z.enum(["creature", "move"]),
+  contentHash: z.string().regex(/^[0-9a-f]{16}$/),
+  stepBefore: reviewStep,
+  stepAfter: reviewStep,
+  grade: z.enum(["again", "hard", "good", "easy"]),
+  plannedDueDay: z.iso.date(),
+  shownAt: z.iso.datetime({ offset: true }),
+  revealedAt: z.iso.datetime({ offset: true }),
+  gradedAt: z.iso.datetime({ offset: true }),
+  typedAnswer: z.string().max(2000).nullable(),
+  confidence: z.union([z.literal(1), z.literal(2), z.literal(3)]).nullable(),
+});
+
+export const eventSchema = z.discriminatedUnion("type", [sessionEventSchema, catchEventSchema, reviewEventSchema]);
 export const eventBatchSchema = z.object({ events: z.array(eventSchema).min(1).max(100) });
 
 export type SessionEvent = z.infer<typeof sessionEventSchema>;
 export type CatchEvent = z.infer<typeof catchEventSchema>;
+export type ReviewEvent = z.infer<typeof reviewEventSchema>;
 export type LearningEvent = z.infer<typeof eventSchema>;
 
-const TABLES = { session: "session_events", catch: "catch_events" } as const satisfies Record<LearningEvent["type"], string>;
+const TABLES = { session: "session_events", catch: "catch_events", review: "review_events" } as const satisfies Record<LearningEvent["type"], string>;
 
 function toRow(event: LearningEvent) {
   switch (event.type) {
@@ -63,6 +83,24 @@ function toRow(event: LearningEvent) {
         correct: event.correct,
         confidence: event.confidence,
         phase: event.phase,
+      };
+    case "review":
+      return {
+        client_event_id: event.clientEventId,
+        session_id: event.sessionId,
+        occurred_at: event.occurredAt,
+        item_id: event.itemId,
+        item_kind: event.itemKind,
+        content_hash: event.contentHash,
+        step_before: event.stepBefore,
+        step_after: event.stepAfter,
+        grade: event.grade,
+        planned_due_day: event.plannedDueDay,
+        shown_at: event.shownAt,
+        revealed_at: event.revealedAt,
+        graded_at: event.gradedAt,
+        typed_answer: event.typedAnswer,
+        confidence: event.confidence,
       };
   }
 }

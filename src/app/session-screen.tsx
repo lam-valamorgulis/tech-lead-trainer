@@ -1,16 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { currentTown } from "@/content";
+import { currentTown, reviewItem } from "@/content";
 import { nextCatch, type CatchItem } from "@/core/catch";
+import { dueReviews, reviewStates } from "@/core/review";
 import type { ThirtyDayRate } from "@/core/day";
 import { loadCatchRecords } from "@/lib/catch-log";
+import { loadReviewRecords } from "@/lib/review-log";
 import { deviceLabel } from "@/lib/events/device";
 import { postEvents } from "@/lib/events/post-events";
 import type { SessionEvent } from "@/lib/events/write-events";
 import { currentLearningDay, formatRate, loadThirtyDayRate } from "@/lib/learning-log";
 import { browserClient } from "@/lib/supabase/browser";
 import { CatchFlow } from "./catch-flow";
+import { ReviewFlow, type DueReview } from "./review-flow";
 
 export type CommittedMinutes = SessionEvent["committedMinutes"];
 
@@ -57,7 +60,7 @@ function RunningSession({
   const seconds = useRef(0);
   const [sessionId] = useState(() => crypto.randomUUID());
   const [finishing, setFinishing] = useState(false);
-  const catchItem = useTodaysCatch(committedMinutes);
+  const plan = useTodaysPlan(committedMinutes);
 
   function snapshot(): SessionEvent {
     return {
@@ -107,15 +110,21 @@ function RunningSession({
         <h2 id="session-title">{committedMinutes}-minute session</h2>
         <p>Active time: {formatMinutes(activeSeconds)}</p>
       </section>
-      {catchItem.state === "ready" ? (
-        <CatchFlow item={catchItem.item} sessionId={sessionId} onDone={catchItem.done} />
-      ) : (
-        <p className="lead">{CATCH_MESSAGES[catchItem.state]}</p>
+      {plan.state === "reviews" && (
+        <ReviewFlow
+          reviews={plan.reviews}
+          today={plan.today}
+          sessionId={sessionId}
+          canType={committedMinutes !== 3}
+          onDone={plan.next}
+        />
       )}
+      {plan.state === "catch" && <CatchFlow item={plan.item} sessionId={sessionId} onDone={plan.next} />}
+      {plan.state !== "reviews" && plan.state !== "catch" && <p className="lead">{PLAN_MESSAGES[plan.state]}</p>}
       {/* Any session can end at any time. 3 minutes still counts as a learned day. */}
       <button
         type="button"
-        className={catchItem.state === "ready" ? "button-quiet" : "button-main"}
+        className={plan.state === "reviews" || plan.state === "catch" ? "button-quiet" : "button-main"}
         disabled={finishing}
         onClick={() => void finish()}
       >
@@ -125,40 +134,58 @@ function RunningSession({
   );
 }
 
-type TodaysCatch =
-  | { state: "loading" | "none" | "done" | "failed" }
-  | { state: "ready"; item: CatchItem; done: () => void };
+type Steps = { today: string; reviews: DueReview[]; catchItem: CatchItem | null };
 
-const CATCH_MESSAGES: Record<Exclude<TodaysCatch["state"], "ready">, string> = {
-  loading: "Loading today's catch…",
-  none: "No new catch today. Reviews arrive in the next update.",
-  done: "Today's catch is done. Reviews arrive in the next update.",
-  failed: "We could not load today's catch. Check your connection.",
+type TodaysPlan =
+  | { state: "loading" | "done" | "failed" }
+  | { state: "reviews"; today: string; reviews: DueReview[]; next: () => void }
+  | { state: "catch"; item: CatchItem; next: () => void };
+
+const PLAN_MESSAGES: Record<Exclude<TodaysPlan["state"], "reviews" | "catch">, string> = {
+  loading: "Loading today's plan…",
+  done: "All done for today. Tap Finish.",
+  failed: "We could not load today's plan. Check your connection.",
 };
 
-/** One new creature or move on a 15- or 45-minute day (design 3). */
-function useTodaysCatch(committedMinutes: CommittedMinutes): TodaysCatch {
-  // A 3-minute day is reviews only.
-  const offersCatch = committedMinutes !== 3 && currentTown() !== undefined;
-  const [state, setState] = useState<TodaysCatch>({ state: offersCatch ? "loading" : "none" });
+/**
+ * Today's steps (design 3): reviews first, at most 8. Then, on a 15- or 45-minute day,
+ * one new creature or move.
+ */
+function useTodaysPlan(committedMinutes: CommittedMinutes): TodaysPlan {
+  const [steps, setSteps] = useState<Steps | null>(null);
+  const [stage, setStage] = useState<"reviews" | "catch" | "done">("reviews");
+  const [failed, setFailed] = useState(false);
+
   useEffect(() => {
-    const town = currentTown();
-    if (!offersCatch || !town) return;
     let cancelled = false;
     const client = browserClient();
-    currentLearningDay(client)
-      .then(async (today) => [today, await loadCatchRecords(client, today)] as const)
-      .then(([today, records]) => {
-        if (cancelled) return;
-        const item = nextCatch({ town, records, today, committedMinutes });
-        setState(item ? { state: "ready", item, done: () => setState({ state: "done" }) } : { state: "none" });
-      })
-      .catch(() => !cancelled && setState({ state: "failed" }));
+    (async () => {
+      const today = await currentLearningDay(client);
+      const [catches, reviews] = await Promise.all([loadCatchRecords(client, today), loadReviewRecords(client, today)]);
+      const due = dueReviews(reviewStates(catches, reviews), today).flatMap((state) => {
+        const item = reviewItem(state.itemId);
+        return item ? [{ state, item }] : [];
+      });
+      const town = currentTown();
+      const catchItem = town ? nextCatch({ town, records: catches, today, committedMinutes }) : null;
+      return { today, reviews: due, catchItem };
+    })()
+      .then((value) => !cancelled && setSteps(value))
+      .catch(() => !cancelled && setFailed(true));
     return () => {
       cancelled = true;
     };
-  }, [committedMinutes, offersCatch]);
-  return state;
+  }, [committedMinutes]);
+
+  if (failed) return { state: "failed" };
+  if (!steps) return { state: "loading" };
+  if (stage === "reviews" && steps.reviews.length > 0) {
+    return { state: "reviews", today: steps.today, reviews: steps.reviews, next: () => setStage("catch") };
+  }
+  if (stage !== "done" && steps.catchItem) {
+    return { state: "catch", item: steps.catchItem, next: () => setStage("done") };
+  }
+  return { state: "done" };
 }
 
 function formatMinutes(seconds: number): string {

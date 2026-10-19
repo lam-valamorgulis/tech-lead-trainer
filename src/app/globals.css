@@ -285,3 +285,26 @@ a.button {
 h2[tabindex="-1"]:focus {
   outline: none;
 }
+
+.field textarea {
+  padding: 12px;
+  font: inherit;
+  font-size: var(--text-body);
+  color: var(--color-text);
+  background: transparent;
+  border: 2px solid var(--color-muted);
+  border-radius: 4px;
+}
+
+.grades {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.grades legend {
+  grid-column: 1 / -1;
+}
+
+.grade-hint {
+  color: var(--color-muted);
+}
