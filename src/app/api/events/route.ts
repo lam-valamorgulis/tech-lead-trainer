@@ -18,7 +18,7 @@ export async function POST(request: Request): Promise<Response> {
   if (!batch.success) return Response.json({ error: "Some events are not valid." }, { status: 400 });
 
   try {
-    const signedIn = await authenticate(request);
+    const signedIn = await authenticate(token);
     if (!signedIn) return Response.json({ error: "Sign in first." }, { status: 401 });
     const { client, userId } = signedIn;
 
