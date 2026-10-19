@@ -24,8 +24,8 @@ describe("every table in the public schema", () => {
     await db.end();
   });
 
-  it("includes the tables of this ticket", () => {
-    expect(tables.map((t) => t.name)).toEqual(expect.arrayContaining(["allowed_emails", "profiles"]));
+  it("includes the tables built so far", () => {
+    expect(tables.map((t) => t.name)).toEqual(expect.arrayContaining(["allowed_emails", "profiles", "session_events"]));
   });
 
   it("has row-level security on", () => {
@@ -78,5 +78,53 @@ describe("every table in the public schema", () => {
       `select count(*)::text as policies from pg_policies where schemaname = 'public' and tablename = 'allowed_emails'`,
     );
     expect(result.rows[0].policies).toBe("0");
+  });
+
+  // Event tables are the learning log (design 12.2). Their names end in "_events".
+  const eventTables = () => tables.map((t) => t.name).filter((name) => name.endsWith("_events"));
+
+  it("keeps every event table append-only for visitors and signed-in users", async () => {
+    for (const name of eventTables()) {
+      const result = await db.query<{ role: string; can_change: boolean }>(
+        `select r as role,
+                has_table_privilege(r, format('public.%I', $1::text), 'UPDATE')
+             or has_table_privilege(r, format('public.%I', $1::text), 'DELETE') as can_change
+           from unnest(array['anon', 'authenticated']) as r`,
+        [name],
+      );
+      expect({ table: name, rows: result.rows }).toEqual({
+        table: name,
+        rows: [
+          { role: "anon", can_change: false },
+          { role: "authenticated", can_change: false },
+        ],
+      });
+    }
+  });
+
+  it("gives every event table the shared event columns and one row per client event id", async () => {
+    for (const name of eventTables()) {
+      const columns = await db.query<{ column_name: string }>(
+        `select column_name from information_schema.columns where table_schema = 'public' and table_name = $1`,
+        [name],
+      );
+      expect({ table: name, columns: columns.rows.map((c) => c.column_name) }).toEqual({
+        table: name,
+        columns: expect.arrayContaining(["user_id", "client_event_id", "session_id", "occurred_at", "learning_day"]),
+      });
+
+      const unique = await db.query<{ columns: string[] }>(
+        `select array_agg(a.attname order by a.attname)::text[] as columns
+           from pg_constraint c
+           join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any (c.conkey)
+          where c.conrelid = format('public.%I', $1::text)::regclass and c.contype = 'u'
+          group by c.oid`,
+        [name],
+      );
+      expect({ table: name, unique: unique.rows.map((r) => r.columns) }).toEqual({
+        table: name,
+        unique: expect.arrayContaining([["client_event_id", "user_id"]]),
+      });
+    }
   });
 });
