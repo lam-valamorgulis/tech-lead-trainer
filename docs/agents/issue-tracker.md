@@ -46,3 +46,19 @@ Used by `/wayfinder`. The **map** is a single issue with **child** issues as tic
 - **Frontier query**: list the map's open children (`gh issue list --state open`, scoped to the map's sub-issues / task list), drop any with an open blocker (`issue_dependencies_summary.blocked_by > 0`, or an open issue in the `Blocked by` line) or an assignee; first in map order wins.
 - **Claim**: `gh issue edit <n> --add-assignee @me`, the session's first write.
 - **Resolve**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far.
+
+## Sprints and the project board
+
+- **Sprints are milestones:** `Sprint 1` to `Sprint 4`. Put every ticket in one: `gh issue create --milestone "Sprint 1" ...` or `gh issue edit <n> --milestone "Sprint 2"`. Size tickets so a sprint holds at most 7–14 of them (the budget is 1–2 tickets a day).
+- **Board:** GitHub project #2, "Tech Lead Trainer", owner `lam-valamorgulis` (https://github.com/users/lam-valamorgulis/projects/2). View: "Sprint board".
+- **Add every new ticket to the board:** `gh project item-add 2 --owner lam-valamorgulis --url <issue-url>`.
+- **Status column**, moved by the agent doing the work:
+
+| Status | When |
+|---|---|
+| `Todo` | The ticket is created |
+| `In progress` | An implementer starts it |
+| `In review` | Its PR is open and CI and `/code-review` are running |
+| `Done` | It is merged into the sprint branch |
+
+- **Move a card:** get the item id with `gh project item-list 2 --owner lam-valamorgulis --format json`, the field and option ids with `gh project field-list 2 --owner lam-valamorgulis --format json`, then `gh project item-edit --id <item-id> --project-id PVT_kwHOBMqcJM4Bnw_T --field-id <status-field-id> --single-select-option-id <option-id>`.
