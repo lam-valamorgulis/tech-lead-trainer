@@ -6,8 +6,13 @@ export type Note = { hz: number; ms: number };
 export type SoundName = "strong-hit" | "hit" | "miss" | "catch" | "evolve" | "win" | "lose";
 
 /**
- * The sounds are made in code with the Web Audio API, so no sound file and no license is needed.
  * Each one plays next to a text that says the same thing (UI rule 10).
+ *
+ * License of each sound (ticket #35): all 7 sounds below (strong-hit, hit, miss, catch, evolve,
+ * win, lose) are original. They were written for this app as these note lists, and
+ * src/app/sound.ts plays them as square waves with the Web Audio API. There is no sound file and
+ * no third-party sound, so no outside license applies. A sound file added later must have a
+ * license that allows this use, recorded next to the file.
  */
 export const SOUNDS: Record<SoundName, Note[]> = {
   "strong-hit": [

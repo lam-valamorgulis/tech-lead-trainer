@@ -75,6 +75,44 @@ async function strongHit(page: Page, email: string) {
   await expect(page.getByText("Strong hit · 2 ●●")).toBeVisible();
 }
 
+/** Cache was caught 11 days ago, then Good on time twice: 1 → 3 → 7. The 7-day step is due today. */
+async function sevenDayStepDueToday(email: string) {
+  await sql(
+    local,
+    `with u as (select id from auth.users where email = $1)
+     insert into catch_events (user_id, client_event_id, session_id, occurred_at, item_id, item_kind, content_hash,
+                               answer_text, correct, confidence, phase)
+     select id, gen_random_uuid(), gen_random_uuid(), now() - interval '11 days', 'cache', 'creature',
+            '0123456789abcdef', 'To load it faster next time', true, 3, 'before-card' from u`,
+    [email],
+  );
+  for (const [daysAgo, before, after] of [
+    [10, 1, 3],
+    [7, 3, 7],
+  ]) {
+    await sql(
+      local,
+      `with u as (select id from auth.users where email = $1)
+       insert into review_events (user_id, client_event_id, session_id, occurred_at, item_id, item_kind, content_hash,
+                                  step_before, step_after, grade, planned_due_day, shown_at, revealed_at, graded_at)
+       select id, gen_random_uuid(), gen_random_uuid(), now() - make_interval(days => $2), 'cache', 'creature',
+              '0123456789abcdef', $3, $4, 'good', (now() - make_interval(days => $2))::date,
+              now() - make_interval(days => $2), now() - make_interval(days => $2), now() - make_interval(days => $2)
+         from u`,
+      [email, daysAgo, before, after],
+    );
+  }
+}
+
+/** Commits 3 minutes and grades the due review of Cache Good, past its 7-day step. */
+async function passSevenDayStep(page: Page) {
+  await page.getByRole("button", { name: "3 minutes" }).click();
+  await expect(page.getByRole("heading", { name: "Review 1 of 1: Cache" })).toBeVisible();
+  await page.getByRole("button", { name: "Reveal" }).click();
+  await page.getByRole("button", { name: "Good · 14 days" }).click();
+  await expect(page.getByRole("heading", { name: "Cache evolved!" })).toBeFocused();
+}
+
 async function openSettings(page: Page) {
   await page.getByRole("link", { name: "Settings" }).click();
   await expect(page.getByRole("heading", { name: "Effects and sound" })).toBeVisible();
@@ -171,6 +209,18 @@ test.describe("with reduce motion on in the phone", () => {
     }
   });
 
+  test("the evolution shows no movement either", async ({ page }) => {
+    const user = await signInNewUser(page, "fx-motion-evolve");
+    try {
+      await sevenDayStepDueToday(user.email);
+      await passSevenDayStep(page);
+      await expect(page.getByText("Stage 2 of 3")).toBeVisible();
+      await expectNoMovement(page);
+    } finally {
+      await user.forget();
+    }
+  });
+
   test("the catch shows no movement either", async ({ page }) => {
     const user = await signInNewUser(page, "fx-motion-catch");
     try {
@@ -186,39 +236,8 @@ test("passing the 7-day review evolves Cache, with a sound and a text twin", asy
   await listenForSound(page);
   const user = await signInNewUser(page, "fx-evolve");
   try {
-    // Caught 11 days ago, then Good on time twice: 1 → 3 → 7. The 7-day step is due today.
-    await sql(
-      local,
-      `with u as (select id from auth.users where email = $1)
-       insert into catch_events (user_id, client_event_id, session_id, occurred_at, item_id, item_kind, content_hash,
-                                 answer_text, correct, confidence, phase)
-       select id, gen_random_uuid(), gen_random_uuid(), now() - interval '11 days', 'cache', 'creature',
-              '0123456789abcdef', 'To load it faster next time', true, 3, 'before-card' from u`,
-      [user.email],
-    );
-    for (const [daysAgo, before, after] of [
-      [10, 1, 3],
-      [7, 3, 7],
-    ]) {
-      await sql(
-        local,
-        `with u as (select id from auth.users where email = $1)
-         insert into review_events (user_id, client_event_id, session_id, occurred_at, item_id, item_kind, content_hash,
-                                    step_before, step_after, grade, planned_due_day, shown_at, revealed_at, graded_at)
-         select id, gen_random_uuid(), gen_random_uuid(), now() - make_interval(days => $2), 'cache', 'creature',
-                '0123456789abcdef', $3, $4, 'good', (now() - make_interval(days => $2))::date,
-                now() - make_interval(days => $2), now() - make_interval(days => $2), now() - make_interval(days => $2)
-           from u`,
-        [user.email, daysAgo, before, after],
-      );
-    }
-
-    await page.getByRole("button", { name: "3 minutes" }).click();
-    await expect(page.getByRole("heading", { name: "Review 1 of 1: Cache" })).toBeVisible();
-    await page.getByRole("button", { name: "Reveal" }).click();
-    await page.getByRole("button", { name: "Good · 14 days" }).click();
-
-    await expect(page.getByRole("heading", { name: "Cache evolved!" })).toBeFocused();
+    await sevenDayStepDueToday(user.email);
+    await passSevenDayStep(page);
     await expect(page.getByText("Stage 2 of 3")).toBeVisible();
     await expect.poll(async () => (await soundLog(page)).notes).toBeGreaterThan(0);
     const accessibility = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();

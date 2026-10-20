@@ -538,19 +538,19 @@ h2[tabindex="-1"]:focus {
 }
 
 /* UI rule 9: short effects that play once, so nothing flashes more than 3 times a second.
-   The length comes from EFFECTS in src/core/effects.ts. No effect runs when the phone asks for
-   reduced motion, or when the "Reduce effects" setting is on. */
+   The length is set inline from EFFECTS in src/core/effects.ts, the one source. No effect runs
+   when the phone asks for reduced motion, or when the "Reduce effects" setting is on. */
 .fx {
   display: inline-block;
 }
 
 @media (prefers-reduced-motion: no-preference) {
   :root:not([data-effects="reduced"]) .fx-pop {
-    animation: fx-pop 300ms ease-out 1;
+    animation: fx-pop ease-out 1;
   }
 
   :root:not([data-effects="reduced"]) .fx-flash {
-    animation: fx-flash 400ms linear 1;
+    animation: fx-flash linear 1;
   }
 }
 
