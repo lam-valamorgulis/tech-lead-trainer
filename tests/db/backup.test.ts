@@ -17,6 +17,7 @@ import { adminClient, forgetEmail, signedInUser, sql } from "./helpers";
 const KEY = parseBackupKey("q2V5LWZvci10ZXN0cy1vbmx5LTMyLWJ5dGVzLWxvbmc=");
 const daysAgo = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 const sessionId = crypto.randomUUID();
+const battleId = crypto.randomUUID();
 const base = (at: string) => ({ clientEventId: crypto.randomUUID(), sessionId, occurredAt: at });
 
 const events: LearningEvent[] = [
@@ -41,6 +42,28 @@ const events: LearningEvent[] = [
     correct: true,
     confidence: 2,
     phase: "before-card",
+  },
+  {
+    type: "battle-turn",
+    ...base(daysAgo(3)),
+    battleId,
+    scenarioId: "t01-black-friday",
+    contentHash: "0123456789abcdef",
+    turnNumber: 1,
+    moveId: "cache",
+    damage: 2,
+    bestMove: true,
+    whyText: "Because the cache serves repeat reads, the database load drops.",
+  },
+  {
+    type: "battle",
+    ...base(daysAgo(3)),
+    battleId,
+    scenarioId: "t01-black-friday",
+    contentHash: "0123456789abcdef",
+    team: ["cache", "dns"],
+    result: "won",
+    turnsUsed: 1,
   },
   ...(["good", "good", "hard"] as const).map((grade, i): LearningEvent => {
     const at = daysAgo(8 - i * 2);
@@ -107,6 +130,8 @@ describe("weekly backup and restore", () => {
     expect(Object.keys(backup.tables)).toEqual([...BACKUP_TABLES]);
     expect(backup.tables.allowed_emails).toEqual([expect.objectContaining({ email: learner.email })]);
     expect(backup.tables.review_events).toHaveLength(3);
+    expect(backup.tables.battle_turn_events).toEqual([expect.objectContaining({ best_move: true, damage: 2 })]);
+    expect(backup.tables.battle_events).toEqual([expect.objectContaining({ result: "won", team: ["cache", "dns"] })]);
     expect(backup.tables.review_state.length).toBeGreaterThan(0);
     expect(backup.tables.content_reports).toEqual([expect.objectContaining({ message: "Typo" })]);
   });
