@@ -145,15 +145,24 @@ export function allDue(states: Map<string, ReviewState>, today: LearningDay): Du
     );
 }
 
+/** Two creatures or moves that are easy to mix up (content `confusablePairs`). */
+export type ConfusablePair = [string, string];
+
 /** A review for today. `mixedWith` names the due item it was mixed in next to, before its own due day. */
 export type TodayReview = DueState & { mixedWith?: string };
+
+/** A state with a due day, so it can be reviewed early. A state whose reviews ended has none. */
+function hasDueDay(state: ReviewState | undefined): state is DueState {
+  return state !== undefined && state.dueDay !== null;
+}
 
 /**
  * Today's reviews: at most 8 a day, across all of today's sessions, oldest overdue first.
  * Items that can no longer be reviewed, for example retired content, never take a place.
  *
- * Interleaving (design 6, from Sprint 3): right after an item comes each caught confusable partner,
- * even one that is not due yet, so the learner tells the two apart. Partners use the same 8 places.
+ * Interleaving (design 6, from Sprint 3): the places go to due items first. Inside them, a due
+ * confusable partner moves right after its pair. A caught partner that is not due yet fills a place
+ * only when one is left over, right after its pair. So a partner never pushes out a due item.
  */
 export function dueReviews({
   states,
@@ -167,31 +176,38 @@ export function dueReviews({
   today: LearningDay;
   isReviewable?: (itemId: string) => boolean;
   /** Confusable pairs from the content of every town. */
-  pairs?: [string, string][];
+  pairs?: ConfusablePair[];
 }): TodayReview[] {
   const todays = reviews.filter((review) => review.learningDay === today);
   const reviewedToday = new Set(todays.map((review) => review.itemId));
   const places = Math.max(0, DAILY_REVIEW_LIMIT - todays.length);
-  const partnersOf = (id: string) => pairs.flatMap(([a, b]) => (a === id ? [b] : b === id ? [a] : []));
+  const due = allDue(states, today)
+    .filter((state) => isReviewable(state.itemId))
+    .slice(0, places);
+  const dueIds = new Set(due.map((state) => state.itemId));
+  let spare = places - due.length;
 
+  const partnersOf = (id: string) => pairs.flatMap(([a, b]) => (a === id ? [b] : b === id ? [a] : []));
   const result: TodayReview[] = [];
   const taken = new Set<string>();
   const take = (review: TodayReview) => {
     result.push(review);
     taken.add(review.itemId);
   };
-  for (const state of allDue(states, today).filter((s) => isReviewable(s.itemId))) {
-    if (result.length >= places) break;
+  for (const state of due) {
     if (taken.has(state.itemId)) continue;
     take(state);
     for (const partner of partnersOf(state.itemId)) {
-      const other = states.get(partner);
-      if (result.length >= places) break;
-      if (!other || other.dueDay === null || taken.has(partner) || reviewedToday.has(partner) || !isReviewable(partner)) {
+      if (taken.has(partner)) continue;
+      if (dueIds.has(partner)) {
+        take(due.find((s) => s.itemId === partner)!);
         continue;
       }
-      const due = other as DueState;
-      take(due.dueDay > today ? { ...due, mixedWith: state.itemId } : due);
+      const other = states.get(partner);
+      if (spare === 0 || !hasDueDay(other) || other.dueDay <= today) continue;
+      if (reviewedToday.has(partner) || !isReviewable(partner)) continue;
+      take({ ...other, mixedWith: state.itemId });
+      spare -= 1;
     }
   }
   return result;

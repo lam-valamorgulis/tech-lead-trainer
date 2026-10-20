@@ -220,6 +220,28 @@ describe("dueReviews with confusable pairs", () => {
     expect(ids(dueReviews({ states, reviews: [], today: TODAY, pairs }))).toEqual(["cache", "cookie", "proxy"]);
   });
 
+  it("never lets a partner take a place from a due item: the 8 places go to the oldest due items first", () => {
+    // 8 due items, caught on days 1 to 8. cache is the oldest. cookie, its partner, is not due yet.
+    const records = [
+      caught("cache", "2026-10-01"),
+      ...Array.from({ length: 7 }, (_, i) => caught(`item${i}`, `2026-10-0${i + 2}`)),
+      caught("cookie", TODAY),
+    ];
+    const due = dueReviews({ states: reviewStates(records, []), reviews: [], today: TODAY, pairs });
+    expect(ids(due)).toEqual(["cache", "item0", "item1", "item2", "item3", "item4", "item5", "item6"]);
+  });
+
+  it("moves a due partner up only inside today's places, never past an older due item that would drop out", () => {
+    // 9 due items, oldest first: cache, item0..item6, cookie. Only 8 fit, so cookie stays out.
+    const records = [
+      caught("cache", "2026-10-01"),
+      ...Array.from({ length: 7 }, (_, i) => caught(`item${i}`, `2026-10-0${i + 2}`)),
+      caught("cookie", "2026-10-09"),
+    ];
+    const due = dueReviews({ states: reviewStates(records, []), reviews: [], today: TODAY, pairs });
+    expect(ids(due)).toEqual(["cache", "item0", "item1", "item2", "item3", "item4", "item5", "item6"]);
+  });
+
   it("adds no partner that is not caught, already reviewed today, or past the daily limit of 8", () => {
     const one = reviewStates([caught("cache", "2026-10-09")], []);
     expect(ids(dueReviews({ states: one, reviews: [], today: TODAY, pairs }))).toEqual(["cache"]);

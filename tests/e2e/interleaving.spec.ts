@@ -29,7 +29,7 @@ test("a confusable partner is mixed into today's reviews right after its pair, w
     await page.getByRole("button", { name: /^Good/ }).click();
 
     await expect(page.getByRole("heading", { name: "Review 2 of 2: Cookie" })).toBeVisible();
-    await expect(page.getByText(/^Mixed in: easy to confuse with Cache\./)).toBeVisible();
+    await expect(page.getByText("Mixed in: easy to confuse with Cache.")).toBeVisible();
     await page.getByRole("button", { name: "Reveal" }).click();
     // An early Good keeps the due day: tomorrow.
     await expect(page.getByRole("button", { name: /^Good/ })).toContainText("1 day");

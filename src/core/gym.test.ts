@@ -49,19 +49,21 @@ describe("gymBattles", () => {
     ]);
   });
 
-  it("mixes confusable concepts: a battle that adds the other side of a pair comes in early", () => {
-    // The fixture pairs Cache with Cookie. Only the last of 7 scenarios uses Cookie, as its turn 1 best move.
+  it("prefers a battle with both sides of a pair, also when one side is a wrong move in its table", () => {
+    // This town pairs cache.ttl with cookie.http-only. Battle 1 gives cookie.http-only no row at all,
+    // so it holds only one side. The other battles list both in turn 1 (best TTL, wrong HttpOnly).
     const content = fixtureTown();
+    content.confusablePairs = [["cache.ttl", "cookie.http-only"]];
     const [scenario] = content.scenarios;
-    content.scenarios = Array.from({ length: 7 }, (_, i) => ({ ...structuredClone(scenario), id: `t99-sale-${i + 1}` }));
-    content.scenarios[6].turns[0].moves = content.scenarios[6].turns[0].moves.map((row) => ({
-      ...row,
-      damage: row.moveId === "cookie.http-only" ? 2 : 0,
-    }));
+    content.scenarios = Array.from({ length: 6 }, (_, i) => ({ ...structuredClone(scenario), id: `t99-sale-${i + 1}` }));
+    // In battle 1, HttpOnly becomes another move: No store in turn 1, TTL in turn 3 (each 0 damage).
+    content.scenarios[0].turns.forEach((turn, index) => {
+      const instead = index === 0 ? "cache.no-store" : "cache.ttl";
+      turn.moves = turn.moves.map((row) => (row.moveId === "cookie.http-only" ? { ...row, moveId: instead } : row));
+    });
     const town = buildBundle([townSchema.parse(content)]).towns[0];
     const gym = gymBattles({ town, catches: caught("cache", "cookie", "proxy"), battles: [] });
-    // Battle 7 tests both sides of the pair (Cookie in turn 1, Cache in turn 2), so it comes first.
-    expect(gym?.map((offer) => offer.scenario.id)).toEqual(["t99-sale-7", "t99-sale-1", "t99-sale-2", "t99-sale-3", "t99-sale-4"]);
+    expect(gym?.[0].scenario.id).toBe("t99-sale-2");
   });
 
   it("needs 5 ready scenarios, so a learner with too few caught creatures cannot start it yet", () => {

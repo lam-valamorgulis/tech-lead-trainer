@@ -2,9 +2,10 @@
 // The Gym is the town's final test: 5 battles in a row, and 4 wins give the town's badge.
 // It never locks the next town: the learner's town comes from the calendar only (roadmap.ts).
 import type { BundledTown } from "@/content/bundle";
-import { bestRow, creatureOf, readyOffers, type BattleOffer, type BattleRecord } from "./battle.ts";
+import { creatureOf, readyOffers, type BattleOffer, type BattleRecord } from "./battle.ts";
 import type { CatchRecord } from "./catch.ts";
 import { addDays, type LearningDay } from "./day.ts";
+import type { ConfusablePair } from "./review.ts";
 import { townStartDay } from "./roadmap.ts";
 
 export const GYM_BATTLES = 5;
@@ -39,27 +40,35 @@ export function gymBattles(input: { town: BundledTown; catches: CatchRecord[]; b
   });
 }
 
-/** The creatures and moves a battle tests: its best moves and their creatures. */
+/**
+ * The creatures and moves a battle puts in front of the learner: every move of its move tables and
+ * their creatures. A wrong move is often the confusable one, so it counts too.
+ */
 function testedItems(offer: BattleOffer): Set<string> {
-  return new Set(offer.scenario.turns.flatMap((turn) => [bestRow(turn).moveId, creatureOf(bestRow(turn).moveId)]));
+  return new Set(offer.scenario.turns.flatMap((turn) => turn.moves.flatMap((row) => [row.moveId, creatureOf(row.moveId)])));
 }
 
 /**
  * Picks the Gym's battles one at a time (design 4: the Gym mixes confusable concepts). Each pick
- * is the battle that adds the most sides of a confusable pair not in the Gym yet. A tie keeps the
- * offer order: the least played first, then file order.
+ * is the battle that completes the most confusable pairs, so both sides meet in the Gym, and then
+ * adds the most new sides. A tie keeps the offer order: the least played first, then file order.
  */
-function mixConfusables(offers: BattleOffer[], pairs: [string, string][]): BattleOffer[] {
-  const sides = new Set(pairs.flat());
+function mixConfusables(offers: BattleOffer[], pairs: ConfusablePair[]): BattleOffer[] {
+  const tested = new Map(offers.map((offer) => [offer, testedItems(offer)]));
   const covered = new Set<string>();
+  const score = (offer: BattleOffer) => {
+    const after = new Set([...covered, ...tested.get(offer)!]);
+    const pairsMet = pairs.filter(([a, b]) => after.has(a) && after.has(b)).length;
+    const newSides = pairs.flat().filter((id) => after.has(id) && !covered.has(id)).length;
+    return pairsMet * 100 + newSides;
+  };
   const left = [...offers];
   const picked: BattleOffer[] = [];
   while (picked.length < GYM_BATTLES) {
-    const gain = (offer: BattleOffer) => [...testedItems(offer)].filter((id) => sides.has(id) && !covered.has(id)).length;
-    const best = left.reduce((top, offer) => (gain(offer) > gain(top) ? offer : top));
+    const best = left.reduce((top, offer) => (score(offer) > score(top) ? offer : top));
     left.splice(left.indexOf(best), 1);
     picked.push(best);
-    for (const id of testedItems(best)) covered.add(id);
+    for (const id of tested.get(best)!) covered.add(id);
   }
   return picked;
 }
