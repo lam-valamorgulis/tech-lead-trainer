@@ -1,5 +1,5 @@
 // Battle rules (design 7, ticket #16). Pure functions: no clock, no database.
-import type { BundledScenario, BundledTown } from "@/content/bundle";
+import type { BundledCreature, BundledScenario, BundledTown } from "@/content/bundle";
 import { KEY_POINTS, type BattleTurn } from "../content/schema.ts";
 import { caughtIds, type CatchRecord } from "./catch.ts";
 import type { LearningDay } from "./day.ts";
@@ -13,8 +13,17 @@ export const MAX_TURNS = 3;
 /** What the rules need from a battle the learner started: one per battle, from its turn events. */
 export type BattleRecord = { battleId: string; scenarioId: string; learningDay: LearningDay };
 
-/** The team: `size` creatures picked from `choices`, the creatures the learner caught. */
-export type BattleOffer = { scenario: BundledScenario; team: { size: number; choices: string[] } };
+export type WorkedExample = { creatureId: string; name: string; workedExample: BundledCreature["workedExample"] };
+
+/**
+ * The team: `size` creatures picked from `choices`, the creatures the learner caught.
+ * `workedExamples` come before the battle, one per concept seen for the first time (design 7.1).
+ */
+export type BattleOffer = {
+  scenario: BundledScenario;
+  team: { size: number; choices: string[] };
+  workedExamples: WorkedExample[];
+};
 
 export type PlayedTurn = {
   turnNumber: number;
@@ -62,17 +71,62 @@ export function nextBattle({
 }): BattleOffer | null {
   if (committedMinutes === 3) return null;
   if (battles.some((battle) => battle.learningDay === today)) return null;
+  return readyOffers({ town, catches, battles })[0] ?? null;
+}
+
+/**
+ * Every scenario the learner can win today, as a battle offer, the least played first. A
+ * scenario is ready when the team can hold the creature of every best move.
+ */
+export function readyOffers({
+  town,
+  catches,
+  battles,
+}: {
+  town: BundledTown;
+  catches: CatchRecord[];
+  battles: BattleRecord[];
+}): BattleOffer[] {
   const caught = caughtIds(catches);
   // A retired creature cannot join a team, even when it was caught.
   const choices = town.creatures.filter((creature) => !creature.retired && caught.has(creature.id)).map((c) => c.id);
   const ready = town.scenarios.filter(
-    (scenario) => !scenario.retired && scenario.turns.every((turn) => choices.includes(creatureOf(bestRow(turn).moveId))),
+    (scenario) => !scenario.retired && [...conceptsOf(scenario)].every((concept) => choices.includes(concept)),
   );
   const plays = (scenario: BundledScenario) => battles.filter((battle) => battle.scenarioId === scenario.id).length;
   // A stable sort keeps file order between scenarios played equally often.
-  const [scenario] = [...ready].sort((a, b) => plays(a) - plays(b));
-  if (!scenario) return null;
-  return { scenario, team: { size: Math.min(TEAM_SIZE, choices.length), choices } };
+  return [...ready]
+    .sort((a, b) => plays(a) - plays(b))
+    .map((scenario) => ({
+      scenario,
+      team: { size: Math.min(TEAM_SIZE, choices.length), choices },
+      workedExamples: workedExamplesFor(town, scenario, catches, battles),
+    }));
+}
+
+/** The concepts a scenario uses: the creatures of its best moves. */
+function conceptsOf(scenario: BundledScenario): Set<string> {
+  return new Set(scenario.turns.map((turn) => creatureOf(bestRow(turn).moveId)));
+}
+
+/**
+ * The worked examples to show before this battle, in town order: one for each concept the
+ * learner meets in a battle for the first time. A concept already used in an earlier battle,
+ * or caught by the placement test, needs none.
+ */
+function workedExamplesFor(
+  town: BundledTown,
+  scenario: BundledScenario,
+  catches: CatchRecord[],
+  battles: BattleRecord[],
+): WorkedExample[] {
+  const played = new Set(battles.map((battle) => battle.scenarioId));
+  const met = new Set(town.scenarios.filter((s) => played.has(s.id)).flatMap((s) => [...conceptsOf(s)]));
+  const placed = new Set(catches.filter((r) => r.fromPlacement && r.correct).map((r) => r.itemId));
+  const concepts = conceptsOf(scenario);
+  return town.creatures
+    .filter((creature) => concepts.has(creature.id) && !met.has(creature.id) && !placed.has(creature.id))
+    .map((creature) => ({ creatureId: creature.id, name: creature.name, workedExample: creature.workedExample }));
 }
 
 /** Starts a battle with the picked team. Throws when the team breaks the rules. */

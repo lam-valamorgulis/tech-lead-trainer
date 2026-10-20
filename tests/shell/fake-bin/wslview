@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Fake browser opener for tests/shell/wizards.test.sh (open_url tries wslview first).
+exit 0

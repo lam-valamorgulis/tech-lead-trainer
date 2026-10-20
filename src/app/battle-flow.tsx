@@ -21,6 +21,7 @@ import type { BattleEventFields, LearningEvent } from "@/lib/events/write-events
 import { DiscussInClaude } from "./discuss-in-claude";
 import { keepAboveKeyboard } from "./keyboard";
 import { OPPONENT_LOOK } from "./opponent-look";
+import { GlossaryText } from "./glossary-text";
 
 type Step = "team" | "turn" | "result" | "check" | "end";
 
@@ -34,14 +35,20 @@ export function BattleFlow({
   offer,
   sessionId,
   onDone,
+  battleId: givenBattleId,
 }: {
   offer: BattleOffer;
   sessionId: string;
-  onDone: () => void;
+  /** Called when the learner leaves the end screen, with whether they won. */
+  onDone: (won: boolean) => void;
+  /** The battle id, when the caller needs it, as the Gym does. A new one by default. */
+  battleId?: string;
 }) {
-  const [battleId] = useState(() => crypto.randomUUID());
+  const [battleId] = useState(() => givenBattleId ?? crypto.randomUUID());
   const [battle, setBattle] = useState<BattleState | null>(null);
   const [step, setStep] = useState<Step>("team");
+  // Worked examples come first, one screen each, then they hide (design 7.1).
+  const [examplesRead, setExamplesRead] = useState(0);
   // Each turn and each self-check is saved once, even after a fast double tap.
   const played = useRef(new Set<number>());
   const checked = useRef(new Set<number>());
@@ -55,7 +62,7 @@ export function BattleFlow({
   // A new step replaces the button that was tapped, so focus moves to the new heading.
   useEffect(() => {
     heading.current?.focus();
-  }, [step, battle?.turns.length]);
+  }, [step, battle?.turns.length, examplesRead]);
 
   const battleFields = (): BattleEventFields => ({
     sessionId,
@@ -114,6 +121,41 @@ export function BattleFlow({
     setStep(battleProgress(battle).finished ? "end" : "turn");
   }
 
+  const example = offer.workedExamples[examplesRead];
+  if (!battle && example) {
+    const isLastExample = examplesRead === offer.workedExamples.length - 1;
+    return (
+      <section className="stack" aria-labelledby="example-title">
+        <h2 id="example-title" ref={heading} tabIndex={-1}>
+          Worked example: {example.name}
+        </h2>
+        <p className="lead">
+          A new concept for a battle. Read how it is solved first. Example {examplesRead + 1} of{" "}
+          {offer.workedExamples.length}.
+        </p>
+        <div className="card stack">
+          <p>
+            <strong>Problem:</strong> <GlossaryText text={example.workedExample.problem} />
+          </p>
+          <ol className="steps">
+            {/* The steps never change order, and two steps may share the same words. */}
+            {example.workedExample.steps.map((stepText, index) => (
+              <li key={index}>
+                <GlossaryText text={stepText} />
+              </li>
+            ))}
+          </ol>
+          <p>
+            <strong>Answer:</strong> <GlossaryText text={example.workedExample.answer} />
+          </p>
+        </div>
+        <button type="button" className="button-main" onClick={() => setExamplesRead(examplesRead + 1)}>
+          {isLastExample ? "Go to the battle" : "Next example"}
+        </button>
+      </section>
+    );
+  }
+
   if (!battle || step === "team") {
     return (
       <section className="stack" aria-labelledby="battle-title">
@@ -121,7 +163,9 @@ export function BattleFlow({
           A battle begins: {offer.scenario.name}
         </h2>
         <OpponentType type={offer.scenario.opponentType} />
-        <p>{offer.scenario.problem}</p>
+        <p>
+          <GlossaryText text={offer.scenario.problem} />
+        </p>
         <HitPoints hp={OPPONENT_HP} />
         <TeamForm
           offer={offer}
@@ -144,10 +188,14 @@ export function BattleFlow({
           Turn {battle.turns.length + 1} of {MAX_TURNS}
         </h2>
         <HitPoints hp={progress!.hp} />
-        {last && <p className="lead">Last turn: {resultSentence(last)}</p>}
+        {last && (
+          <p className="lead">
+            Last turn: <GlossaryText text={resultSentence(last)} />
+          </p>
+        )}
         {/* UI rule 1: the threat comes before the moves. */}
         <p className="notice">
-          <strong>Threat:</strong> {turn.threat}
+          <strong>Threat:</strong> <GlossaryText text={turn.threat} />
         </p>
         <MoveForm key={battle.turns.length} moves={usableMoves(battle)} onMove={makeMove} />
       </section>
@@ -161,7 +209,9 @@ export function BattleFlow({
           Turn {last.turnNumber} result
         </h2>
         <p className="damage">{damageLabel(last.damage)}</p>
-        <p>{resultSentence(last)}</p>
+        <p>
+          <GlossaryText text={resultSentence(last)} />
+        </p>
         <HitPoints hp={progress!.hp} />
         <button type="button" className="button-main" onClick={() => setStep("check")}>
           See the model answer
@@ -178,7 +228,9 @@ export function BattleFlow({
           Model answer
         </h2>
         <p className="lead">Your why: {whys[last.turnNumber]}</p>
-        <p>{turn.modelAnswer}</p>
+        <p>
+          <GlossaryText text={turn.modelAnswer} />
+        </p>
         <CheckForm
           key={last.turnNumber}
           keyPoints={turn.keyPoints}
@@ -199,7 +251,7 @@ export function BattleFlow({
           ? `The opponent's HP reached 0 in ${battle.turns.length} turns.`
           : `The opponent still has HP ${progress!.hp}. A lost battle is practice too.`}
       </p>
-      <DiscussInClaude battle={battle} whys={whys} ticks={ticks} eventFields={battleFields} onDone={onDone} />
+      <DiscussInClaude battle={battle} whys={whys} ticks={ticks} eventFields={battleFields} onDone={() => onDone(progress!.won)} />
     </section>
   );
 }

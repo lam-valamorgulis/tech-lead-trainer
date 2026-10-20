@@ -10,6 +10,7 @@
   --color-accent-text: #14132b;
   --color-success: #06d6a0;
   --color-error: #ff9e9e; /* 9.2:1 on --color-bg. */
+  --color-line: #6f6ba0; /* A quiet border, 3.7:1 on --color-bg (rule 11: 3:1 for UI). */
 
   /* Rule 8: pixel font for headings and short labels only. */
   --font-heading: var(--font-pixel), ui-monospace, monospace;
@@ -193,6 +194,21 @@ a.button {
   gap: 8px;
 }
 
+/* The 4 links on home stay on one line, so they never push the commit buttons off a small phone. */
+.home-nav {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.home-nav a.button {
+  align-self: stretch;
+  padding: 2px 4px;
+  font-size: 15px;
+  line-height: 1.2;
+  text-align: center;
+}
+
 /* UI rule 5: the commit buttons sit in the lower half of the screen. */
 .commit {
   margin-top: auto;
@@ -345,7 +361,7 @@ h2[tabindex="-1"]:focus {
   touch-action: manipulation;
 }
 
-.week-summary ul {
+.week-summary-numbers {
   margin: 4px 0 0;
   padding-left: 20px;
 }
@@ -401,4 +417,213 @@ h2[tabindex="-1"]:focus {
 
 .keyboard-room {
   height: 50dvh;
+}
+
+/* Map. Design 9: pixel art grows by a whole number, with no smoothing. */
+.pixel-art {
+  image-rendering: pixelated;
+}
+
+.town-map {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  /* Columns never grow to fit a label, so a label that is too long shows as a test failure. */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.town {
+  width: 100%;
+  height: 100%;
+  min-height: var(--tap-min);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.2;
+  color: var(--color-text);
+  background: transparent;
+  border: 2px solid var(--color-muted);
+  border-radius: 4px;
+  touch-action: manipulation;
+}
+
+.town-number {
+  font-family: var(--font-heading);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.town-state {
+  color: var(--color-muted);
+}
+
+.town-current {
+  border-color: var(--color-accent);
+}
+
+.town-current .town-state {
+  color: var(--color-accent);
+}
+
+.town[aria-pressed="true"] {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
+}
+
+/* The steps of a worked example. */
+.steps {
+  margin: 0;
+  padding-left: 24px;
+}
+
+/* Glossary: a hard word is a quiet button inside the text. Its definition opens in a popover. */
+/* A word inside a sentence cannot be 44 px tall (UI rule 6) without breaking the line. The
+   ::after area makes the tap target taller without moving the text. */
+.glossary-term {
+  position: relative;
+  display: inline;
+  min-height: 0;
+  min-width: 0;
+  font: inherit;
+  line-height: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-decoration: underline dotted;
+  text-underline-offset: 4px;
+  touch-action: manipulation;
+  cursor: help;
+}
+
+/* Wide enough for a short word such as "TLD". */
+.glossary-term::after {
+  content: "";
+  position: absolute;
+  inset: -10px -8px;
+}
+
+.glossary-popover {
+  max-width: min(90vw, 360px);
+  padding: var(--space);
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 2px solid var(--color-accent);
+  border-radius: 4px;
+  font-size: var(--text-body);
+}
+
+/* Hidden until opened, also on a browser that ignores the popover attribute. */
+.glossary-popover {
+  display: none;
+}
+
+.glossary-popover:popover-open {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Without popover support (before iOS 17), the definition opens under the text. Its own rule,
+   because an old browser drops a whole rule with a selector it does not know. */
+.glossary-popover[data-open] {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.glossary-popover::backdrop {
+  background: rgb(0 0 0 / 0.5);
+}
+
+/* Badges on the map. The medal is decoration; the text names the town and the day. */
+.badge-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Tracking (ticket #30): one long screen that scrolls. Sections stack with space between. */
+.tracking {
+  gap: calc(var(--space) * 1.5);
+}
+
+.tracking-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+/* The learning calendar: 7 equal columns that fit a 375 px wide phone. */
+.calendar {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 4px;
+  text-align: center;
+  font-size: 15px;
+}
+
+.calendar th {
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+.calendar td {
+  height: 40px;
+  border-radius: 4px;
+}
+
+.calendar-not-learned {
+  color: var(--color-muted);
+  border: 1px solid var(--color-line);
+}
+
+/* A learned day: a dot and a green border, never colour alone (UI rule 4). */
+.calendar-learned {
+  border: 2px solid var(--color-success);
+}
+
+.calendar-mark {
+  display: block;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--color-success);
+}
+
+.later-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.later-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* A long goal breaks inside its line, so it never pushes the Remove button off the screen. */
+.later-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.tracking [role="alert"]:empty,
+.tracking [role="status"]:empty {
+  margin: 0;
 }

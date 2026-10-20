@@ -123,7 +123,8 @@ describe("the review state cache", () => {
     // Two devices save at the same time. Device A read the log before device B's review was saved.
     const before = await stateOf(user.client);
     const { data: stale } = await user.client.from("review_state").select("*").eq("item_id", "cache").single();
-    await post(token, [reviewEvent("cache", daysAgo(1), "good", 7, 14)]);
+    // cache is due tomorrow, so this is an early review. An early Again still changes the state.
+    await post(token, [reviewEvent("cache", daysAgo(1), "again", 7, 3)]);
     const newer = await stateOf(user.client);
     expect(newer).not.toEqual(before);
 

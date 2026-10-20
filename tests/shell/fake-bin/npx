@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Fake npx for tests/shell/wizards.test.sh: the Supabase, Vercel and web-push CLIs.
+#   FAKE_VERCEL_NAMES          names that `vercel env ls` shows for Production
+#   FAKE_VERCEL_READY_ON_CALL  from this call on, all 4 reminder names show (a human added them)
+#   FAKE_VERCEL_ENV            the environments column (default Production)
+#   FAKE_VAULT_WRITE           ok (default) or fail
+# FAKE_STATE is a folder where the fakes remember things between calls.
+all_names="VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT REMINDER_CRON_SECRET"
+case "$*" in
+  *"web-push generate-vapid-keys --json"*)
+    echo '{"publicKey":"BFakePublicKey0001","privateKey":"FakePrivateKey0001"}' ;;
+  *"env ls --environment production"*)
+    calls=$(( $(cat "$FAKE_STATE/vercel-calls" 2>/dev/null || echo 0) + 1 ))
+    echo "$calls" > "$FAKE_STATE/vercel-calls"
+    names="${FAKE_VERCEL_NAMES:-}"
+    if [[ -n "${FAKE_VERCEL_READY_ON_CALL:-}" ]] && (( calls >= FAKE_VERCEL_READY_ON_CALL )); then
+      names="$all_names"
+    fi
+    echo " name                 value      type      environments   created"
+    for name in $names; do echo " $name   Hidden     Secret    ${FAKE_VERCEL_ENV:-Production}     1m ago"; done ;;
+  *"supabase unlink"*) ;;
+  *"supabase db query"*"--file"*)
+    if [[ "${FAKE_VAULT_WRITE:-ok}" != "ok" ]]; then echo "error: permission denied" >&2; exit 1; fi
+    touch "$FAKE_STATE/vault" ;;
+  *"supabase db query"*"vault.secrets"*)
+    if [[ -f "$FAKE_STATE/vault" ]]; then
+      echo '{"rows":[{"name":"reminders_notify_url"},{"name":"reminders_cron_secret"}]}'
+    else
+      echo '{"rows":[]}'
+    fi ;;
+  *"supabase db query"*"jobname = 'reminders-notify'"*) echo '{"rows":[{"jobname":"reminders-notify"}]}' ;;
+  *"supabase db query"*) echo '{"rows":[]}' ;;
+  *"supabase projects api-keys"*) echo '[{"name":"default","api_key":"sb_secret_FakeKey0001"}]' ;;
+  *) echo "fake npx: unexpected call: $*" >&2; exit 2 ;;
+esac

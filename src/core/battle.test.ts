@@ -49,11 +49,9 @@ describe("nextBattle", () => {
   });
 
   it("offers the scenario played the fewest times, and file order breaks a tie", () => {
-    const content = fixtureTown();
-    content.scenarios.push({ ...structuredClone(content.scenarios[0]), id: "t99-flash-sale" });
-    const twoScenarios = buildBundle([townSchema.parse(content)]).towns[0];
+    // The fixture has 5 scenarios: t99-sale-day first, then t99-flash-sale, and three more.
     const offer = (battles: BattleRecord[]) =>
-      nextBattle({ town: twoScenarios, catches: caught("cache", "proxy"), battles, today: TODAY, committedMinutes: 15 })
+      nextBattle({ town: town(), catches: caught("cache", "proxy"), battles, today: TODAY, committedMinutes: 15 })
         ?.scenario.id;
 
     expect(offer([])).toBe("t99-sale-day");
@@ -63,7 +61,7 @@ describe("nextBattle", () => {
         { battleId: "b1", scenarioId: "t99-sale-day", learningDay: "2026-10-18" },
         { battleId: "b2", scenarioId: "t99-flash-sale", learningDay: "2026-10-19" },
       ]),
-    ).toBe("t99-sale-day");
+    ).toBe("t99-holiday-rush");
   });
 
   it("offers nothing when a best move belongs to a retired creature, which no team can hold", () => {
@@ -75,7 +73,7 @@ describe("nextBattle", () => {
 
   it("never offers a retired scenario", () => {
     const content = fixtureTown();
-    Object.assign(content.scenarios[0], { retired: true });
+    for (const scenario of content.scenarios) Object.assign(scenario, { retired: true });
     const retired = buildBundle([townSchema.parse(content)]).towns[0];
     expect(nextBattle({ town: retired, catches: caught("cache", "proxy"), battles: [], today: TODAY, committedMinutes: 15 })).toBeNull();
   });
@@ -317,5 +315,38 @@ describe("the best-move rate", () => {
   it("reads as a share of turns, never as wins", () => {
     expect(formatBestMoveRate({ bestMoves: 2, turns: 3 })).toBe("67% (2 of 3 turns)");
     expect(formatBestMoveRate({ bestMoves: 0, turns: 0 })).toBe("no battle turns yet");
+  });
+});
+
+describe("worked examples before a battle", () => {
+  const offer = (catches: CatchRecord[], battles: BattleRecord[] = []) =>
+    nextBattle({ town: town(), catches, battles, today: TODAY, committedMinutes: 15 })!;
+  const exampleIds = (catches: CatchRecord[], battles: BattleRecord[] = []) =>
+    offer(catches, battles).workedExamples.map((example) => example.creatureId);
+
+  it("come first in the first battle that uses a concept: the creatures of its best moves, in town order", () => {
+    expect(exampleIds(caught("cache", "cookie", "proxy"))).toEqual(["cache", "proxy"]);
+    expect(offer(caught("cache", "proxy")).workedExamples[0]).toEqual({
+      creatureId: "cache",
+      name: "Cache",
+      workedExample: {
+        problem: "The product page loads slowly for every visitor.",
+        steps: ["Find the parts that change rarely.", "Let the browser cache them for one hour."],
+        answer: "Cache the logo and the styles. Keep the price fresh.",
+      },
+    });
+  });
+
+  it("are shown once per concept: a later battle that uses the same concepts has none", () => {
+    const played: BattleRecord[] = [{ battleId: "b1", scenarioId: "t99-sale-day", learningDay: "2026-10-19" }];
+    expect(exampleIds(caught("cache", "cookie", "proxy"), played)).toEqual([]);
+  });
+
+  it("are skipped for a concept the placement test caught", () => {
+    const placed: CatchRecord[] = [
+      { itemId: "cache", correct: true, learningDay: "2026-10-18", fromPlacement: true },
+      ...caught("proxy"),
+    ];
+    expect(exampleIds(placed)).toEqual(["proxy"]);
   });
 });

@@ -1,3 +1,5 @@
+import type { ConfusablePair } from "@/core/review";
+import { currentTownNumber, townToPlay } from "@/core/roadmap";
 import type { Creature, CreatureOf } from "../core/week.ts";
 import type { BundledTown, ContentBundle } from "./bundle.ts";
 import type { Card } from "./schema.ts";
@@ -10,14 +12,23 @@ const bundle = (process.env.NEXT_PUBLIC_CONTENT_SET === "fixture" ? fixture : ge
 
 export const towns: BundledTown[] = bundle.towns.filter((town) => !town.retired);
 
+/** Pairs of creatures or moves that are easy to mix up, from every town (design 6). */
+export const confusablePairs: ConfusablePair[] = bundle.towns.flatMap((town) => town.confusablePairs);
+
+/** Hard words with a simple definition, shown on tap (design 2). */
+export const glossary = bundle.glossary;
+
 /** A town by its id, as used in links such as /placement/t01. */
 export function getTown(id: string): BundledTown | undefined {
   return towns.find((town) => town.id === id);
 }
 
-/** The town a learner is in. Every learner starts at town 1; the map ticket moves them on. */
-export function currentTown(): BundledTown | undefined {
-  return towns.find((town) => town.number === 1);
+/**
+ * The town a learner plays today: the town of their own month (design 4), or the last earlier
+ * town with content when theirs is not ready yet.
+ */
+export function currentTown(programStartDate: string, today: string): BundledTown | undefined {
+  return townToPlay(towns, currentTownNumber(programStartDate, today));
 }
 
 export type ReviewItem = {

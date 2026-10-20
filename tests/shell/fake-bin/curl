@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Fake curl for tests/shell/wizards.test.sh. It plays the live app:
+#   FAKE_APP_HOST     the only address that exists (default: the production address)
+#   FAKE_PUBLIC_KEY   the key /api/reminders/key shows; empty means {"publicKey":null}
+#   FAKE_CRON_SECRET  the secret the notify endpoint takes; empty means 503 (no settings)
+url="" write="" method="GET" header_from_stdin=0 fail_on_error=0
+while (($#)); do
+  case "$1" in
+    -w) write="$2"; shift ;;
+    -o | --max-time) shift ;;
+    -X) method="$2"; shift ;;
+    -H) [[ "$2" == "@-" ]] && header_from_stdin=1; shift ;;
+    -fsS) fail_on_error=1 ;;
+    -s) ;;
+    http*) url="$1" ;;
+    *) echo "fake curl: unexpected argument $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+host="${FAKE_APP_HOST:-https://tech-lead-trainer.vercel.app}"
+status=404
+body="Not found"
+if [[ "$url" == "$host/api/reminders/key" ]]; then
+  status=200
+  if [[ -n "${FAKE_PUBLIC_KEY:-}" ]]; then body="{\"publicKey\":\"$FAKE_PUBLIC_KEY\"}"; else body='{"publicKey":null}'; fi
+elif [[ "$url" == "$host/api/reminders/notify" && "$method" == "POST" ]]; then
+  header=""
+  if (( header_from_stdin )); then header=$(cat); fi
+  if [[ -z "${FAKE_CRON_SECRET:-}" ]]; then status=503
+  elif [[ "$header" == "authorization: Bearer $FAKE_CRON_SECRET" ]]; then status=200
+  else status=401
+  fi
+  body="{}"
+fi
+if [[ "$write" == *http_code* ]]; then printf '%s' "$status"; exit 0; fi
+if (( fail_on_error && status >= 400 )); then
+  echo "curl: (22) The requested URL returned error: $status" >&2
+  exit 22
+fi
+printf '%s' "$body"

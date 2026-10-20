@@ -32,6 +32,9 @@ async function fakeClipboard(page: Page, mode: "keep" | "deny") {
 /** Plays and wins "Sale day", ticking key points 1 and 3 on turn 1 and none on turn 2. */
 async function winSaleDay(page: Page) {
   await page.getByRole("button", { name: "15 minutes" }).click();
+  // The first battle with Cache and Proxy starts with their two worked examples.
+  await page.getByRole("button", { name: "Next example" }).click();
+  await page.getByRole("button", { name: "Go to the battle" }).click();
   await expect(page.getByRole("heading", { name: "A battle begins: Sale day" })).toBeVisible();
   for (const creature of ["Cache", "Cookie", "Proxy"]) await page.getByLabel(creature).check();
   await page.getByRole("button", { name: "Start the battle" }).click();

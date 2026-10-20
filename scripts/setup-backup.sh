@@ -193,6 +193,73 @@ SUPABASE_PROJECT_REF="hvavvhzxbifqnufmrucl"
 PRODUCTION_SUPABASE_URL="https://$SUPABASE_PROJECT_REF.supabase.co"
 GITHUB_ACCOUNT="lam-valamorgulis"
 REPO="lam-valamorgulis/tech-lead-trainer"
+BACKUP_SECRET_NAMES=(PRODUCTION_SUPABASE_URL PRODUCTION_SUPABASE_SECRET_KEY BACKUP_ENCRYPTION_KEY)
+# Seconds between two looks for the new backup run (12 looks). Tests set it to 0.
+POLL_SECONDS="${WIZARD_POLL_SECONDS:-5}"
+# Each required stage stays until its check passes, or you type skip (#76).
+# shellcheck source=lib/wizard-checks.sh
+source scripts/lib/wizard-checks.sh
+
+# store_github_secrets sets the 3 secrets, then checks that GitHub lists all 3.
+store_github_secrets() {
+  local name failed=0
+  for name in "${BACKUP_SECRET_NAMES[@]}"; do
+    if printf '%s' "${!name}" | gh secret set "$name" >/dev/null 2>&1; then
+      printf '  %s✓ set%s GitHub secret %s\n' "$GREEN" "$RESET" "$name"
+    else
+      warn "gh could not set the GitHub secret $name."
+      failed=1
+    fi
+  done
+  (( failed == 0 )) && check_github_secret_names "${BACKUP_SECRET_NAMES[@]}"
+}
+
+# run_first_backup starts the backup job once, finds its run and watches it.
+# When no run shows up yet, the next try looks again instead of starting a second run.
+BACKUP_STARTED=""
+run_first_backup() {
+  local run_id="" look
+  if [[ -z "$BACKUP_STARTED" ]]; then
+    BACKUP_STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    if ! gh workflow run backup.yml --ref main >/dev/null 2>&1; then
+      BACKUP_STARTED=""
+      warn "GitHub did not start backup.yml on main. Is Sprint 2 shipped to main?"
+      return 1
+    fi
+    say "Started. Waiting for GitHub to show the run…"
+  fi
+  for look in 1 2 3 4 5 6 7 8 9 10 11 12; do
+    # Only a manual run that started after the start above, never an older run.
+    run_id=$(gh run list --workflow backup.yml --event workflow_dispatch --limit 5 --json databaseId,createdAt \
+      --jq "[.[] | select(.createdAt >= \"$BACKUP_STARTED\")][0].databaseId // empty" 2>/dev/null || true)
+    [[ -n "$run_id" ]] && break
+    if (( look < 12 )); then sleep "$POLL_SECONDS"; fi
+  done
+  if [[ -z "$run_id" ]]; then
+    warn "GitHub shows no new run yet. Look at: https://github.com/$REPO/actions/workflows/backup.yml"
+    return 1
+  fi
+  if gh run watch "$run_id" --exit-status; then
+    return 0
+  fi
+  BACKUP_STARTED=""
+  warn "The backup run failed. Open it: gh run view $run_id --log-failed"
+  note "The next try starts a new run."
+  return 1
+}
+
+# run_restore_check opens the newest backup in a new empty database on this Mac.
+run_restore_check() {
+  if ! personal_git fetch origin backups; then
+    warn "git could not fetch the backups branch."
+    return 1
+  fi
+  if ! npm run backup:restore-check; then
+    warn "The restore test did not pass. Read its output above."
+    note "Is local Supabase running? Start it with: npm run db:start"
+    return 1
+  fi
+}
 
 TOTAL_STAGES=5
 
@@ -281,50 +348,26 @@ pause
 # ── 4 ──────────────────────────────────────────────────────────────────────
 stage "Store the 3 GitHub secrets"
 say "Only the weekly backup job reads them. GitHub never shows a secret again."
-set_secret PRODUCTION_SUPABASE_URL "$PRODUCTION_SUPABASE_URL"
-set_secret PRODUCTION_SUPABASE_SECRET_KEY "$PRODUCTION_SUPABASE_SECRET_KEY"
-set_secret BACKUP_ENCRYPTION_KEY "$BACKUP_ENCRYPTION_KEY"
+if require "Store the 3 GitHub secrets: ${BACKUP_SECRET_NAMES[*]}" store_github_secrets; then
+  printf '  %s✓%s GitHub lists all 3 secrets\n' "$GREEN" "$RESET"
+fi
 unset PRODUCTION_SUPABASE_SECRET_KEY
-say "Secrets on GitHub now:"
-gh secret list | grep -E '^(PRODUCTION_SUPABASE_URL|PRODUCTION_SUPABASE_SECRET_KEY|BACKUP_ENCRYPTION_KEY)\b' || warn "Could not list the secrets."
 pause
 
 # ── 5 ──────────────────────────────────────────────────────────────────────
-stage "First backup and the restore test (after the ship)"
-say "The job runs only after Sprint 2 is on main, and production has the backups table."
-if confirm "Is Sprint 2 shipped? Start the first backup now?"; then
-  started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-  gh workflow run backup.yml --ref main
-  say "Started. Waiting for GitHub to show the run…"
-  RUN_ID=""
-  for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
-    sleep 5
-    # Only a manual run that started after the click above, never an older run.
-    RUN_ID=$(gh run list --workflow backup.yml --event workflow_dispatch --limit 5 --json databaseId,createdAt \
-      --jq "[.[] | select(.createdAt >= \"$started\")][0].databaseId // empty")
-    [[ -n "$RUN_ID" ]] && break
-  done
-  if [[ -z "$RUN_ID" ]]; then
-    warn "GitHub shows no new run yet. Look at: https://github.com/$REPO/actions/workflows/backup.yml"
-    SKIPPED+=("Watch the first backup run, then run this wizard again for the restore test")
-  elif gh run watch "$RUN_ID" --exit-status; then
-    printf '  %s✓%s the first backup is stored\n' "$GREEN" "$RESET"
-    say "Now the one real restore test, into a new empty database on this Mac."
-    note "Local Supabase must run (npm run db:start). The shared local data is not touched."
-    personal_git fetch origin backups
-    if npm run backup:restore-check; then
-      printf '  %s✓%s restore test passed\n' "$GREEN" "$RESET"
-    else
-      SKIPPED+=("The restore test did not pass. Read its output, then run: npm run backup:restore-check")
-    fi
-  else
-    warn "The backup run failed. Open it: gh run view $RUN_ID --log-failed"
-    SKIPPED+=("Fix the failed backup run $RUN_ID, then run this wizard again")
+stage "First backup and the restore test"
+say "The job runs from main. Sprint 2 is on main, so production has the backups table."
+if require "Run the first backup: https://github.com/$REPO/actions/workflows/backup.yml" run_first_backup; then
+  printf '  %s✓%s the first backup is stored\n' "$GREEN" "$RESET"
+  say "Now the one real restore test, into a new empty database on this Mac."
+  note "Local Supabase must run (npm run db:start). The shared local data is not touched."
+  if require "Pass the restore test: npm run backup:restore-check" run_restore_check; then
+    printf '  %s✓%s restore test passed\n' "$GREEN" "$RESET"
   fi
 else
-  SKIPPED+=("After the ship: run this wizard again and answer y at the last stage")
+  SKIPPED+=("Run the restore test after the first backup: npm run backup:restore-check")
 fi
 
-finish
+finish_or_fail
 say "Settings in the app shows \"Last backup: <date>\" after the first backup."
 printf '\n'

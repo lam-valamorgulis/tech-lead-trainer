@@ -8,7 +8,7 @@ export default function FieldGuidePage() {
   return (
     <main className="shell">
       <h1>Field Guide</h1>
-      <AuthGate>{() => <FieldGuideScreen />}</AuthGate>
+      <AuthGate>{({ profile }) => <FieldGuideScreen programStartDate={profile.programStartDate} />}</AuthGate>
       <Link href="/" className="button button-quiet back">
         Back
       </Link>

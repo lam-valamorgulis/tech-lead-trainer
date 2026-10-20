@@ -138,6 +138,21 @@ export const battleTeachBackEventSchema = z.object({
   secondSentence: teachBackSentence,
 });
 
+/** The end of a Gym: its town, its battles, the wins, and whether it gave the badge. */
+export const gymEventSchema = z
+  .object({
+    type: z.literal("gym"),
+    ...base,
+    gymId: z.uuid(),
+    townId: z.string().regex(/^t\d{2}$/),
+    battleIds: z.array(z.uuid()).min(1).max(5),
+    wins: z.int().min(0).max(5),
+    passed: z.boolean(),
+  })
+  .refine((gym) => gym.wins <= gym.battleIds.length && gym.passed === gym.wins >= 4, {
+    message: "A Gym gives the badge exactly when it has 4 wins.",
+  });
+
 export const eventSchema = z.discriminatedUnion("type", [
   sessionEventSchema,
   catchEventSchema,
@@ -148,6 +163,7 @@ export const eventSchema = z.discriminatedUnion("type", [
   battleCheckEventSchema,
   battleDiscussEventSchema,
   battleTeachBackEventSchema,
+  gymEventSchema,
 ]);
 export const eventBatchSchema = z.object({ events: z.array(eventSchema).min(1).max(100) });
 
@@ -162,6 +178,7 @@ export type BattleDiscussEvent = z.infer<typeof battleDiscussEventSchema>;
 /** The fields every event of one battle shares. */
 export type BattleEventFields = Pick<BattleTurnEvent, "sessionId" | "occurredAt" | "battleId" | "scenarioId" | "contentHash">;
 export type BattleTeachBackEvent = z.infer<typeof battleTeachBackEventSchema>;
+export type GymEvent = z.infer<typeof gymEventSchema>;
 export type LearningEvent = z.infer<typeof eventSchema>;
 
 const TABLES = {
@@ -174,6 +191,7 @@ const TABLES = {
   "battle-check": "battle_check_events",
   "battle-discuss": "battle_discuss_events",
   "battle-teach-back": "battle_teach_back_events",
+  gym: "gym_events",
 } as const satisfies Record<LearningEvent["type"], string>;
 
 /** Every event table. "Download my data" exports each one. */
@@ -292,6 +310,17 @@ function toRow(event: LearningEvent) {
         item_ids: event.itemIds,
         first_sentence: event.firstSentence,
         second_sentence: event.secondSentence,
+      };
+    case "gym":
+      return {
+        client_event_id: event.clientEventId,
+        session_id: event.sessionId,
+        occurred_at: event.occurredAt,
+        gym_id: event.gymId,
+        town_id: event.townId,
+        battle_ids: event.battleIds,
+        wins: event.wins,
+        passed: event.passed,
       };
   }
 }

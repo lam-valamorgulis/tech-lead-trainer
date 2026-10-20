@@ -8,6 +8,7 @@ import { PlanForm } from "../plan-form";
 import type { SignedIn } from "../auth-gate";
 import { LastBackup } from "./last-backup";
 import { RemindersSection } from "./reminders-section";
+import { formatDay } from "../format-day";
 
 export function SettingsScreen({ userId, email, profile, setProfile }: SignedIn) {
   const [error, setError] = useState<string | null>(null);
@@ -75,16 +76,6 @@ export function SettingsScreen({ userId, email, profile, setProfile }: SignedIn)
       </Link>
     </div>
   );
-}
-
-function formatDay(isoDate: string): string {
-  // Noon UTC keeps the date the same in every time zone.
-  return new Date(`${isoDate}T12:00:00Z`).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
 }
 
 type DownloadStatus =
