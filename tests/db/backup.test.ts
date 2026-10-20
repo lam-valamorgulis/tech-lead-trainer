@@ -138,6 +138,18 @@ describe("weekly backup and restore", () => {
       .from("reminders")
       .insert({ user_id: learner.id, learning_day: daysAgo(1).slice(0, 10), kind: "morning", delivered: 1 });
     if (reminder.error) throw reminder.error;
+    const summary = await adminClient().from("weekly_summaries").insert({
+      user_id: learner.id,
+      week_start: "2026-10-12",
+      summary_at: "2026-10-18T13:00:00Z",
+      days_learned: 3,
+      minutes: 50,
+      goal_minutes: 315,
+      best_moves: 2,
+      best_move_turns: 3,
+      weakest_creatures: [{ id: "cache", name: "Cache" }],
+    });
+    if (summary.error) throw summary.error;
     // The learner moves home after the events. A restore must keep each event's own learning day.
     await sql("update public.profiles set home_time_zone = 'America/Los_Angeles' where user_id = $1", [learner.id]);
 
@@ -168,6 +180,9 @@ describe("weekly backup and restore", () => {
     ]);
     expect(backup.tables.review_state.length).toBeGreaterThan(0);
     expect(backup.tables.content_reports).toEqual([expect.objectContaining({ message: "Typo" })]);
+    expect(backup.tables.weekly_summaries).toEqual([
+      expect.objectContaining({ week_start: "2026-10-12", minutes: 50, weakest_creatures: [{ id: "cache", name: "Cache" }] }),
+    ]);
   });
 
   it("restores the sealed file into an empty database with the same rows and review state", async () => {
@@ -206,6 +221,23 @@ describe("weekly backup and restore", () => {
       [learner.id],
     );
     expect(Number(next.rows[0].id)).toBeGreaterThan(Number(backup.tables.content_reports[0].id));
+  });
+
+  it("restores an older file that has no table added after it was written", async () => {
+    const older = `restore_seam_b_old_${crypto.randomUUID().slice(0, 8)}`;
+    const db = new pg.Client({ connectionString: createEmptyDatabase(older) });
+    await db.connect();
+    try {
+      // A file from before ticket #23 has no weekly_summaries key.
+      const tables: Partial<Backup["tables"]> = { ...backup.tables };
+      delete tables.weekly_summaries;
+      const report = await restoreBackup(db, { ...backup, tables } as Backup);
+      expect(report.rows.weekly_summaries).toBe(0);
+      expect(report.rows.review_events).toBe(backup.tables.review_events.length);
+    } finally {
+      await db.end();
+      dropDatabase(older);
+    }
   });
 
   it("refuses a database that already has data, and changes nothing", async () => {

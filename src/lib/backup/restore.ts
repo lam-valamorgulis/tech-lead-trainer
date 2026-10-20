@@ -156,7 +156,8 @@ export async function restoreBackup(db: Database, backup: Backup): Promise<Resto
     await db.query(INSERT_USERS, [JSON.stringify(backup.users)]);
     await db.query(INSERT_IDENTITIES, [JSON.stringify(backup.users)]);
     for (const table of BACKUP_TABLES) {
-      if (table !== "review_state") await insertRows(db, table, backup.tables[table]);
+      // A file written before a table existed has no rows for it, for example weekly_summaries (#23).
+      if (table !== "review_state") await insertRows(db, table, backup.tables[table] ?? []);
     }
 
     const reviewStateDifferences: string[] = [];

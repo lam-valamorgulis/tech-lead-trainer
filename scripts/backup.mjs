@@ -53,7 +53,7 @@ function productionClient() {
 }
 
 function rowCounts(backup) {
-  return BACKUP_TABLES.map((table) => `${table} ${backup.tables[table].length}`).join(", ");
+  return BACKUP_TABLES.map((table) => `${table} ${(backup.tables[table] ?? []).length}`).join(", ");
 }
 
 async function create(out) {
@@ -119,11 +119,11 @@ async function restoreCheck(file, keep) {
     console.log(`Restored into the empty local database ${database}.`);
     console.log("table               | in file | restored");
     for (const table of BACKUP_TABLES) {
-      const same = report.rows[table] === backup.tables[table].length;
-      console.log(`${table.padEnd(19)} | ${String(backup.tables[table].length).padStart(7)} | ${String(report.rows[table]).padStart(8)}${same ? "" : "  DIFFERENT"}`);
+      const same = report.rows[table] === (backup.tables[table] ?? []).length;
+      console.log(`${table.padEnd(19)} | ${String((backup.tables[table] ?? []).length).padStart(7)} | ${String(report.rows[table]).padStart(8)}${same ? "" : "  DIFFERENT"}`);
     }
     for (const line of report.reviewStateDifferences) console.log(`review_state difference: ${line}`);
-    ok = BACKUP_TABLES.every((table) => report.rows[table] === backup.tables[table].length) && report.reviewStateDifferences.length === 0;
+    ok = BACKUP_TABLES.every((table) => report.rows[table] === (backup.tables[table] ?? []).length) && report.reviewStateDifferences.length === 0;
     console.log(ok ? "PASS: every row is back and the rebuilt review state is the same." : "FAIL: see the lines above.");
   } finally {
     await db.end();
