@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Fake clipboard for tests/shell/wizards.test.sh.
+cat > /dev/null

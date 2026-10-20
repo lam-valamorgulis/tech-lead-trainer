@@ -91,6 +91,8 @@ Until the four reminder variables above are set, reminders stay off. Settings sh
 
 Run `scripts/setup-reminders.sh` once, after Sprint 2 ships. It makes the push keys and the cron secret, puts them in Vercel and Supabase Vault, and checks the endpoint. No secret is written to a file.
 
+Each required stage checks its result and stays until the check passes. Type `skip` to go on without it. Then the wizard ends with "Setup is NOT complete", lists what is not done, and exits with an error. `scripts/setup-backup.sh` works the same way.
+
 ## Monthly content review
 
 Before each monthly content review, list every open "Report wrong" from the live app:
@@ -121,13 +123,13 @@ Seam C runs the app with `NEXT_PUBLIC_CONTENT_SET=fixture`: the small fixture to
 
 Seams B and C read the URL and keys from `supabase status`, not from env files. They stop with an error if the URL is not `127.0.0.1` or `localhost`. Seam C reads the sign-in code from Mailpit.
 
-Other checks: `npm run typecheck`, `npm run lint`, `npm run content:check`. How to add content: `content/README.md`.
+Other checks: `npm run typecheck`, `npm run lint`, `npm run content:check`, and `npm run test:shell` (the setup wizards, run against fake CLIs in `tests/shell/fake-bin`). How to add content: `content/README.md`.
 
 ## CI
 
 Every pull request runs these steps in order:
 
 1. Content check, typecheck and lint
-2. Seam A
+2. Seam A, then the shell tests of the setup wizards
 3. Local Supabase, then build (the build needs the local URL and key)
 4. Seam B, then seam C
