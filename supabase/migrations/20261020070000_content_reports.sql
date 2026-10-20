@@ -25,3 +25,8 @@ create policy "Owner can change own reports" on public.content_reports
   for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 create policy "Owner can delete own reports" on public.content_reports
   for delete to authenticated using ((select auth.uid()) = user_id);
+
+-- The policies follow the table pattern. The grants decide what a learner may change:
+-- only the note. The owner marks a report done with the server key (the review list, #29).
+revoke update, delete, truncate on public.content_reports from anon, authenticated;
+grant update (message) on public.content_reports to authenticated;

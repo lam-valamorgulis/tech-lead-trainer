@@ -129,7 +129,6 @@ function ReviewCard({
           <div className="card">
             <p>{item.review.answer}</p>
           </div>
-          <ReportWrong itemId={item.id} contentHash={item.hash} screen="review" />
           <fieldset className="choices grades">
             <legend>How well did you know it?</legend>
             {GRADES.map(({ grade: choice, label }) => {
@@ -144,6 +143,8 @@ function ReviewCard({
           </fieldset>
         </>
       )}
+      {/* Before or after Reveal: the question can be wrong too. */}
+      <ReportWrong itemId={item.id} contentHash={item.hash} screen="review" />
     </section>
   );
 }

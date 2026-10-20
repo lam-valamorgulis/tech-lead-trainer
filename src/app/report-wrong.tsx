@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { addReportNote, reportWrong, type ReportScreen } from "@/lib/report";
 import { browserClient } from "@/lib/supabase/browser";
 
@@ -12,14 +12,25 @@ type State =
 export function ReportWrong({ itemId, contentHash, screen }: { itemId: string; contentHash: string; screen: ReportScreen }) {
   const [state, setState] = useState<State>({ name: "idle" });
   const [note, setNote] = useState("");
+  // One report per tap, even after a fast double tap.
+  const sent = useRef(false);
+  const thanks = useRef<HTMLParagraphElement>(null);
+  const saved = state.name === "saved";
+
+  // The tapped button is replaced, so focus moves to the thank-you line.
+  useEffect(() => {
+    if (saved) thanks.current?.focus();
+  }, [saved]);
 
   async function report() {
-    if (state.name === "saving" || state.name === "saved") return;
+    if (sent.current) return;
+    sent.current = true;
     setState({ name: "saving" });
     try {
       const id = await reportWrong(browserClient(), { itemId, contentHash, screen });
       setState({ name: "saved", id, note: "none" });
     } catch {
+      sent.current = false;
       setState({ name: "failed" });
     }
   }
@@ -51,7 +62,9 @@ export function ReportWrong({ itemId, contentHash, screen }: { itemId: string; c
 
   return (
     <div className="report stack">
-      <p role="status">Thanks. The report is saved.</p>
+      <p role="status" ref={thanks} tabIndex={-1}>
+        Thanks. The report is saved.
+      </p>
       {state.note === "added" ? (
         <p role="status" className="lead">
           Note added.

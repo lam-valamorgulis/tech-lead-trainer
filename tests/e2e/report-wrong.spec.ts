@@ -21,7 +21,7 @@ test("one tap on Report wrong saves a report from a card, and a short note is op
     await page.getByRole("button", { name: "Read the card" }).click();
 
     await page.getByRole("button", { name: "Report wrong" }).click();
-    await expect(page.getByText("Thanks. The report is saved.")).toBeVisible();
+    await expect(page.getByText("Thanks. The report is saved.")).toBeFocused();
     await expect.poll(() => reportsOf(user.email)).toEqual([
       { item_id: "cache", screen: "catch-card", message: null, status: "open" },
     ]);
@@ -50,7 +50,7 @@ test("a review has a Report wrong button too", async ({ page }) => {
     );
     await page.reload();
     await page.getByRole("button", { name: "3 minutes" }).click();
-    await page.getByRole("button", { name: "Reveal" }).click();
+    // The question itself can be wrong, so the button is there before Reveal.
     await page.getByRole("button", { name: "Report wrong" }).click();
     await expect(page.getByText("Thanks. The report is saved.")).toBeVisible();
     await expect.poll(() => reportsOf(user.email)).toEqual([

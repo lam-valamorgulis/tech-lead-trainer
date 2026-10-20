@@ -43,6 +43,17 @@ describe("content reports", () => {
     expect(changed.data).toEqual([]);
   });
 
+  it("let the learner add a note, but not mark a report done, change it or delete it", async () => {
+    const id = await reportWrong(a.client, { itemId: "cache", contentHash: "0123456789abcdef", screen: "review" });
+    const done = await a.client.from("content_reports").update({ status: "done" }).eq("id", id);
+    expect(done.error?.code).toBe("42501");
+    const moved = await a.client.from("content_reports").update({ item_id: "cookie" }).eq("id", id);
+    expect(moved.error?.code).toBe("42501");
+    const deleted = await a.client.from("content_reports").delete().eq("id", id);
+    expect(deleted.error?.code).toBe("42501");
+    await addReportNote(a.client, id, "Still allowed.");
+  });
+
   it("refuse a screen that does not exist", async () => {
     await expect(reportWrong(a.client, { itemId: "cache", contentHash: "0123456789abcdef", screen: "nowhere" as "review" })).rejects.toThrow();
   });
