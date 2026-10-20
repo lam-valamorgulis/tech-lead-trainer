@@ -8,12 +8,11 @@ import { placementProgress } from "@/core/placement";
 import { currentLearningDay, formatRate, loadThirtyDayRate } from "@/lib/learning-log";
 import { loadPlacementRecords } from "@/lib/placement-log";
 import { browserClient } from "@/lib/supabase/browser";
-import type { SignedIn } from "./auth-gate";
 import { SessionScreen, type CommittedMinutes } from "./session-screen";
 
 const CHOICES: CommittedMinutes[] = [3, 15, 45];
 
-export function HomeScreen({ email }: SignedIn) {
+export function HomeScreen() {
   const [session, setSession] = useState<CommittedMinutes | null>(null);
   const [rate, setRate] = useState<ThirtyDayRate | null>(null);
   const [rateFailed, setRateFailed] = useState(false);
@@ -41,17 +40,11 @@ export function HomeScreen({ email }: SignedIn) {
           Learned <strong>{rate ? formatRate(rate) : "…"}</strong>
           {rateFailed && " (could not load)"}
         </p>
-        <p className="lead">Signed in as {email}</p>
         {placementTown && (
-          <div className="notice stack">
-            <p>
-              Before {placementTown.name}: answer {placementTown.questions} short questions. What you already know is
-              caught at once.
-            </p>
-            <Link href={`/placement/${placementTown.id}`} className="button button-quiet">
-              Take the placement test
-            </Link>
-          </div>
+          <p className="notice">
+            <Link href={`/placement/${placementTown.id}`}>Take the placement test</Link> ({placementTown.questions}{" "}
+            questions) before {placementTown.name}.
+          </p>
         )}
         <nav className="row" aria-label="More">
           <Link href="/field-guide" className="button button-quiet">

@@ -25,11 +25,12 @@ test("an allowed email signs in with the 6-digit code from the email", async ({ 
     await page.getByLabel("6-digit code").fill(codeFrom(await waitForMail(local.mailUrl, email)));
     await page.getByRole("button", { name: "Sign in" }).click();
 
-    await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
     await expect(page.getByText("Today I commit to:")).toBeVisible();
 
     // The session stays after the app is closed and opened again.
     await page.reload();
+    await expect(page.getByText("Today I commit to:")).toBeVisible();
+    await page.getByRole("link", { name: "Settings" }).click();
     await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
   } finally {
     await forgetEmail(local, email);

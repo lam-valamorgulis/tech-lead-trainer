@@ -14,6 +14,6 @@ export async function signInNewUser(page: Page, label: string): Promise<{ email:
   await page.getByRole("button", { name: "Send code" }).click();
   await page.getByLabel("6-digit code").fill(codeFrom(await waitForMail(local.mailUrl, email)));
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
+  await expect(page.getByText("Today I commit to:")).toBeVisible();
   return { email, forget: () => forgetEmail(local, email) };
 }

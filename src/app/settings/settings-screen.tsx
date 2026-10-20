@@ -6,7 +6,7 @@ import { fetchMyData, saveFile, shareFile, usesShareSheet } from "@/lib/download
 import { browserClient } from "@/lib/supabase/browser";
 import type { SignedIn } from "../auth-gate";
 
-export function SettingsScreen({ userId, profile, setProfile }: SignedIn) {
+export function SettingsScreen({ userId, email, profile, setProfile }: SignedIn) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const phoneTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -53,6 +53,7 @@ export function SettingsScreen({ userId, profile, setProfile }: SignedIn) {
         <h2 id="program-title">Program</h2>
         <p>Day 1 of your program: {formatDay(profile.programStartDate)}</p>
       </section>
+      <p className="lead">Signed in as {email}</p>
       <button type="button" className="button-quiet" onClick={() => void browserClient().auth.signOut()}>
         Sign out
       </button>
