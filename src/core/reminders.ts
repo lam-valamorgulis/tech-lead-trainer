@@ -1,5 +1,5 @@
 // Reminder rules (design 2 and 12.4). Pure functions: no clock, no database.
-import { addDays, isLearnedDay, learningDay, type LearningDay } from "./day";
+import { addDays, dayNumber, isLearnedDay, learningDay, type LearningDay } from "./day";
 
 const MINUTE_MS = 60 * 1000;
 const DAY_MINUTES = 24 * 60;
@@ -80,17 +80,16 @@ export function reminderToSend(
   day: LearningDay,
   activeSeconds: ReadonlyMap<LearningDay, number>,
 ): ReminderMessage | null {
-  const learned = (count: number) => isLearnedDay(activeSeconds.get(addDays(day, count)) ?? 0);
-  if (kind === "evening" && learned(0)) return null;
+  const learnedDaysAgo = (days: number) => isLearnedDay(activeSeconds.get(addDays(day, -days)) ?? 0);
+  if (kind === "evening" && learnedDaysAgo(0)) return null;
   // Never miss twice (design 2): exactly one missed day, yesterday, after a learned day.
   // After a longer break the normal text comes, and home opens on the Rest Stop.
-  const body = kind === "morning" && !learned(-1) && learned(-2) ? STRONGER_MORNING : rotatingText(kind, day);
+  const body = kind === "morning" && !learnedDaysAgo(1) && learnedDaysAgo(2) ? STRONGER_MORNING : rotatingText(kind, day);
   return { title: "Tech Lead Trainer", body, url: "/" };
 }
 
 /** The style for this learning day: the next style each day, in a fixed cycle. */
 function rotatingText(kind: ReminderKind, day: LearningDay): string {
   const texts = TEXTS[kind];
-  const dayNumber = Math.floor(Date.parse(`${day}T00:00:00Z`) / (DAY_MINUTES * MINUTE_MS));
-  return texts[dayNumber % texts.length];
+  return texts[dayNumber(day) % texts.length];
 }

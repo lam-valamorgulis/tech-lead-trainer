@@ -85,7 +85,7 @@ The app needs these environment variables. Set them in Vercel for the live proje
 
 ## Reminders
 
-`pg_cron` calls `POST /api/reminders/notify` every 5 minutes. The app decides for each user, in the home time zone, whether the morning reminder is due. It sends at most one per user, learning day and kind.
+`pg_cron` calls `POST /api/reminders/notify` every 5 minutes. The app decides for each user, in the home time zone, whether the morning or the evening reminder is due. The evening one comes only when that learning day has less than 180 active seconds. After exactly one missed day, the morning text is a little stronger. The normal texts rotate among 3 styles. It sends at most one per user, learning day and kind.
 
 Until the four reminder variables above are set, reminders stay off. Settings shows "Reminders are not set up yet." and nothing fails.
 
