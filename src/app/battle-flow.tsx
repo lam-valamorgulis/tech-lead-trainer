@@ -16,9 +16,11 @@ import {
   type BattleOffer,
   type BattleState,
 } from "@/core/battle";
+import { soundForDamage } from "@/core/effects";
 import { postEvents } from "@/lib/events/post-events";
 import type { BattleEventFields, LearningEvent } from "@/lib/events/write-events";
 import { DiscussInClaude } from "./discuss-in-claude";
+import { Fx } from "./effects";
 import { keepAboveKeyboard } from "./keyboard";
 import { OPPONENT_LOOK } from "./opponent-look";
 import { GlossaryText } from "./glossary-text";
@@ -208,11 +210,16 @@ export function BattleFlow({
         <h2 id="result-title" ref={heading} tabIndex={-1}>
           Turn {last.turnNumber} result
         </h2>
-        <p className="damage">{damageLabel(last.damage)}</p>
+        {/* UI rule 10: the damage words are the twin of the hit sound. */}
+        <p className="damage">
+          <Fx effect="pop" sound={soundForDamage(last.damage)}>
+            {damageLabel(last.damage)}
+          </Fx>
+        </p>
         <p>
           <GlossaryText text={resultSentence(last)} />
         </p>
-        <HitPoints hp={progress!.hp} />
+        <HitPoints hp={progress!.hp} flash={last.damage > 0} />
         <button type="button" className="button-main" onClick={() => setStep("check")}>
           See the model answer
         </button>
@@ -244,7 +251,14 @@ export function BattleFlow({
   return (
     <section className="stack" aria-labelledby="end-title">
       <h2 id="end-title" ref={heading} tabIndex={-1}>
-        {progress!.won ? "You won!" : "You lost this time"}
+        {/* A loss gets a soft sound and no movement. */}
+        {progress!.won ? (
+          <Fx effect="pop" sound="win">
+            You won!
+          </Fx>
+        ) : (
+          <Fx sound="lose">You lost this time</Fx>
+        )}
       </h2>
       <p>
         {progress!.won
@@ -309,11 +323,12 @@ function OpponentType({ type }: { type: BattleOffer["scenario"]["opponentType"] 
   );
 }
 
-function HitPoints({ hp }: { hp: number }) {
+/** `flash` lights the hearts up once, right after a move hit (UI rule 9). */
+function HitPoints({ hp, flash = false }: { hp: number; flash?: boolean }) {
+  const hearts = <span aria-hidden="true">{"♥".repeat(hp) + "♡".repeat(OPPONENT_HP - hp)}</span>;
   return (
     <p>
-      Opponent HP {hp} of {OPPONENT_HP}{" "}
-      <span aria-hidden="true">{"♥".repeat(hp) + "♡".repeat(OPPONENT_HP - hp)}</span>
+      Opponent HP {hp} of {OPPONENT_HP} {flash ? <Fx effect="flash">{hearts}</Fx> : hearts}
     </p>
   );
 }

@@ -15,6 +15,7 @@ import type { SignedIn } from "./auth-gate";
 import { PlanForm } from "./plan-form";
 import { RestStop } from "./rest-stop";
 import { SessionScreen, type CommittedMinutes } from "./session-screen";
+import { startSound } from "./sound";
 import { WeeklySummaryCard } from "./weekly-summary";
 import { badges, gymIsOpen } from "@/core/gym";
 import { currentTownNumber } from "@/core/roadmap";
@@ -47,7 +48,9 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
     };
   }, [session]);
 
+  /** Runs inside the commit tap, the only place where iPhone Safari lets audio start. */
   function startSession(minutes: CommittedMinutes) {
+    startSound();
     // The status changes once the session counts, so home loads it again afterwards.
     setStatus(null);
     setRateFailed(false);

@@ -5,6 +5,7 @@ import { checkCatchAnswer, type CatchAnswer, type CatchItem } from "@/core/catch
 import { postEvents } from "@/lib/events/post-events";
 import type { CatchEvent } from "@/lib/events/write-events";
 import { CONFIDENCE, type Confidence } from "./confidence";
+import { Fx } from "./effects";
 import { ReportWrong } from "./report-wrong";
 import { GlossaryText } from "./glossary-text";
 
@@ -84,7 +85,9 @@ export function CatchFlow({
   if (phase.name === "feedback") {
     return (
       <section className="stack" aria-labelledby="feedback-title">
-        <h2 id="feedback-title" ref={heading} tabIndex={-1}>{phase.answer.correct ? `You caught ${item.name}!` : "Not yet"}</h2>
+        <h2 id="feedback-title" ref={heading} tabIndex={-1}>
+          {phase.answer.correct ? <Caught name={item.name} /> : "Not yet"}
+        </h2>
         <p>
           {phase.answer.correct
             ? phase.answer.explanation
@@ -120,7 +123,9 @@ export function CatchFlow({
 
   return (
     <section className="stack" aria-labelledby="result-title">
-      <h2 id="result-title" ref={heading} tabIndex={-1}>{phase.caught ? `You caught ${item.name}!` : "Not this time"}</h2>
+      <h2 id="result-title" ref={heading} tabIndex={-1}>
+        {phase.caught ? <Caught name={item.name} /> : "Not this time"}
+      </h2>
       <p>
         {phase.caught
           ? phase.answer.explanation
@@ -130,6 +135,15 @@ export function CatchFlow({
         Continue
       </button>
     </section>
+  );
+}
+
+/** The heading of a catch, with its sound and a short pop (UI rules 9 and 10). */
+function Caught({ name }: { name: string }) {
+  return (
+    <Fx effect="pop" sound="catch">
+      You caught {name}!
+    </Fx>
   );
 }
 

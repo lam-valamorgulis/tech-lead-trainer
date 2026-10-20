@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { ensureProfile, type Profile } from "@/lib/profile";
 import { browserClient } from "@/lib/supabase/browser";
+import { useEffectSettings } from "./effects";
 import { SignInForm } from "./sign-in-form";
 
 export type SignedIn = {
@@ -62,6 +63,8 @@ export function AuthGate({ children }: { children: (signedIn: SignedIn) => React
       data.subscription.unsubscribe();
     };
   }, []);
+
+  useEffectSettings(state.name === "signed-in" ? state.profile : null);
 
   if (state.name === "loading") return <p className="lead">Loading…</p>;
   if (state.name === "signed-out") return <SignInForm />;
