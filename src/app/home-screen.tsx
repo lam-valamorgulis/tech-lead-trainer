@@ -3,15 +3,15 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { currentTown } from "@/content";
-import type { ThirtyDayRate } from "@/core/day";
 import { placementProgress } from "@/core/placement";
 import { learningDay } from "@/core/day";
 import { needsPlan, planSentence } from "@/core/plan";
-import { currentLearningDay, formatRate, loadThirtyDayRate } from "@/lib/learning-log";
+import { currentLearningDay, formatRate, loadLearningStatus, type LearningStatus } from "@/lib/learning-log";
 import { loadPlacementRecords } from "@/lib/placement-log";
 import { browserClient } from "@/lib/supabase/browser";
 import type { SignedIn } from "./auth-gate";
 import { PlanForm } from "./plan-form";
+import { RestStop } from "./rest-stop";
 import { SessionScreen, type CommittedMinutes } from "./session-screen";
 
 const CHOICES: CommittedMinutes[] = [3, 15, 45];
@@ -19,20 +19,28 @@ const CHOICES: CommittedMinutes[] = [3, 15, 45];
 export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
   const [planLater, setPlanLater] = usePlanLater(learningDay(new Date(), profile.homeTimeZone, profile.dayCutoffHour));
   const [session, setSession] = useState<CommittedMinutes | null>(null);
-  const [rate, setRate] = useState<ThirtyDayRate | null>(null);
+  const [status, setStatus] = useState<LearningStatus | null>(null);
   const [rateFailed, setRateFailed] = useState(false);
+  const [allChoices, setAllChoices] = useState(false);
   const placementTown = usePlacementTown();
+  const rate = status?.rate;
 
   useEffect(() => {
     if (session !== null) return;
     let cancelled = false;
-    loadThirtyDayRate(browserClient())
-      .then((value) => !cancelled && setRate(value))
+    loadLearningStatus(browserClient())
+      .then((value) => !cancelled && setStatus(value))
       .catch(() => !cancelled && setRateFailed(true));
     return () => {
       cancelled = true;
     };
   }, [session]);
+
+  function startSession(minutes: CommittedMinutes) {
+    // The status changes once the session counts, so load it again afterwards.
+    setStatus(null);
+    setSession(minutes);
+  }
 
   if (needsPlan(profile) && !planLater) {
     return (
@@ -79,20 +87,27 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
         </nav>
       </div>
 
-      <section className="commit" aria-labelledby="commit-title">
-        {profile.ifThenPlan && (
-          <div className="plan-lines">
-            <p className="lead">{planSentence(profile.ifThenPlan)}</p>
-            <p className="lead">{profile.tiredDayPlan}</p>
-          </div>
-        )}
-        <h2 id="commit-title">Today I commit to:</h2>
-        {CHOICES.map((minutes) => (
-          <button key={minutes} type="button" className="button-main" onClick={() => setSession(minutes)}>
-            {minutes} minutes
-          </button>
-        ))}
-      </section>
+      {status?.restStop && !allChoices ? (
+        <RestStop onStart={() => startSession(3)} onShowChoices={() => setAllChoices(true)} />
+      ) : (
+        // Wait for the status, so a returning learner does not see the choices jump to the Rest Stop.
+        (status || rateFailed) && (
+          <section className="commit" aria-labelledby="commit-title">
+            {profile.ifThenPlan && (
+              <div className="plan-lines">
+                <p className="lead">{planSentence(profile.ifThenPlan)}</p>
+                <p className="lead">{profile.tiredDayPlan}</p>
+              </div>
+            )}
+            <h2 id="commit-title">Today I commit to:</h2>
+            {CHOICES.map((minutes) => (
+              <button key={minutes} type="button" className="button-main" onClick={() => startSession(minutes)}>
+                {minutes} minutes
+              </button>
+            ))}
+          </section>
+        )
+      )}
     </>
   );
 }
