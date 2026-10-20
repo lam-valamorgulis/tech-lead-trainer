@@ -14,7 +14,7 @@ type Deps = {
 };
 
 /**
- * Sends a 6-digit sign-in code, but only to an email on the allow list.
+ * Sends a sign-in code of `SIGN_IN_CODE_LENGTH` digits, but only to an email on the allow list.
  * An email that is not on the list gets the same "sent" answer and no code,
  * so the answer never tells a stranger who is on the list.
  */

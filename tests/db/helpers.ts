@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { inject } from "vitest";
+import { sampleSignInCode } from "@/lib/auth/code-length";
 import {
   adminClientFor,
   allowEmailIn,
@@ -28,14 +29,10 @@ export const forgetEmail = (email: string) => forgetEmailIn(local(), email);
 export const sql = <Row extends Record<string, unknown>>(text: string, values: unknown[] = []) =>
   sqlIn<Row>(local(), text, values);
 
-/** A real 6-digit code for an existing account, from the admin API. No email is sent. */
-export async function codeFor(email: string): Promise<string> {
-  const link = await adminClient().auth.admin.generateLink({ type: "magiclink", email });
-  if (link.error) throw link.error;
-  return link.data.properties.email_otp;
-}
+/** A real sign-in code for an existing account, from the admin API. No email is sent. */
+export const codeFor = (email: string) => sampleSignInCode(adminClient(), email);
 
-/** Creates an allowed user and signs them in with a real 6-digit code. */
+/** Creates an allowed user and signs them in with a real sign-in code. */
 export async function signedInUser(label: string): Promise<{ id: string; email: string; client: SupabaseClient }> {
   const email = testEmail(label);
   await allowEmail(email);

@@ -300,6 +300,13 @@ else
   warn "Could not confirm the allow list. Add the email in the Supabase SQL editor."
 fi
 npx supabase unlink >/dev/null 2>&1 || true
+# The app's screen takes 6 digits. A live project that sends 8 locks everyone out (#56).
+if npm run -s check:live-code; then
+  :
+else
+  SKIPPED+=("Fix the problem printed by the code check, then run: npm run check:live-code")
+  warn "The live sign-in code check failed. Read its message just above."
+fi
 pause
 
 # ── 8 ──────────────────────────────────────────────────────────────────────
