@@ -118,7 +118,7 @@ export function BattleFlow({
 
   const example = offer.workedExamples[examplesRead];
   if (!battle && example) {
-    const last = examplesRead === offer.workedExamples.length - 1;
+    const isLastExample = examplesRead === offer.workedExamples.length - 1;
     return (
       <section className="stack" aria-labelledby="example-title">
         <h2 id="example-title" ref={heading} tabIndex={-1}>
@@ -133,8 +133,9 @@ export function BattleFlow({
             <strong>Problem:</strong> {example.workedExample.problem}
           </p>
           <ol className="steps">
-            {example.workedExample.steps.map((stepText) => (
-              <li key={stepText}>{stepText}</li>
+            {/* The steps never change order, and two steps may share the same words. */}
+            {example.workedExample.steps.map((stepText, index) => (
+              <li key={index}>{stepText}</li>
             ))}
           </ol>
           <p>
@@ -142,7 +143,7 @@ export function BattleFlow({
           </p>
         </div>
         <button type="button" className="button-main" onClick={() => setExamplesRead(examplesRead + 1)}>
-          {last ? "Go to the battle" : "Next example"}
+          {isLastExample ? "Go to the battle" : "Next example"}
         </button>
       </section>
     );

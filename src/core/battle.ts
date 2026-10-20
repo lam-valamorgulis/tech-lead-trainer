@@ -75,7 +75,7 @@ export function nextBattle({
   // A retired creature cannot join a team, even when it was caught.
   const choices = town.creatures.filter((creature) => !creature.retired && caught.has(creature.id)).map((c) => c.id);
   const ready = town.scenarios.filter(
-    (scenario) => !scenario.retired && scenario.turns.every((turn) => choices.includes(creatureOf(bestRow(turn).moveId))),
+    (scenario) => !scenario.retired && [...conceptsOf(scenario)].every((concept) => choices.includes(concept)),
   );
   const plays = (scenario: BundledScenario) => battles.filter((battle) => battle.scenarioId === scenario.id).length;
   // A stable sort keeps file order between scenarios played equally often.
