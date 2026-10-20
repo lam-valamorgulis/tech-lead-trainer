@@ -22,9 +22,9 @@ Give the writer agent these rules:
 
 - Run one reviewer agent per about 5 creatures. Each reviewer fetches every cited page and checks each card, catch question and review answer against it.
 - A finding must quote the page. In town 1, one finding said "503 is for temporary conditions" was not on the page, and it was. Before you change content for a finding with no quote, check the page yourself.
-- Fix the findings. Then the PR merges on green CI (see "Content tickets" in `docs/agents/factory.md`).
+- Fix every finding before the merge.
 
 ## The readable PR view
 
-- Post the full content in PR comments, so it reads well on a phone: one folded section per creature, and a ✓ on the right choice.
+- Post the full content in PR comments, so the owner can read it on a phone. Use one folded section per creature, and mark the right choice with ✓.
 - A GitHub comment holds at most 65,536 characters. Town 1 needed 2 comments of about 37,000 characters each. Split by creature.

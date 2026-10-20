@@ -2,7 +2,7 @@
 
 ## Source of truth
 
-`docs/design-v1.4.md` is the confirmed design (in Vietnamese, with numbered sections). It wins over spec #1 and every ticket. When they disagree, say so in the PR; a one-way gap follows step 6 below. One exception: in design section 16, the owner waits on one-way doors, content review and "ship". On 2026-10-20 the owner replaced those rows with the factory rules below and in `docs/agents/factory.md`. Research notes are in `research/`.
+`docs/design-v1.4.md` is the confirmed design (in Vietnamese, with numbered sections). It wins over spec #1 and every ticket. When they disagree, say so in the PR; a one-way gap follows step 6 below. One exception: design sections 16 and 17 still have agents wait for the owner on one-way doors, content review and "ship". On 2026-10-20 the owner replaced those rows with the factory rules below and in `docs/agents/factory.md`. Research notes are in `research/`.
 
 ## Factory rules
 
@@ -13,7 +13,7 @@ The owner does not hand-code. Each `/implement` run builds exactly one ticket, a
 3. **Build** test-first at the spec's seams: A (game rules core), B (local Supabase), C (Playwright, iPhone and Desktop Chrome). Development and tests use local Supabase only.
 4. **Gate:** typecheck, lint and every test seam are green, and `/code-review` against `sprint-N` is clean after fixes.
 5. **PR** into `sprint-N`, with the body written by `/pr` in simple English (B1 level, at most 20 words per sentence) and a 2-minute check the owner can run on an iPhone. Squash-merge when CI is green, then close the ticket.
-6. **Doors:** a one-way door (data model, IDs, game rules, the guard rules in design section 14) does not wait. Pick the safer default, build it, and write the choice in the PR body under "Choices made". A two-way door (UI detail, copy, spacing) goes into the PR with a note.
+6. **Doors:** a one-way door (data model, IDs, game rules, the guard rules in design section 14) does not wait. Pick the safer default, meaning the choice that is easiest to undo and keeps every learner's data. Build it, and write the choice in the PR body under "Choices made". A two-way door (UI detail, copy, spacing) goes into the PR with a note.
 7. **Secrets and human-only setup** go through `/wizard`. Secret values live only in git-ignored env files and in GitHub or Vercel secrets.
 
 Picking the next ticket, content tickets, shipping a sprint and the monthly content cadence: see `docs/agents/factory.md`.
