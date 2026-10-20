@@ -12,7 +12,7 @@ import { loadWeeklySummary } from "@/lib/load-weekly-summary";
  */
 export function WeeklySummaryCard() {
   const summary = useWeeklySummary();
-  if (!summary) return null;
+  if (!summary || summary === "failed") return null;
   return (
     <details className="notice week-summary">
       <summary>Week summary: {formatWeek(summary.weekStart)}</summary>
@@ -35,16 +35,17 @@ export function WeeklySummaryNumbers({ summary }: { summary: StoredWeeklySummary
 }
 
 /**
- * The last Sunday summary: undefined while it loads, null when there is none or it cannot load.
+ * The last Sunday summary: undefined while it loads, null when that week had no learning,
+ * and "failed" when it cannot load.
  */
-export function useWeeklySummary(): StoredWeeklySummary | null | undefined {
-  const [summary, setSummary] = useState<StoredWeeklySummary | null | undefined>(undefined);
+export function useWeeklySummary(): StoredWeeklySummary | null | "failed" | undefined {
+  const [summary, setSummary] = useState<StoredWeeklySummary | null | "failed" | undefined>(undefined);
   useEffect(() => {
     let cancelled = false;
     loadWeeklySummary()
       // Next keeps this screen's state when you leave and come back, so "none" is set too.
       .then((value) => !cancelled && setSummary(value))
-      .catch(() => !cancelled && setSummary(null));
+      .catch(() => !cancelled && setSummary("failed"));
     return () => {
       cancelled = true;
     };

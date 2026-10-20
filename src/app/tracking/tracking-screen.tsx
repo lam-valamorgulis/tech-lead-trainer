@@ -107,6 +107,8 @@ export function TrackingScreen() {
         <h2 id="summary-title">Last weekly summary</h2>
         {summary === undefined ? (
           <p className="lead">Loading…</p>
+        ) : summary === "failed" ? (
+          <p className="error">We could not load the weekly summary. Check your connection.</p>
         ) : summary === null ? (
           <p className="lead">No weekly summary yet. It comes on Sunday at 20:00, after a week with learning.</p>
         ) : (

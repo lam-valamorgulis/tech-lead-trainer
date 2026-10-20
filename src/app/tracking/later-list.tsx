@@ -35,7 +35,7 @@ export function LaterList() {
     setError("");
     try {
       const goal = await addLaterGoal(browserClient(), text);
-      setGoals([...list, goal]);
+      setGoals((now) => (Array.isArray(now) ? [...now, goal] : now));
       setText("");
     } catch {
       setError("We could not park this goal. Try again.");
@@ -49,7 +49,7 @@ export function LaterList() {
     setError("");
     try {
       await removeLaterGoal(browserClient(), goal.id);
-      setGoals(list.filter((g) => g.id !== goal.id));
+      setGoals((now) => (Array.isArray(now) ? now.filter((g) => g.id !== goal.id) : now));
     } catch {
       setError("We could not remove this goal. Try again.");
     } finally {
