@@ -29,16 +29,36 @@ export function WeekendScreen({ townId }: { townId: string }) {
   );
 }
 
-const EMPTY_DOC: Omit<DesignDoc, "diagram"> = { problem: "", options: "", decision: "", tradeOffs: "", risks: "" };
+const EMPTY_DOC: Omit<DesignDoc, "diagram"> = {
+  problem: "",
+  options: "",
+  decision: "",
+  tradeOffs: "",
+  risks: "",
+};
 
 function BossDoc({ documentKey, boss }: { documentKey: string; boss: Boss }) {
-  const { value: doc, failed, saveState, change } = useAutosaved<DesignDoc>(
+  const {
+    value: doc,
+    failed,
+    saveState,
+    change,
+  } = useAutosaved<DesignDoc>(
     documentKey,
     // A new doc starts from the boss's diagram starter.
-    async () => (await loadDesignDoc(browserClient(), documentKey)) ?? { ...EMPTY_DOC, diagram: boss.mermaidStarter },
+    async () =>
+      (await loadDesignDoc(browserClient(), documentKey)) ?? {
+        ...EMPTY_DOC,
+        diagram: boss.mermaidStarter,
+      },
     (next) => saveDesignDoc(browserClient(), documentKey, next),
   );
-  if (failed) return <p role="alert" className="error">We could not load your design doc. Check your connection.</p>;
+  if (failed)
+    return (
+      <p role="alert" className="error">
+        We could not load your design doc. Check your connection.
+      </p>
+    );
   if (!doc) return <p className="lead">Loading…</p>;
   return (
     <div className="stack">
@@ -52,7 +72,7 @@ function BossDoc({ documentKey, boss }: { documentKey: string; boss: Boss }) {
         <DocEditor doc={doc} saveState={saveState} onChange={change} />
         <MermaidPreview source={doc.diagram} />
       </div>
-      <ColleagueRead documentKey={documentKey} />
+      <ColleagueRead documentKey={documentKey} saveDocument={() => saveDesignDoc(browserClient(), documentKey, doc)} />
       <DiscussDoc text={() => designDocPackage({ boss, doc })} />
       {boss.modelAnswer && (
         <details className="card">
@@ -64,17 +84,35 @@ function BossDoc({ documentKey, boss }: { documentKey: string; boss: Boss }) {
   );
 }
 
-function DocEditor({ doc, saveState, onChange }: { doc: DesignDoc; saveState: SaveState; onChange: (doc: DesignDoc) => void }) {
+function DocEditor({
+  doc,
+  saveState,
+  onChange,
+}: {
+  doc: DesignDoc;
+  saveState: SaveState;
+  onChange: (doc: DesignDoc) => void;
+}) {
   return (
     <section className="stack" aria-label="Design doc">
       {DESIGN_DOC_SECTIONS.map(({ key, title, hint }) => (
         <DocField key={key} id={`doc-${key}`} title={title} hint={hint}>
           {(props) => (
-            <textarea {...props} rows={4} maxLength={20000} value={doc[key]} onChange={(event) => onChange({ ...doc, [key]: event.target.value })} />
+            <textarea
+              {...props}
+              rows={4}
+              maxLength={20000}
+              value={doc[key]}
+              onChange={(event) => onChange({ ...doc, [key]: event.target.value })}
+            />
           )}
         </DocField>
       ))}
-      <DocField id="doc-diagram" title="Mermaid diagram" hint="A drawing made from a few lines of text. The preview draws it.">
+      <DocField
+        id="doc-diagram"
+        title="Mermaid diagram"
+        hint="A drawing made from a few lines of text. The preview draws it."
+      >
         {(props) => (
           <textarea
             {...props}
@@ -123,7 +161,12 @@ function loadMermaid() {
   mermaidReady ??= import("mermaid").then(({ default: mermaid }) => {
     // Strict: the learner's text can never run a script in the drawing. A failed drawing adds
     // no error box to the page; the preview says what is wrong in plain words.
-    mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "dark", suppressErrorRendering: true });
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "strict",
+      theme: "dark",
+      suppressErrorRendering: true,
+    });
     return mermaid;
   });
   return mermaidReady;
@@ -165,7 +208,11 @@ function MermaidPreview({ source }: { source: string }) {
         </p>
       )}
       {/* The last good drawing stays while a change has a mistake. Mermaid's strict mode cleans the SVG. */}
-      {svg ? <div className="diagram" dangerouslySetInnerHTML={{ __html: svg }} /> : !problem && <p className="lead">Drawing…</p>}
+      {svg ? (
+        <div className="diagram" dangerouslySetInnerHTML={{ __html: svg }} />
+      ) : (
+        !problem && <p className="lead">Drawing…</p>
+      )}
     </section>
   );
 }

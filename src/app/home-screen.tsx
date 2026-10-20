@@ -114,22 +114,6 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
           <br />
           This week: <strong>{status ? formatWeekMinutes(status.weekMinutes) : "…"}</strong>
         </p>
-        {adrTown && (
-          <div className="notice row">
-            <Link href={`/weekend/${adrTown}/adr`} className="button button-quiet">
-              Check your ADR
-            </Link>
-            <span className="lead">Your check date has come: what really happened after your decision?</span>
-          </div>
-        )}
-        {gymTown && (
-          <div className="notice row">
-            <Link href={`/gym/${gymTown.id}`} className="button button-quiet">
-              Enter the Gym
-            </Link>
-            <span className="lead">The Gym of {gymTown.name} is open: win 4 of 5 for the badge</span>
-          </div>
-        )}
         {placementTown && (
           <div className="notice row">
             <Link href={`/placement/${placementTown.id}`} className="button button-quiet">
@@ -159,7 +143,23 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
       </div>
 
       {choices}
-      {/* Below the choices: it loads late, and must never move or push down the commit buttons. */}
+      {/* Below the choices: these load late, and must never move or push down the commit buttons. */}
+      {adrTown && (
+        <div className="notice row">
+          <Link href={`/weekend/${adrTown}/adr`} className="button button-quiet">
+            Check your ADR
+          </Link>
+          <span className="lead">Your check date has come: what really happened after your decision?</span>
+        </div>
+      )}
+      {gymTown && (
+        <div className="notice row">
+          <Link href={`/gym/${gymTown.id}`} className="button button-quiet">
+            Enter the Gym
+          </Link>
+          <span className="lead">The Gym of {gymTown.name} is open: win 4 of 5 for the badge</span>
+        </div>
+      )}
       <WeeklySummaryCard />
     </>
   );

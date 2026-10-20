@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { activeSecondsByDay, addDays, type LearningDay } from "@/core/day";
 import { adrReminderDue, adrReminderMessage } from "@/core/adr";
+import { townOfDocument } from "@/lib/weekend-doc";
 import { reminderDue, reminderToSend, type ReminderKind, type ReminderMessage } from "@/core/reminders";
 import { toSnapshot, type SnapshotRow } from "@/lib/learning-log";
 import { selectAll } from "@/lib/select-all";
@@ -132,7 +133,7 @@ async function adrToCheck(admin: SupabaseClient, userId: string, day: LearningDa
   const due = data.find((row) =>
     adrReminderDue([{ outcomeCheckDate: row.outcome_check_date, outcome: String(row.sections.outcome ?? "") }], day),
   );
-  return due ? due.document_key.slice(0, 3) : null;
+  return due ? townOfDocument(due.document_key) : null;
 }
 
 /**

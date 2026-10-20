@@ -6,5 +6,5 @@ import { AdrScreen } from "./adr-screen";
 
 export function AdrFromUrl() {
   const { town } = useParams<{ town: string }>();
-  return <AuthGate>{() => <AdrScreen townId={town} />}</AuthGate>;
+  return <AuthGate>{({ profile }) => <AdrScreen townId={town} profile={profile} />}</AuthGate>;
 }

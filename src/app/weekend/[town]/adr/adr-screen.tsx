@@ -12,7 +12,9 @@ import {
   type AdrSectionKey,
   type AdrStatus,
 } from "@/core/adr";
+import { learningDay } from "@/core/day";
 import { currentLearningDay } from "@/lib/learning-log";
+import type { Profile } from "@/lib/profile";
 import { browserClient } from "@/lib/supabase/browser";
 import { loadAdr, saveAdr, type AdrDoc } from "@/lib/weekend-doc";
 import { formatDay } from "../../../format-day";
@@ -27,7 +29,7 @@ const EMPTY_SECTIONS = Object.fromEntries(ADR_SECTIONS.map(({ key }) => [key, ""
  * The weekend ADR (design 3, week 2): one decision from real work, with a prediction, and a date
  * 4 to 8 weeks later to check what really happened. The app reminds the learner on that date.
  */
-export function AdrScreen({ townId }: { townId: string }) {
+export function AdrScreen({ townId, profile }: { townId: string; profile: Profile }) {
   const documentKey = `${townId}-adr`;
   const { value, failed, saveState, change } = useAutosaved<AdrState>(
     documentKey,
@@ -35,15 +37,30 @@ export function AdrScreen({ townId }: { townId: string }) {
       const client = browserClient();
       const today = await currentLearningDay(client);
       const found = await loadAdr(client, documentKey);
-      if (found) return { ...found, today };
+      // The first day in the home time zone, like every learning day (design 12.4).
+      if (found)
+        return {
+          adr: found.adr,
+          writtenOn: learningDay(found.createdAt, profile.homeTimeZone, profile.dayCutoffHour),
+          today,
+        };
       // A new ADR starts with the check date 6 weeks out.
-      const adr = { sections: EMPTY_SECTIONS, status: "proposed" as const, outcomeCheckDate: outcomeDateRange(today).suggested };
+      const adr = {
+        sections: EMPTY_SECTIONS,
+        status: "proposed" as const,
+        outcomeCheckDate: outcomeDateRange(today).suggested,
+      };
       return { adr, writtenOn: today, today };
     },
     (state) => saveAdr(browserClient(), documentKey, state.adr),
   );
   if (!getTown(townId)) return <p className="lead">This town does not exist.</p>;
-  if (failed) return <p role="alert" className="error">We could not load your ADR. Check your connection.</p>;
+  if (failed)
+    return (
+      <p role="alert" className="error">
+        We could not load your ADR. Check your connection.
+      </p>
+    );
   if (!value) return <p className="lead">Loading…</p>;
 
   const update = (adr: AdrDoc) => change({ ...value, adr });
@@ -53,18 +70,24 @@ export function AdrScreen({ townId }: { townId: string }) {
       <section className="card stack" aria-labelledby="adr-page-title">
         <h2 id="adr-page-title">Week 2: one ADR for a real decision at work</h2>
         <p>
-          An ADR (architecture decision record) is a short note about one decision: what you decided, why, and
-          what happens because of it. Pick one small decision from your work in the last month.
+          An ADR (architecture decision record) is a short note about one decision: what you decided, why, and what
+          happens because of it. Pick one small decision from your work in the last month.
         </p>
       </section>
-      {adrOutcomeDue({ outcomeCheckDate: value.adr.outcomeCheckDate, outcome: value.adr.sections.outcome }, value.today) && (
+      {adrOutcomeDue(
+        {
+          outcomeCheckDate: value.adr.outcomeCheckDate,
+          outcome: value.adr.sections.outcome,
+        },
+        value.today,
+      ) && (
         <p className="notice" role="status">
           Your check date has come. Write what really happened, under your prediction.
         </p>
       )}
       <AdrEditor state={value} onChange={update} />
       <SaveStatus state={saveState} />
-      <ColleagueRead documentKey={documentKey} />
+      <ColleagueRead documentKey={documentKey} saveDocument={() => saveAdr(browserClient(), documentKey, value.adr)} />
       <DiscussDoc text={() => adrPackage({ adr: value.adr, coachPrompt: adrCoachPrompt(townId) })} />
     </div>
   );
@@ -72,7 +95,8 @@ export function AdrScreen({ townId }: { townId: string }) {
 
 function AdrEditor({ state, onChange }: { state: AdrState; onChange: (adr: AdrDoc) => void }) {
   const { adr } = state;
-  const setSection = (key: AdrSectionKey, text: string) => onChange({ ...adr, sections: { ...adr.sections, [key]: text } });
+  const setSection = (key: AdrSectionKey, text: string) =>
+    onChange({ ...adr, sections: { ...adr.sections, [key]: text } });
   return (
     <section className="stack" aria-label="ADR">
       {ADR_SECTIONS.map(({ key, title, hint }) => (
@@ -90,7 +114,11 @@ function AdrEditor({ state, onChange }: { state: AdrState; onChange: (adr: AdrDo
       ))}
       <DocField id="adr-status" title="Status" hint="Deprecated: no longer used. Superseded: replaced by a newer ADR.">
         {(props) => (
-          <select {...props} value={adr.status} onChange={(event) => onChange({ ...adr, status: event.target.value as AdrStatus })}>
+          <select
+            {...props}
+            value={adr.status}
+            onChange={(event) => onChange({ ...adr, status: event.target.value as AdrStatus })}
+          >
             {ADR_STATUSES.map((status) => (
               <option key={status} value={status}>
                 {status}
@@ -99,13 +127,25 @@ function AdrEditor({ state, onChange }: { state: AdrState; onChange: (adr: AdrDo
           </select>
         )}
       </DocField>
-      <CheckDate writtenOn={state.writtenOn} value={adr.outcomeCheckDate} onChange={(date) => onChange({ ...adr, outcomeCheckDate: date })} />
+      <CheckDate
+        writtenOn={state.writtenOn}
+        value={adr.outcomeCheckDate}
+        onChange={(date) => onChange({ ...adr, outcomeCheckDate: date })}
+      />
     </section>
   );
 }
 
 /** The day to check the real outcome: 4 to 8 weeks after the ADR was written (design 3). */
-function CheckDate({ writtenOn, value, onChange }: { writtenOn: string; value: string | null; onChange: (date: string) => void }) {
+function CheckDate({
+  writtenOn,
+  value,
+  onChange,
+}: {
+  writtenOn: string;
+  value: string | null;
+  onChange: (date: string) => void;
+}) {
   const range = outcomeDateRange(writtenOn);
   const [problem, setProblem] = useState(false);
   return (

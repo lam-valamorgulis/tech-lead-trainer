@@ -17,7 +17,12 @@ export function WeekendTabs({ townId, current }: { townId: string; current: "bos
   return (
     <nav className="row" aria-label="Weekend tasks">
       {tabs.map((tab) => (
-        <Link key={tab.kind} href={tab.href} className="button button-quiet" aria-current={tab.kind === current ? "page" : undefined}>
+        <Link
+          key={tab.kind}
+          href={tab.href}
+          className="button button-quiet"
+          aria-current={tab.kind === current ? "page" : undefined}
+        >
           {tab.label}
         </Link>
       ))}
@@ -67,9 +72,16 @@ export function SaveStatus({ state }: { state: SaveState }) {
 }
 
 /** "A colleague read this" (spec story 92): one human review a month is real feedback (design 3). */
-export function ColleagueRead({ documentKey }: { documentKey: string }) {
+export function ColleagueRead({
+  documentKey,
+  saveDocument,
+}: {
+  documentKey: string;
+  saveDocument: () => Promise<void>;
+}) {
   const [read, setRead] = useState<boolean | null>(null);
   const [failed, setFailed] = useState(false);
+  const [saved, setSaved] = useState(false);
   useEffect(() => {
     let cancelled = false;
     loadColleagueRead(browserClient(), documentKey)
@@ -80,21 +92,35 @@ export function ColleagueRead({ documentKey }: { documentKey: string }) {
     };
   }, [documentKey]);
 
+  // The whole document is saved first: a tick on a document never typed in must not save it empty.
   function toggle(next: boolean) {
     setRead(next);
-    saveColleagueRead(browserClient(), documentKey, next).catch(() => {
-      setRead(!next);
-      setFailed(true);
-    });
+    setFailed(false);
+    setSaved(false);
+    saveDocument()
+      .then(() => saveColleagueRead(browserClient(), documentKey, next))
+      .then(() => setSaved(true))
+      .catch(() => {
+        setRead(!next);
+        setFailed(true);
+      });
   }
 
   return (
     <div className="stack">
       <label className="choice">
-        <input type="checkbox" checked={read ?? false} disabled={read === null} onChange={(event) => toggle(event.target.checked)} />
+        <input
+          type="checkbox"
+          checked={read ?? false}
+          disabled={read === null}
+          onChange={(event) => toggle(event.target.checked)}
+        />
         <span>A colleague read this</span>
       </label>
       <p className="lead">Once a month, ask one colleague to read a design doc or an ADR.</p>
+      <p className="lead" role="status">
+        {saved ? "Tick saved" : ""}
+      </p>
       {failed && (
         <p role="alert" className="error">
           The tick was not saved. Check your connection.

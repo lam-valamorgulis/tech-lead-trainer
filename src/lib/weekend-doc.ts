@@ -38,11 +38,11 @@ export type AdrDoc = {
 
 type AdrRow = { sections: Record<string, unknown>; outcome_check_date: string | null; created_at: string };
 
-/** The learner's ADR for a key such as t01-adr, with the day it was first saved, or null before that. */
+/** The learner's ADR for a key such as t01-adr, with the moment it was first saved, or null before that. */
 export async function loadAdr(
   client: SupabaseClient,
   documentKey: string,
-): Promise<{ adr: AdrDoc; writtenOn: string } | null> {
+): Promise<{ adr: AdrDoc; createdAt: Date } | null> {
   const { data, error } = await client
     .from("weekend_documents")
     .select("sections, outcome_check_date, created_at")
@@ -58,7 +58,7 @@ export async function loadAdr(
       status: (ADR_STATUSES as readonly string[]).includes(status) ? (status as AdrStatus) : "proposed",
       outcomeCheckDate: data.outcome_check_date,
     },
-    writtenOn: data.created_at.slice(0, 10),
+    createdAt: new Date(data.created_at),
   };
 }
 
@@ -87,14 +87,20 @@ export async function loadColleagueRead(client: SupabaseClient, documentKey: str
   return data?.colleague_read ?? false;
 }
 
+/** Sets the tick on a document that is saved already. The screen saves the document first. */
 export async function saveColleagueRead(client: SupabaseClient, documentKey: string, read: boolean): Promise<void> {
-  const { error } = await client
+  const { data, error } = await client
     .from("weekend_documents")
-    .upsert(
-      { document_key: documentKey, kind: documentKey.endsWith("-adr") ? "adr" : "boss", colleague_read: read },
-      { onConflict: "user_id,document_key" },
-    );
+    .update({ colleague_read: read })
+    .eq("document_key", documentKey)
+    .select("id");
   if (error) throw error;
+  if (data.length === 0) throw new Error(`${documentKey} is not saved yet.`);
+}
+
+/** The town of a weekend document key, for example t01 for t01-adr. */
+export function townOfDocument(documentKey: string): string {
+  return documentKey.slice(0, documentKey.indexOf("-"));
 }
 
 /** The outcome check of every ADR of the signed-in learner, with the town it belongs to. */
@@ -106,7 +112,7 @@ export async function loadAdrChecks(client: SupabaseClient): Promise<(AdrCheck &
     .returns<{ document_key: string; outcome_check_date: string | null; sections: Record<string, unknown> }[]>();
   if (error) throw error;
   return data.map((row) => ({
-    townId: row.document_key.slice(0, 3),
+    townId: townOfDocument(row.document_key),
     outcomeCheckDate: row.outcome_check_date,
     outcome: typeof row.sections.outcome === "string" ? row.sections.outcome : "",
   }));
