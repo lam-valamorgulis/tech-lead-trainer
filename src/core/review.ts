@@ -48,16 +48,24 @@ const LAST = REVIEW_STEPS.length - 1;
 /**
  * Again goes back one step, Hard repeats the step, Good goes to the next step, Easy skips one.
  * Good or Easy on the last step ends the reviews.
+ *
+ * A review before the due day (a confusable partner mixed in early, design 6) keeps the step and
+ * the due day, unless the grade is Again: seeing an item early never skips spacing, but a real
+ * mistake still counts.
  */
 export function gradeReview({
   step,
   gradedDay,
   grade,
+  dueDay,
 }: {
   step: ReviewStep;
   gradedDay: LearningDay;
   grade: Grade;
+  /** The due day before this review. Leave it out for a review that is due. */
+  dueDay?: LearningDay | null;
 }): { step: ReviewStep; dueDay: LearningDay | null } {
+  if (dueDay && gradedDay < dueDay && grade !== "again") return { step, dueDay };
   const index = REVIEW_STEPS.indexOf(step);
   if (index === LAST && MOVE[grade] > 0) return { step, dueDay: null };
   const next = REVIEW_STEPS[Math.min(LAST, Math.max(0, index + MOVE[grade]))];
@@ -114,7 +122,7 @@ export function reviewStates(
     recheckBefore(review.learningDay);
     const state = states.get(review.itemId);
     if (!state) continue;
-    const graded = gradeReview({ step: state.step, gradedDay: review.learningDay, grade: review.grade });
+    const graded = gradeReview({ step: state.step, gradedDay: review.learningDay, grade: review.grade, dueDay: state.dueDay });
     state.stage = stageAfter(state.stage, review.grade, graded);
     state.step = graded.step;
     state.dueDay = graded.dueDay;
@@ -137,26 +145,56 @@ export function allDue(states: Map<string, ReviewState>, today: LearningDay): Du
     );
 }
 
+/** A review for today. `mixedWith` names the due item it was mixed in next to, before its own due day. */
+export type TodayReview = DueState & { mixedWith?: string };
+
 /**
  * Today's reviews: at most 8 a day, across all of today's sessions, oldest overdue first.
  * Items that can no longer be reviewed, for example retired content, never take a place.
+ *
+ * Interleaving (design 6, from Sprint 3): right after an item comes each caught confusable partner,
+ * even one that is not due yet, so the learner tells the two apart. Partners use the same 8 places.
  */
 export function dueReviews({
   states,
   reviews,
   today,
   isReviewable = () => true,
+  pairs = [],
 }: {
   states: Map<string, ReviewState>;
   reviews: ReviewRecord[];
   today: LearningDay;
   isReviewable?: (itemId: string) => boolean;
-}): DueState[] {
-  const doneToday = reviews.filter((review) => review.learningDay === today).length;
-  const places = Math.max(0, DAILY_REVIEW_LIMIT - doneToday);
-  return allDue(states, today)
-    .filter((state) => isReviewable(state.itemId))
-    .slice(0, places);
+  /** Confusable pairs from the content of every town. */
+  pairs?: [string, string][];
+}): TodayReview[] {
+  const todays = reviews.filter((review) => review.learningDay === today);
+  const reviewedToday = new Set(todays.map((review) => review.itemId));
+  const places = Math.max(0, DAILY_REVIEW_LIMIT - todays.length);
+  const partnersOf = (id: string) => pairs.flatMap(([a, b]) => (a === id ? [b] : b === id ? [a] : []));
+
+  const result: TodayReview[] = [];
+  const taken = new Set<string>();
+  const take = (review: TodayReview) => {
+    result.push(review);
+    taken.add(review.itemId);
+  };
+  for (const state of allDue(states, today).filter((s) => isReviewable(s.itemId))) {
+    if (result.length >= places) break;
+    if (taken.has(state.itemId)) continue;
+    take(state);
+    for (const partner of partnersOf(state.itemId)) {
+      const other = states.get(partner);
+      if (result.length >= places) break;
+      if (!other || other.dueDay === null || taken.has(partner) || reviewedToday.has(partner) || !isReviewable(partner)) {
+        continue;
+      }
+      const due = other as DueState;
+      take(due.dueDay > today ? { ...due, mixedWith: state.itemId } : due);
+    }
+  }
+  return result;
 }
 
 /** The backlog guard looks at this many days in a row. */

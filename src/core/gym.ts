@@ -2,7 +2,7 @@
 // The Gym is the town's final test: 5 battles in a row, and 4 wins give the town's badge.
 // It never locks the next town: the learner's town comes from the calendar only (roadmap.ts).
 import type { BundledTown } from "@/content/bundle";
-import { readyOffers, type BattleOffer, type BattleRecord } from "./battle.ts";
+import { bestRow, creatureOf, readyOffers, type BattleOffer, type BattleRecord } from "./battle.ts";
 import type { CatchRecord } from "./catch.ts";
 import { addDays, type LearningDay } from "./day.ts";
 import { townStartDay } from "./roadmap.ts";
@@ -32,11 +32,36 @@ export function gymBattles(input: { town: BundledTown; catches: CatchRecord[]; b
   // The offers are made before the Gym starts, so a concept's worked example comes only once:
   // before the first Gym battle that shows it.
   const shown = new Set<string>();
-  return offers.slice(0, GYM_BATTLES).map((offer) => {
+  return mixConfusables(offers, input.town.confusablePairs).map((offer) => {
     const workedExamples = offer.workedExamples.filter((example) => !shown.has(example.creatureId));
     for (const example of workedExamples) shown.add(example.creatureId);
     return { ...offer, workedExamples };
   });
+}
+
+/** The creatures and moves a battle tests: its best moves and their creatures. */
+function testedItems(offer: BattleOffer): Set<string> {
+  return new Set(offer.scenario.turns.flatMap((turn) => [bestRow(turn).moveId, creatureOf(bestRow(turn).moveId)]));
+}
+
+/**
+ * Picks the Gym's battles one at a time (design 4: the Gym mixes confusable concepts). Each pick
+ * is the battle that adds the most sides of a confusable pair not in the Gym yet. A tie keeps the
+ * offer order: the least played first, then file order.
+ */
+function mixConfusables(offers: BattleOffer[], pairs: [string, string][]): BattleOffer[] {
+  const sides = new Set(pairs.flat());
+  const covered = new Set<string>();
+  const left = [...offers];
+  const picked: BattleOffer[] = [];
+  while (picked.length < GYM_BATTLES) {
+    const gain = (offer: BattleOffer) => [...testedItems(offer)].filter((id) => sides.has(id) && !covered.has(id)).length;
+    const best = left.reduce((top, offer) => (gain(offer) > gain(top) ? offer : top));
+    left.splice(left.indexOf(best), 1);
+    picked.push(best);
+    for (const id of testedItems(best)) covered.add(id);
+  }
+  return picked;
 }
 
 /** Where a Gym stands after each battle, won or lost. It ends after 5, or once the badge is out of reach. */

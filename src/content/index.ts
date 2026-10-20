@@ -11,6 +11,9 @@ const bundle = (process.env.NEXT_PUBLIC_CONTENT_SET === "fixture" ? fixture : ge
 
 export const towns: BundledTown[] = bundle.towns.filter((town) => !town.retired);
 
+/** Pairs of creatures or moves that are easy to mix up, from every town (design 6). */
+export const confusablePairs: [string, string][] = bundle.towns.flatMap((town) => town.confusablePairs);
+
 /** Hard words with a simple definition, shown on tap (design 2). */
 export const glossary = bundle.glossary;
 
