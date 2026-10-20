@@ -4,7 +4,7 @@
 const source = { title: "MDN: HTTP caching", url: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Caching" };
 
 export function fixtureTown() {
-  return {
+  const town = {
     id: "t99",
     number: 1,
     name: "Fixture Town",
@@ -206,7 +206,18 @@ export function fixtureTown() {
       },
     ],
   };
+  // Four more battles with the same moves, so a Gym has its 5 battles (#26).
+  const [saleDay] = town.scenarios;
+  town.scenarios.push(...GYM_COPIES.map(([id, name]) => ({ ...structuredClone(saleDay), id, name })));
+  return town;
 }
+
+const GYM_COPIES = [
+  ["t99-flash-sale", "Flash sale"],
+  ["t99-holiday-rush", "Holiday rush"],
+  ["t99-launch-day", "Launch day"],
+  ["t99-price-drop", "Price drop"],
+] as const;
 
 export const fixtureLedger = [
   "t99",
@@ -218,6 +229,7 @@ export const fixtureLedger = [
   "proxy",
   "proxy.cdn",
   "t99-sale-day",
+  ...GYM_COPIES.map(([id]) => id),
 ];
 
 export function fixtureGlossary() {

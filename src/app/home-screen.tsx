@@ -16,6 +16,7 @@ import { PlanForm } from "./plan-form";
 import { RestStop } from "./rest-stop";
 import { SessionScreen, type CommittedMinutes } from "./session-screen";
 import { WeeklySummaryCard } from "./weekly-summary";
+import { gymIsOpen } from "@/core/gym";
 
 const CHOICES: CommittedMinutes[] = [3, 15, 45];
 
@@ -26,6 +27,7 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
   const [rateFailed, setRateFailed] = useState(false);
   const [allChoices, setAllChoices] = useState(false);
   const placementTown = usePlacementTown(profile.programStartDate);
+  const gymTown = useGymTown(profile.programStartDate);
   const rate = status?.rate;
 
   useEffect(() => {
@@ -95,6 +97,14 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
           <br />
           This week: <strong>{status ? formatWeekMinutes(status.weekMinutes) : "…"}</strong>
         </p>
+        {gymTown && (
+          <div className="notice row">
+            <Link href={`/gym/${gymTown.id}`} className="button button-quiet">
+              Enter the Gym
+            </Link>
+            <span className="lead">Last week of {gymTown.name}: win 4 of 5 for the badge</span>
+          </div>
+        )}
         {placementTown && (
           <div className="notice row">
             <Link href={`/placement/${placementTown.id}`} className="button button-quiet">
@@ -165,6 +175,25 @@ function usePlacementTown(programStartDate: string): PlacementOffer | null {
         const { current, records } = loaded;
         // Next keeps this screen's state when you leave and come back, so clear an old offer too.
         setTown(placementProgress(current, records).done ? null : { id: current.id, questions: current.placement.length });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [programStartDate]);
+  return town;
+}
+
+/** The town whose Gym is open now (its last week, and after), so home can offer it. */
+function useGymTown(programStartDate: string): { id: string; name: string } | null {
+  const [town, setTown] = useState<{ id: string; name: string } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    currentLearningDay(browserClient())
+      .then((today) => {
+        if (cancelled) return;
+        const current = currentTown(programStartDate, today);
+        setTown(current && gymIsOpen(programStartDate, current.number, today) ? { id: current.id, name: current.name } : null);
       })
       .catch(() => undefined);
     return () => {
