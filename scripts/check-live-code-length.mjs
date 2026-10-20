@@ -3,7 +3,7 @@
 // Run it at "ship" and at the end of production setup. It reads SUPABASE_PROJECT_REF,
 // NEXT_PUBLIC_SUPABASE_URL and OWNER_EMAIL from .env.wizard, and gets the secret key through
 // the Supabase CLI login. It never prints the key and sends no email.
-// Use an email on the allow list. Supabase creates its account if it does not exist yet.
+// The email must be on the allow list, because Supabase creates its account if it does not exist yet.
 // The sampled code replaces any code that account has waiting: the last emailed code stops working.
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -44,6 +44,10 @@ if (!email) throw new Error("No email to check with. Pass --email, or set OWNER_
 const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, secretKeyFor(env.SUPABASE_PROJECT_REF), {
   auth: { persistSession: false, autoRefreshToken: false },
 });
+const allowed = await admin.from("allowed_emails").select("email").eq("email", email.toLowerCase()).maybeSingle();
+if (allowed.error) throw allowed.error;
+if (!allowed.data) throw new Error(`${email} is not on the live allow list. Use an email that is.`);
+
 const problem = codeLengthProblem(await sampleSignInCode(admin, email));
 if (problem) {
   console.error(`✗ ${problem}`);

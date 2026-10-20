@@ -11,7 +11,7 @@ export const SIGN_IN_CODE_LENGTH = 6;
  * Returns a message to show when they differ, or null when the code fits.
  */
 export function codeLengthProblem(code: string): string | null {
-  if (!/^\d+$/.test(code)) return `The live sign-in code is not ${SIGN_IN_CODE_LENGTH} digits: it has other characters.`;
+  if (!/^\d*$/.test(code)) return `The live sign-in code is not ${SIGN_IN_CODE_LENGTH} digits: it has other characters.`;
   if (code.length === SIGN_IN_CODE_LENGTH) return null;
   return (
     `The live sign-in code has ${code.length} digits, but the screen asks for ${SIGN_IN_CODE_LENGTH}. ` +

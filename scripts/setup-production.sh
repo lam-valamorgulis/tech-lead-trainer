@@ -304,8 +304,8 @@ npx supabase unlink >/dev/null 2>&1 || true
 if npm run -s check:live-code; then
   :
 else
-  SKIPPED+=("Set Email OTP Length to 6 in the Supabase Email provider, then run: npm run check:live-code")
-  warn "The live sign-in code does not match the screen. Fix Email OTP Length (step 5)."
+  SKIPPED+=("Fix the problem printed by the code check, then run: npm run check:live-code")
+  warn "The live sign-in code check failed. Read its message just above."
 fi
 pause
 

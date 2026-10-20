@@ -30,6 +30,12 @@ describe("sign-in code length", () => {
     );
   });
 
+  it("explains an empty code as a code with no digits", () => {
+    expect(codeLengthProblem("")).toBe(
+      "The live sign-in code has 0 digits, but the screen asks for 6. Set Email OTP Length to 6 in Supabase.",
+    );
+  });
+
   it("treats a code that is not only digits as a problem", () => {
     expect(codeLengthProblem("12a456")).toBe("The live sign-in code is not 6 digits: it has other characters.");
   });
