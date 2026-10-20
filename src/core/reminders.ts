@@ -1,5 +1,5 @@
 // Reminder rules (design 2 and 12.4). Pure functions: no clock, no database.
-import { learningDay, type LearningDay } from "./day";
+import { addDays, isLearnedDay, learningDay, type LearningDay } from "./day";
 
 const MINUTE_MS = 60 * 1000;
 const DAY_MINUTES = 24 * 60;
@@ -10,22 +10,27 @@ const DAY_MINUTES = 24 * 60;
  */
 export const REMINDER_WINDOW_MINUTES = 60;
 
+export type ReminderKind = "morning" | "evening";
+
 export type ReminderSettings = {
   homeTimeZone: string;
   dayCutoffHour: number;
   /** "HH:MM" in the home time zone. */
   morningReminderTime: string;
+  /** "HH:MM" in the home time zone. */
+  eveningReminderTime: string;
 };
 
 export type ReminderDue = { due: true; learningDay: LearningDay } | { due: false };
 
 /**
- * Whether the morning reminder is due at `now`. It is due from the reminder time, in the home
+ * Whether the reminder of this kind is due at `now`. It is due from its time, in the home
  * time zone, for one hour. `learningDay` is the day the reminder belongs to: the storage keeps
- * at most one morning reminder per user and learning day (design 12.4).
+ * at most one reminder per user, learning day and kind (design 12.4).
  */
-export function morningReminderDue(now: Date, settings: ReminderSettings): ReminderDue {
-  const minutesLate = minutesSince(now, settings.homeTimeZone, settings.morningReminderTime);
+export function reminderDue(now: Date, settings: ReminderSettings, kind: ReminderKind): ReminderDue {
+  const time = kind === "morning" ? settings.morningReminderTime : settings.eveningReminderTime;
+  const minutesLate = minutesSince(now, settings.homeTimeZone, time);
   if (minutesLate >= REMINDER_WINDOW_MINUTES) return { due: false };
   // The day of the moment the reminder time passed, so a reminder late after midnight
   // still belongs to the day before.
@@ -46,14 +51,46 @@ function minutesSince(now: Date, timeZone: string, time: string): number {
 
 export type ReminderMessage = { title: string; body: string; url: string };
 
+// The texts never name lesson content (design 2) and never blame the learner. Each kind has
+// 3 styles that rotate, one per learning day, so the learner keeps noticing them.
+const TEXTS: Record<ReminderKind, readonly string[]> = {
+  morning: [
+    "Good morning. Your daily practice is ready. 3 minutes is enough.",
+    "Good morning. A short practice keeps what you learned fresh.",
+    "Good morning. Tap 3, 15 or 45 minutes. Every choice counts.",
+  ],
+  evening: [
+    "There is still time today. 3 minutes counts as a learned day.",
+    "A short practice before bed? 3 minutes is enough for today.",
+    "Your practice for today is still open. Even 3 minutes counts.",
+  ],
+};
+
+/** The morning text after exactly one missed day. A little stronger, still no blame. */
+const STRONGER_MORNING = "Today matters most. Just 3 minutes keeps your practice going.";
+
 /**
- * The morning reminder text. It never names lesson content (design 2), and its link uses
- * a route name, never a user id (design 12.7).
+ * The reminder to send for a due reminder, or null when it is not needed.
+ * `activeSeconds` holds the active seconds per learning day (see `activeSecondsByDay`).
+ * The evening reminder comes only when the day is not learned yet (design 2).
+ * The link is a route name, never a user id (design 12.7).
  */
-export function morningReminder(): ReminderMessage {
-  return {
-    title: "Tech Lead Trainer",
-    body: "Good morning. Your daily practice is ready. 3 minutes is enough.",
-    url: "/",
-  };
+export function reminderToSend(
+  kind: ReminderKind,
+  day: LearningDay,
+  activeSeconds: ReadonlyMap<LearningDay, number>,
+): ReminderMessage | null {
+  const learned = (count: number) => isLearnedDay(activeSeconds.get(addDays(day, count)) ?? 0);
+  if (kind === "evening" && learned(0)) return null;
+  // Never miss twice (design 2): exactly one missed day, yesterday, after a learned day.
+  // After a longer break the normal text comes, and home opens on the Rest Stop.
+  const body = kind === "morning" && !learned(-1) && learned(-2) ? STRONGER_MORNING : rotatingText(kind, day);
+  return { title: "Tech Lead Trainer", body, url: "/" };
+}
+
+/** The style for this learning day: the next style each day, in a fixed cycle. */
+function rotatingText(kind: ReminderKind, day: LearningDay): string {
+  const texts = TEXTS[kind];
+  const dayNumber = Math.floor(Date.parse(`${day}T00:00:00Z`) / (DAY_MINUTES * MINUTE_MS));
+  return texts[dayNumber % texts.length];
 }

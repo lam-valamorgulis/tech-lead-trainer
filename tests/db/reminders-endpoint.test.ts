@@ -49,9 +49,11 @@ function notify(authorization?: string) {
   );
 }
 
-/** The wall-clock time now in Ho Chi Minh City, "HH:MM". */
-function homeTimeNow(): string {
-  return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date());
+/** The wall-clock time in Ho Chi Minh City, "HH:MM", `hoursFromNow` hours from now. */
+function homeTime(hoursFromNow = 0): string {
+  return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(
+    new Date(Date.now() + hoursFromNow * 60 * 60 * 1000),
+  );
 }
 
 afterEach(tearDown);
@@ -63,8 +65,9 @@ describe("POST /api/reminders/notify", () => {
   beforeAll(async () => {
     user = await signedInUser("notify");
     await ensureProfile(user.client);
-    // Due right now, wherever the clock is when this test runs.
-    await saveReminderTimes(user.client, user.id, { morning: homeTimeNow(), evening: "20:00" });
+    // The morning reminder is due right now, wherever the clock is when this test runs.
+    // The evening one is 12 hours away, so this run sends exactly one reminder.
+    await saveReminderTimes(user.client, user.id, { morning: homeTime(), evening: homeTime(12) });
     await savePushSubscription(user.client, { endpoint, keys: { p256dh: "p", auth: "a" } }, "iPhone");
   });
 
