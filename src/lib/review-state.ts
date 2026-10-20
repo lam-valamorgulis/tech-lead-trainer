@@ -6,10 +6,10 @@ import { selectAll } from "./select-all.ts";
 // The review_state table is a cache of `reviewStates` over the event log (design 12.2).
 // Relative imports with .ts let `scripts/rebuild-review-state.mjs` run this file in Node.
 
-type CatchRow = { item_id: string; correct: boolean; learning_day: string; occurred_at: string };
-type PlacementRow = CatchRow & { town_id: string };
-type ReviewRow = { item_id: string; learning_day: string; grade: Grade };
-type StateRow = {
+export type CatchRow = { item_id: string; correct: boolean; learning_day: string; occurred_at: string };
+export type PlacementRow = CatchRow & { town_id: string };
+export type ReviewRow = { item_id: string; learning_day: string; grade: Grade };
+export type StateRow = {
   user_id: string;
   item_id: string;
   step: number;
@@ -42,7 +42,8 @@ async function loadLog(client: SupabaseClient, userId: string, itemIds?: string[
   return { catches, placements, reviews };
 }
 
-function toRows(userId: string, log: { catches: CatchRow[]; placements: PlacementRow[]; reviews: ReviewRow[] }): StateRow[] {
+/** The review state rows of one user, from their log in time order (oldest first). Pure. */
+export function reviewStateRows(userId: string, log: { catches: CatchRow[]; placements: PlacementRow[]; reviews: ReviewRow[] }): StateRow[] {
   // A right placement answer catches the creature too. Both lists go in time order.
   const placed = log.placements.filter((row) => row.correct);
   const caughtBy = [
@@ -82,7 +83,7 @@ function toRows(userId: string, log: { catches: CatchRow[]; placements: Placemen
  */
 export async function refreshReviewState(client: SupabaseClient, userId: string, itemIds: string[]): Promise<void> {
   if (itemIds.length === 0) return;
-  const rows = toRows(userId, await loadLog(client, userId, itemIds));
+  const rows = reviewStateRows(userId, await loadLog(client, userId, itemIds));
   if (rows.length === 0) return;
   const { error } = await client.rpc("save_review_state", { states: rows });
   if (error) throw error;
@@ -93,7 +94,7 @@ export async function refreshReviewState(client: SupabaseClient, userId: string,
  * the log does not know. It writes first and deletes after, so a failure never empties the cache.
  */
 export async function rebuildReviewState(admin: SupabaseClient, userId: string): Promise<number> {
-  const rows = toRows(userId, await loadLog(admin, userId));
+  const rows = reviewStateRows(userId, await loadLog(admin, userId));
   if (rows.length > 0) {
     const written = await admin.from("review_state").upsert(rows, { onConflict: "user_id,item_id" });
     if (written.error) throw written.error;

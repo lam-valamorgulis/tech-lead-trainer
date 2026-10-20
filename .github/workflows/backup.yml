@@ -1,0 +1,83 @@
+name: Weekly backup
+
+# Ticket #22, design 12.6. Every Monday: export production, encrypt it, store it on the
+# `backups` branch, then record the date for "Last backup" in Settings.
+#
+# GitHub runs a schedule only from the default branch, so this starts after the workflow is on
+# `main`. "Run workflow" (workflow_dispatch) starts a backup by hand at any time.
+#
+# Why a branch and not an artifact: artifacts are deleted after 90 days by default (400 at most
+# in a private repo). Files on a branch stay until someone deletes them.
+
+on:
+  schedule:
+    # Sunday 20:00 UTC = Monday 03:00 in Ho Chi Minh City. GitHub cron is always UTC.
+    - cron: "0 20 * * 0"
+  workflow_dispatch:
+
+concurrency:
+  group: weekly-backup
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PRODUCTION_SUPABASE_URL: ${{ secrets.PRODUCTION_SUPABASE_URL }}
+      PRODUCTION_SUPABASE_SECRET_KEY: ${{ secrets.PRODUCTION_SUPABASE_SECRET_KEY }}
+      BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+    steps:
+      # First, before anything is read or stored: a missing secret stops the job here.
+      - name: Check the secrets
+        run: |
+          missing=""
+          for name in PRODUCTION_SUPABASE_URL PRODUCTION_SUPABASE_SECRET_KEY BACKUP_ENCRYPTION_KEY; do
+            if [ -z "$(printenv "$name" | tr -d '[:space:]')" ]; then missing="$missing $name"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing secrets:$missing. Nothing was read or stored. Run scripts/setup-backup.sh on the Mac."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      - name: Export and encrypt
+        id: create
+        run: |
+          mkdir -p "$RUNNER_TEMP/backup"
+          node scripts/backup.mjs create --out "$RUNNER_TEMP/backup"
+
+      # One commit, one push: the file is stored whole or not at all.
+      - name: Store on the backups branch
+        env:
+          FILE: ${{ steps.create.outputs.file }}
+        run: |
+          store="$RUNNER_TEMP/store"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin backups >/dev/null; then
+            git fetch --depth=1 origin backups:backups
+            git worktree add "$store" backups
+          else
+            git worktree add --orphan -b backups "$store"
+          fi
+          mkdir -p "$store/backups"
+          cp "$RUNNER_TEMP/backup/$FILE" "$store/backups/$FILE"
+          git -C "$store" add "backups/$FILE"
+          git -C "$store" commit -m "backup: $FILE"
+          git -C "$store" push origin backups
+
+      # Last: only a stored file moves the date. A failed week keeps the old date in Settings.
+      - name: Record the backup date
+        env:
+          FILE: ${{ steps.create.outputs.file }}
+        run: node scripts/backup.mjs record --file "$RUNNER_TEMP/backup/$FILE"
