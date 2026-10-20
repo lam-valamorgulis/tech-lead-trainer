@@ -91,16 +91,18 @@ function newestStoredBackup() {
   return { name, file: execFileSync("git", ["show", `origin/backups:backups/${name}`], { maxBuffer: 256 * 1024 * 1024 }) };
 }
 
+/** The key from the environment, or from .env.backup at the repo root (git-ignored). */
 function localKey() {
   if (process.env.BACKUP_ENCRYPTION_KEY) return readKey(process.env.BACKUP_ENCRYPTION_KEY);
-  if (!existsSync(".env.backup")) fail("No key: set BACKUP_ENCRYPTION_KEY or run scripts/setup-backup.sh to write .env.backup.");
-  const line = readFileSync(".env.backup", "utf8").match(/^BACKUP_ENCRYPTION_KEY=(.*)$/m);
+  const envFile = new URL("../.env.backup", import.meta.url);
+  if (!existsSync(envFile)) fail("No key: set BACKUP_ENCRYPTION_KEY or run scripts/setup-backup.sh to write .env.backup.");
+  const line = readFileSync(envFile, "utf8").match(/^BACKUP_ENCRYPTION_KEY=(.*)$/m);
   return readKey(line?.[1]);
 }
 
 async function restoreCheck(file, keep) {
   const { default: pg } = await import("pg");
-  const { createEmptyDatabase, dropDatabase } = await import("./empty-database.mjs");
+  const { container, createEmptyDatabase, dropDatabase } = await import("./empty-database.mjs");
   const { restoreBackup } = await import("../src/lib/backup/restore.ts");
 
   const key = localKey();
@@ -125,7 +127,7 @@ async function restoreCheck(file, keep) {
     console.log(ok ? "PASS: every row is back and the rebuilt review state is the same." : "FAIL: see the lines above.");
   } finally {
     await db.end();
-    if (keep) console.log(`Kept ${database}. Drop it later with: docker exec supabase_db_tech-lead-trainer dropdb -U postgres ${database}`);
+    if (keep) console.log(`Kept ${database}. Drop it later with: docker exec ${container()} dropdb -U postgres ${database}`);
     else dropDatabase(database);
   }
   if (!ok) process.exit(1);

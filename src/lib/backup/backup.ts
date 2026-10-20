@@ -73,7 +73,7 @@ export type Backup = {
 };
 
 /** Each table is read in a fixed order, so pages never skip or repeat a row. */
-const ORDER: Record<BackupTable, string[]> = {
+const READ_ORDER: Record<BackupTable, string[]> = {
   allowed_emails: ["email"],
   profiles: ["user_id"],
   review_state: ["user_id", "item_id"],
@@ -102,7 +102,7 @@ function readTable(client: SupabaseClient, table: BackupTable, userIds?: string[
   return selectAll((from, to) => {
     let query = client.from(table).select("*");
     if (userIds && table !== "allowed_emails") query = query.in("user_id", userIds);
-    for (const column of ORDER[table]) query = query.order(column);
+    for (const column of READ_ORDER[table]) query = query.order(column);
     return query.range(from, to).returns<Row[]>();
   });
 }
@@ -113,6 +113,10 @@ function readTable(client: SupabaseClient, table: BackupTable, userIds?: string[
  *
  * The tables are read first and the accounts last. A user deleted during the backup is then
  * missing from the accounts, and their rows are dropped, so a restore never fails on them.
+ *
+ * The API cannot read all tables in one snapshot. A learner who studies while the backup runs
+ * can make review_state and the log disagree by one item. The job runs at 03:00 home time, so
+ * this is rare, and the restore check names any such item.
  */
 export async function readBackup(
   client: SupabaseClient,
@@ -157,8 +161,12 @@ export async function recordBackup(
   { fileName, userIds, finishedAt = new Date() }: { fileName: string; userIds: string[]; finishedAt?: Date },
 ): Promise<void> {
   if (!isBackupFileName(fileName)) throw new Error(`Not a backup file name: ${fileName}`);
-  if (userIds.length === 0) return;
-  const rows = userIds.map((userId) => ({ user_id: userId, file_name: fileName, finished_at: finishedAt.toISOString() }));
-  const { error } = await admin.from("backups").insert(rows);
-  if (error) throw error;
+  // One row per learner: an account deleted after the export must not stop the others.
+  for (const userId of userIds) {
+    const { error } = await admin
+      .from("backups")
+      .insert({ user_id: userId, file_name: fileName, finished_at: finishedAt.toISOString() });
+    // 23503: the account is gone. Its data went with it, so it needs no date.
+    if (error && error.code !== "23503") throw error;
+  }
 }

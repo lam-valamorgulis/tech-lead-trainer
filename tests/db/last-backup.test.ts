@@ -56,6 +56,13 @@ describe("recorded backups", () => {
     );
   });
 
+  it("still records the other learners when one account was deleted after the export", async () => {
+    const at = new Date("2026-10-26T20:00:00Z");
+    await recordBackup(adminClient(), { fileName: fileName(), userIds: [crypto.randomUUID(), inBackup.id], finishedAt: at });
+
+    expect(await fetchLastBackupAt(inBackup.client)).toEqual(at);
+  });
+
   it("records nothing for a backup that holds no learner", async () => {
     await expect(recordBackup(adminClient(), { fileName: fileName(), userIds: [] })).resolves.toBeUndefined();
   });

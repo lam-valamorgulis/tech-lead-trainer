@@ -26,13 +26,14 @@ jobs:
   backup:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      PRODUCTION_SUPABASE_URL: ${{ secrets.PRODUCTION_SUPABASE_URL }}
-      PRODUCTION_SUPABASE_SECRET_KEY: ${{ secrets.PRODUCTION_SUPABASE_SECRET_KEY }}
-      BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+    # The secrets go only to the steps that need them, never to `npm ci`.
     steps:
       # First, before anything is read or stored: a missing secret stops the job here.
       - name: Check the secrets
+        env:
+          PRODUCTION_SUPABASE_URL: ${{ secrets.PRODUCTION_SUPABASE_URL }}
+          PRODUCTION_SUPABASE_SECRET_KEY: ${{ secrets.PRODUCTION_SUPABASE_SECRET_KEY }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
         run: |
           missing=""
           for name in PRODUCTION_SUPABASE_URL PRODUCTION_SUPABASE_SECRET_KEY BACKUP_ENCRYPTION_KEY; do
@@ -43,15 +44,23 @@ jobs:
             exit 1
           fi
 
+      # The write token is not kept in .git/config. Only the store step gets it.
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
-      - run: npm ci
+      # No install scripts: the backup needs only plain JavaScript packages.
+      - run: npm ci --ignore-scripts
 
       - name: Export and encrypt
         id: create
+        env:
+          PRODUCTION_SUPABASE_URL: ${{ secrets.PRODUCTION_SUPABASE_URL }}
+          PRODUCTION_SUPABASE_SECRET_KEY: ${{ secrets.PRODUCTION_SUPABASE_SECRET_KEY }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
         run: |
           mkdir -p "$RUNNER_TEMP/backup"
           node scripts/backup.mjs create --out "$RUNNER_TEMP/backup"
@@ -60,12 +69,16 @@ jobs:
       - name: Store on the backups branch
         env:
           FILE: ${{ steps.create.outputs.file }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           store="$RUNNER_TEMP/store"
+          auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w0)"
+          # Only these three calls talk to GitHub, so only they get the token.
+          remote() { git -c "http.https://github.com/.extraheader=$auth" "$@"; }
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git ls-remote --exit-code --heads origin backups >/dev/null; then
-            git fetch --depth=1 origin backups:backups
+          if remote ls-remote --exit-code --heads origin backups >/dev/null; then
+            remote fetch --depth=1 origin backups:backups
             git worktree add "$store" backups
           else
             git worktree add --orphan -b backups "$store"
@@ -74,10 +87,13 @@ jobs:
           cp "$RUNNER_TEMP/backup/$FILE" "$store/backups/$FILE"
           git -C "$store" add "backups/$FILE"
           git -C "$store" commit -m "backup: $FILE"
-          git -C "$store" push origin backups
+          remote -C "$store" push origin backups
 
       # Last: only a stored file moves the date. A failed week keeps the old date in Settings.
       - name: Record the backup date
         env:
           FILE: ${{ steps.create.outputs.file }}
+          PRODUCTION_SUPABASE_URL: ${{ secrets.PRODUCTION_SUPABASE_URL }}
+          PRODUCTION_SUPABASE_SECRET_KEY: ${{ secrets.PRODUCTION_SUPABASE_SECRET_KEY }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
         run: node scripts/backup.mjs record --file "$RUNNER_TEMP/backup/$FILE"

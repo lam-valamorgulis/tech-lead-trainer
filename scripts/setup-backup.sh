@@ -202,11 +202,18 @@ banner "Tech Lead Trainer: weekly backup"
 stage "Before you start"
 say "This wizard stores 3 secrets in GitHub for the weekly backup. It takes about 5 minutes."
 say "Checking that gh can use your personal account…"
-if ! GH_TOKEN=$(gh auth token --user "$GITHUB_ACCOUNT" 2>/dev/null); then
+if ! PERSONAL_GH_TOKEN=$(command gh auth token --user "$GITHUB_ACCOUNT" 2>/dev/null); then
   warn "gh has no login for $GITHUB_ACCOUNT. Run: gh auth login, then run this wizard again."
   exit 1
 fi
-export GH_TOKEN
+# Every gh call below (also inside set_secret) uses the personal account and this repo.
+# The token is not exported, so no other program (npx, node) can read it.
+gh() { GH_TOKEN="$PERSONAL_GH_TOKEN" GH_REPO="$REPO" command gh "$@"; }
+# git with the personal account, to fetch the backups branch.
+personal_git() {
+  git -c credential.helper= \
+    -c "credential.helper=!f() { echo username=$GITHUB_ACCOUNT; echo password=$PERSONAL_GH_TOKEN; }; f" "$@"
+}
 if ! gh repo view "$REPO" >/dev/null 2>&1; then
   warn "gh cannot open $REPO with the $GITHUB_ACCOUNT account."
   exit 1
@@ -259,7 +266,13 @@ if [[ -z "$PRODUCTION_SUPABASE_SECRET_KEY" ]]; then
   note "A key that ends with dots is masked. Reveal it first."
   ask_secret PRODUCTION_SUPABASE_SECRET_KEY "Paste the secret key:"
 fi
+tries=0
 until [[ "$PRODUCTION_SUPABASE_SECRET_KEY" =~ ^sb_secret_[A-Za-z0-9_-]+$ ]]; do
+  tries=$((tries + 1))
+  if (( tries > 3 )); then
+    warn "No full sb_secret_ key after 3 tries. Nothing was stored. Run this wizard again later."
+    exit 1
+  fi
   ask_secret PRODUCTION_SUPABASE_SECRET_KEY "That is not a full sb_secret_ key. Paste it again:"
 done
 printf '  %s✓%s secret key read (%s characters)\n' "$GREEN" "$RESET" "${#PRODUCTION_SUPABASE_SECRET_KEY}"
@@ -273,24 +286,43 @@ set_secret PRODUCTION_SUPABASE_SECRET_KEY "$PRODUCTION_SUPABASE_SECRET_KEY"
 set_secret BACKUP_ENCRYPTION_KEY "$BACKUP_ENCRYPTION_KEY"
 unset PRODUCTION_SUPABASE_SECRET_KEY
 say "Secrets on GitHub now:"
-gh secret list --repo "$REPO" | grep -E '^(PRODUCTION_SUPABASE_URL|PRODUCTION_SUPABASE_SECRET_KEY|BACKUP_ENCRYPTION_KEY)\b' || warn "Could not list the secrets."
+gh secret list | grep -E '^(PRODUCTION_SUPABASE_URL|PRODUCTION_SUPABASE_SECRET_KEY|BACKUP_ENCRYPTION_KEY)\b' || warn "Could not list the secrets."
 pause
 
 # ── 5 ──────────────────────────────────────────────────────────────────────
 stage "First backup and the restore test (after the ship)"
 say "The job runs only after Sprint 2 is on main, and production has the backups table."
 if confirm "Is Sprint 2 shipped? Start the first backup now?"; then
-  gh workflow run backup.yml --repo "$REPO" --ref main
+  started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  gh workflow run backup.yml --ref main
   say "Started. Waiting for GitHub to show the run…"
-  sleep 8
-  RUN_ID=$(gh run list --repo "$REPO" --workflow backup.yml --limit 1 --json databaseId --jq '.[0].databaseId')
-  gh run watch "$RUN_ID" --repo "$REPO" --exit-status || warn "The backup run failed. Open it: gh run view $RUN_ID --repo $REPO --log-failed"
-  say "Now the one real restore test, into a new empty database on this Mac:"
-  step "npm run db:start   (if local Supabase is not running)"
-  step "git fetch origin backups && npm run backup:restore-check"
-  note "PASS means every row came back and the review state is the same."
+  RUN_ID=""
+  for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
+    sleep 5
+    # Only a manual run that started after the click above, never an older run.
+    RUN_ID=$(gh run list --workflow backup.yml --event workflow_dispatch --limit 5 --json databaseId,createdAt \
+      --jq "[.[] | select(.createdAt >= \"$started\")][0].databaseId // empty")
+    [[ -n "$RUN_ID" ]] && break
+  done
+  if [[ -z "$RUN_ID" ]]; then
+    warn "GitHub shows no new run yet. Look at: https://github.com/$REPO/actions/workflows/backup.yml"
+    SKIPPED+=("Watch the first backup run, then run this wizard again for the restore test")
+  elif gh run watch "$RUN_ID" --exit-status; then
+    printf '  %s✓%s the first backup is stored\n' "$GREEN" "$RESET"
+    say "Now the one real restore test, into a new empty database on this Mac."
+    note "Local Supabase must run (npm run db:start). The shared local data is not touched."
+    personal_git fetch origin backups
+    if npm run backup:restore-check; then
+      printf '  %s✓%s restore test passed\n' "$GREEN" "$RESET"
+    else
+      SKIPPED+=("The restore test did not pass. Read its output, then run: npm run backup:restore-check")
+    fi
+  else
+    warn "The backup run failed. Open it: gh run view $RUN_ID --log-failed"
+    SKIPPED+=("Fix the failed backup run $RUN_ID, then run this wizard again")
+  fi
 else
-  SKIPPED+=("After the ship: gh workflow run backup.yml --ref main, then git fetch origin backups && npm run backup:restore-check")
+  SKIPPED+=("After the ship: run this wizard again and answer y at the last stage")
 fi
 
 finish

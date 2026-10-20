@@ -79,12 +79,19 @@ async function insertRows(db: Database, table: BackupTable, rows: Row[]): Promis
 
 /** The review state of one user, rebuilt from the log now in the database (design 12.2). */
 async function rebuildFromLog(db: Database, userId: string): Promise<StateRow[]> {
-  const at = "to_jsonb(occurred_at) #>> '{}' as occurred_at";
-  const day = "learning_day::text as learning_day";
-  const order = "where user_id = $1 order by occurred_at, id";
-  const placements = await db.query(`select town_id, item_id, correct, ${day}, ${at} from public.placement_events ${order}`, [userId]);
-  const catches = await db.query(`select item_id, correct, ${day}, ${at} from public.catch_events ${order}`, [userId]);
-  const reviews = await db.query(`select item_id, ${day}, grade from public.review_events ${order}`, [userId]);
+  // The same text forms and the same order as the API gives `rebuildReviewState`.
+  const occurredAtText = "to_jsonb(occurred_at) #>> '{}' as occurred_at";
+  const learningDayText = "learning_day::text as learning_day";
+  const oneUserInTimeOrder = "where user_id = $1 order by occurred_at, id";
+  const placements = await db.query(
+    `select town_id, item_id, correct, ${learningDayText}, ${occurredAtText} from public.placement_events ${oneUserInTimeOrder}`,
+    [userId],
+  );
+  const catches = await db.query(
+    `select item_id, correct, ${learningDayText}, ${occurredAtText} from public.catch_events ${oneUserInTimeOrder}`,
+    [userId],
+  );
+  const reviews = await db.query(`select item_id, ${learningDayText}, grade from public.review_events ${oneUserInTimeOrder}`, [userId]);
   return reviewStateRows(userId, {
     placements: placements.rows as PlacementRow[],
     catches: catches.rows as CatchRow[],
@@ -134,17 +141,17 @@ export async function restoreBackup(db: Database, backup: Backup): Promise<Resto
     const reviewStateDifferences: string[] = [];
     const rebuilt: StateRow[] = [];
     for (const user of backup.users) {
-      const rows = await rebuildFromLog(db, user.id);
-      rebuilt.push(...rows);
+      const userState = await rebuildFromLog(db, user.id);
+      rebuilt.push(...userState);
       const saved = backup.tables.review_state.filter((row) => row.user_id === user.id);
-      reviewStateDifferences.push(...differences(user.id, rows, saved));
+      reviewStateDifferences.push(...differences(user.id, userState, saved));
     }
     await insertRows(db, "review_state", rebuilt);
 
-    const rows = {} as Record<BackupTable, number>;
-    for (const table of BACKUP_TABLES) rows[table] = await count(db, `public.${table}`);
+    const restoredRows = {} as Record<BackupTable, number>;
+    for (const table of BACKUP_TABLES) restoredRows[table] = await count(db, `public.${table}`);
     await db.query("commit");
-    return { users: backup.users.length, rows, reviewStateDifferences };
+    return { users: backup.users.length, rows: restoredRows, reviewStateDifferences };
   } catch (error) {
     await db.query("rollback");
     throw error;

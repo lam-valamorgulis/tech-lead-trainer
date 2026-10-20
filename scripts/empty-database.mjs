@@ -13,7 +13,7 @@ function checkName(name) {
 }
 
 /** The local database container that `supabase start` runs, named after project_id. */
-function container() {
+export function container() {
   const config = readFileSync(new URL("../supabase/config.toml", import.meta.url), "utf8");
   const projectId = config.match(/^project_id\s*=\s*"([^"]+)"/m)?.[1];
   if (!projectId) throw new Error("supabase/config.toml has no project_id.");
