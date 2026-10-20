@@ -53,7 +53,7 @@ const DEVICE_MESSAGES: Record<Device["name"], string> = {
   blocked: "Notifications are blocked for this app. Allow them in your phone or browser settings, then open this page again.",
   off: "Reminders are off on this device.",
   on: "Reminders are on for this device.",
-  working: "Turning reminders on…",
+  working: "One moment…",
   failed: "",
 };
 
@@ -70,8 +70,9 @@ function DeviceSwitch() {
       if (notificationsBlocked()) return { name: "blocked" };
       const subscription = await currentDevice();
       if (!subscription) return { name: "off", publicKey };
-      // Saved again in case this device was turned on under another account.
-      await savePushSubscription(browserClient(), subscription, deviceLabel());
+      // Saved again in case this device was turned on under another account. Reminders are
+      // already on here, so a failed save does not change what the screen says.
+      await savePushSubscription(browserClient(), subscription, deviceLabel()).catch(() => undefined);
       return { name: "on", publicKey };
     }
     load().then(

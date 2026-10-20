@@ -179,6 +179,25 @@ describe("sendDueReminders with Settings and devices", () => {
     expect(data).toEqual([{ endpoint: kept.endpoint }]);
   });
 
+  it("tries again on the next run when every device failed, and still sends only once", async () => {
+    const sub = subscriptionFor("flaky");
+    const other = await signedInUser("remind-flaky");
+    await ensureProfile(other.client);
+    try {
+      await savePushSubscription(other.client, sub, "iPhone");
+      const down = fakePushService(() => "failed");
+      await sendDueReminders(adminClient(), new Date("2030-01-25T00:30:00Z"), down.send);
+      expect(down.callsTo([sub.endpoint])).toHaveLength(1);
+
+      const up = fakePushService();
+      await sendDueReminders(adminClient(), new Date("2030-01-25T00:35:00Z"), up.send);
+      await sendDueReminders(adminClient(), new Date("2030-01-25T00:40:00Z"), up.send);
+      expect(up.callsTo([sub.endpoint])).toHaveLength(1);
+    } finally {
+      await forgetEmail(other.email);
+    }
+  });
+
   it("does not let the learner write or change reminders", async () => {
     const insert = await user.client.from("reminders").insert({ learning_day: "2030-01-30", kind: "morning" });
     expect(insert.error?.code).toBe("42501");

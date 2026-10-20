@@ -18,10 +18,22 @@ export function isPushServiceEndpoint(endpoint: string): boolean {
   }
 }
 
+function hostOf(endpoint: string): string {
+  try {
+    return new URL(endpoint).hostname;
+  } catch {
+    return "(not a URL)";
+  }
+}
+
 /** Sends one push with `web-push`. A device the push service no longer knows comes back "gone". */
 export function webPushSender(vapid: VapidDetails): PushSender {
   return async (subscription, payload): Promise<PushResult> => {
-    if (!isPushServiceEndpoint(subscription.endpoint)) return "gone";
+    if (!isPushServiceEndpoint(subscription.endpoint)) {
+      // Logged, so a new real push service shows up in the logs instead of losing its devices silently.
+      console.warn("push refused for an unknown host", hostOf(subscription.endpoint));
+      return "gone";
+    }
     try {
       await webpush.sendNotification(subscription, payload, {
         vapidDetails: vapid,
