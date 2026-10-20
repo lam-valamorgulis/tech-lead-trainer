@@ -21,7 +21,8 @@
     "db:reset": "supabase db reset && supabase stop && npm run db:start",
     "rebuild:review-state": "node scripts/rebuild-review-state.mjs",
     "check:live-code": "node scripts/check-live-code-length.mjs",
-    "backup:restore-check": "node scripts/backup.mjs restore-check"
+    "backup:restore-check": "node scripts/backup.mjs restore-check",
+    "reports": "node scripts/reports.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",

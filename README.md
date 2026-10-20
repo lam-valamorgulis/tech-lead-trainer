@@ -91,6 +91,22 @@ Until the four reminder variables above are set, reminders stay off. Settings sh
 
 Run `scripts/setup-reminders.sh` once, after Sprint 2 ships. It makes the push keys and the cron secret, puts them in Vercel and Supabase Vault, and checks the endpoint. No secret is written to a file.
 
+## Monthly content review
+
+Before each monthly content review, list every open "Report wrong" from the live app:
+
+```sh
+npm run reports -- --live
+```
+
+It prints Markdown, grouped by creature or move, with each learner's message. "changed since" means the content changed after the report, so it may be fixed already. After you fix an item, mark its reports done:
+
+```sh
+npm run reports -- --live --done 3 5
+```
+
+Without `--live`, both commands use local Supabase. `--live` reads `.env.wizard` and gets the secret key through your Supabase CLI login (`npx supabase login`). It never prints the key.
+
 ## Tests
 
 The tests use three seams.

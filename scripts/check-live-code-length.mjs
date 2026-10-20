@@ -5,43 +5,18 @@
 // the Supabase CLI login. It never prints the key and sends no email.
 // The email must be on the allow list, because Supabase creates its account if it does not exist yet.
 // The sampled code replaces any code that account has waiting: the last emailed code stops working.
-import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { createClient } from "@supabase/supabase-js";
+import { readLiveSupabase } from "./live-supabase.mjs";
 import { SIGN_IN_CODE_LENGTH, codeLengthProblem, sampleSignInCode } from "../src/lib/auth/code-length.ts";
 
-function readEnvFile(path) {
-  const values = {};
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    const match = line.match(/^([A-Z0-9_]+)=(.*)$/);
-    if (match) values[match[1]] = match[2];
-  }
-  return values;
-}
-
-function secretKeyFor(projectRef) {
-  const output = execFileSync(
-    "npx",
-    ["supabase", "projects", "api-keys", "--project-ref", projectRef, "--reveal", "-o", "json"],
-    { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] },
-  );
-  const secret = JSON.parse(output).find((key) => key.type === "secret");
-  if (!secret?.api_key || secret.api_key.includes("·")) {
-    throw new Error("The Supabase CLI did not return a full secret key. Run `npx supabase login` and try again.");
-  }
-  return secret.api_key;
-}
-
 const { values: args } = parseArgs({ options: { email: { type: "string" } } });
-const env = readEnvFile(".env.wizard");
-for (const key of ["SUPABASE_PROJECT_REF", "NEXT_PUBLIC_SUPABASE_URL"]) {
-  if (!env[key]) throw new Error(`${key} is missing from .env.wizard. Run scripts/setup-production.sh first.`);
-}
+const live = readLiveSupabase();
+const env = live.env;
 const email = args.email ?? env.OWNER_EMAIL;
 if (!email) throw new Error("No email to check with. Pass --email, or set OWNER_EMAIL in .env.wizard.");
 
-const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, secretKeyFor(env.SUPABASE_PROJECT_REF), {
+const admin = createClient(live.url, live.secretKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 const allowed = await admin.from("allowed_emails").select("email").eq("email", email.toLowerCase()).maybeSingle();
