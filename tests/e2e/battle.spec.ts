@@ -83,6 +83,10 @@ test("a full battle: team pick, threat first, why before the result, damage and 
     await page.getByRole("button", { name: "Next turn" }).click();
 
     await expect(page.getByRole("heading", { name: "Turn 2 of 3" })).toBeFocused();
+    // The last counterattack stays on screen, so the learner handles its result.
+    await expect(
+      page.getByText("Last turn: You chose TTL. The logo loads fast, but a new logo takes an hour to show."),
+    ).toBeVisible();
     await playTurn(page, "No store (Cache)", "A price must never come from an old copy.", isPhone);
     await expect(page.getByText("Opponent HP 0 of 4")).toBeVisible();
     await page.getByRole("button", { name: "See how it ended" }).click();

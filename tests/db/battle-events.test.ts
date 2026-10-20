@@ -94,6 +94,10 @@ describe("battle events", () => {
     await expect(writeEvents(user.client, [turnEvent({ turnNumber: 4 })])).rejects.toThrow();
   });
 
+  it("refuse a team name over 100 characters, like every other text column", async () => {
+    await expect(writeEvents(user.client, [battleEvent({ team: ["cache", "x".repeat(101)] })])).rejects.toThrow();
+  });
+
   it("store the end of a battle once: the team, the result and the turns used", async () => {
     const battle = battleEvent();
     await writeEvents(user.client, [battle, battle]);

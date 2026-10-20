@@ -55,7 +55,13 @@ create table public.battle_events (
   scenario_id text not null check (scenario_id ~ '^t[0-9]{2}-[a-z0-9-]+$'),
   content_hash text not null check (content_hash ~ '^[0-9a-f]{16}$'),
   -- Up to 3 caught creatures. A learner with fewer caught creatures brings all of them.
-  team text[] not null check (cardinality(team) between 1 and 3),
+  -- At most 3 names, so checking the first 3 positions checks every name.
+  team text[] not null check (
+    cardinality(team) between 1 and 3
+    and coalesce(char_length(team[1]), 0) <= 100
+    and coalesce(char_length(team[2]), 0) <= 100
+    and coalesce(char_length(team[3]), 0) <= 100
+  ),
   result text not null check (result in ('won', 'lost')),
   turns_used smallint not null check (turns_used between 1 and 3),
   unique (user_id, client_event_id),

@@ -43,7 +43,7 @@ function bestRow(turn: BattleTurn) {
 
 /**
  * Today's battle, or null. A 3-minute day is reviews only, and a day that already started a
- * battle gets no second one. A scenario is ready when the learner caught the creature of every
+ * battle gets no second one. A scenario is ready when the team can hold the creature of every
  * best move, so a well-chosen team can always win. The least-played ready scenario comes first.
  */
 export function nextBattle({
@@ -62,14 +62,15 @@ export function nextBattle({
   if (committedMinutes === 3) return null;
   if (battles.some((battle) => battle.learningDay === today)) return null;
   const caught = caughtIds(catches);
+  // A retired creature cannot join a team, even when it was caught.
+  const choices = town.creatures.filter((creature) => !creature.retired && caught.has(creature.id)).map((c) => c.id);
   const ready = town.scenarios.filter(
-    (scenario) => !scenario.retired && scenario.turns.every((turn) => caught.has(creatureOf(bestRow(turn).moveId))),
+    (scenario) => !scenario.retired && scenario.turns.every((turn) => choices.includes(creatureOf(bestRow(turn).moveId))),
   );
   const plays = (scenario: BundledScenario) => battles.filter((battle) => battle.scenarioId === scenario.id).length;
   // A stable sort keeps file order between scenarios played equally often.
   const [scenario] = [...ready].sort((a, b) => plays(a) - plays(b));
   if (!scenario) return null;
-  const choices = town.creatures.filter((creature) => !creature.retired && caught.has(creature.id)).map((c) => c.id);
   return { scenario, team: { size: Math.min(TEAM_SIZE, choices.length), choices } };
 }
 

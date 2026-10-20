@@ -199,6 +199,9 @@ function townProblems(town: Town, allTowns: Town[]): Problem[] {
 function scenarioProblems(town: Town, scenario: Scenario, moves: Map<string, Move>): Problem[] {
   const problems: Problem[] = [];
   const scenarioAt = `${town.id}.${scenario.id}`;
+  if (!scenario.id.startsWith(`${town.id}-`)) {
+    problems.push({ where: scenarioAt, message: `A scenario of ${town.id} must have an id that starts with ${town.id}-.` });
+  }
   problems.push(...sentenceProblems(`${scenarioAt}.problem`, scenario.problem));
 
   const bestTotal = scenario.turns.reduce((sum, turn) => sum + Math.max(...turn.moves.map((row) => row.damage)), 0);

@@ -58,6 +58,13 @@ describe("nextBattle", () => {
     ).toBe("t99-sale-day");
   });
 
+  it("offers nothing when a best move belongs to a retired creature, which no team can hold", () => {
+    const content = fixtureTown();
+    Object.assign(content.creatures[2], { retired: true });
+    const retired = buildBundle([townSchema.parse(content)]).towns[0];
+    expect(nextBattle({ town: retired, catches: caught("cache", "proxy"), battles: [], today: TODAY, committedMinutes: 15 })).toBeNull();
+  });
+
   it("never offers a retired scenario", () => {
     const content = fixtureTown();
     Object.assign(content.scenarios[0], { retired: true });

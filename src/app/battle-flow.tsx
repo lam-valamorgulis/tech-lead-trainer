@@ -51,15 +51,21 @@ export function BattleFlow({
     if (!battle) return;
     const turnNumber = battle.turns.length + 1;
     if (played.current.has(turnNumber)) return;
-    played.current.add(turnNumber);
     const next = playTurn(battle, moveId);
+    played.current.add(turnNumber);
     const turn = next.turns[next.turns.length - 1];
-    const common = { sessionId, occurredAt: new Date().toISOString(), battleId, scenarioId: offer.scenario.id, contentHash: offer.scenario.hash };
+    const battleFields = {
+      sessionId,
+      occurredAt: new Date().toISOString(),
+      battleId,
+      scenarioId: offer.scenario.id,
+      contentHash: offer.scenario.hash,
+    };
     const events: LearningEvent[] = [
       {
         type: "battle-turn",
         clientEventId: crypto.randomUUID(),
-        ...common,
+        ...battleFields,
         turnNumber,
         moveId: turn.moveId,
         damage: turn.damage,
@@ -67,14 +73,14 @@ export function BattleFlow({
         whyText,
       },
     ];
-    const end = battleProgress(next);
-    if (end.finished) {
+    const outcome = battleProgress(next);
+    if (outcome.finished) {
       events.push({
         type: "battle",
         clientEventId: crypto.randomUUID(),
-        ...common,
+        ...battleFields,
         team: next.team,
-        result: end.won ? "won" : "lost",
+        result: outcome.won ? "won" : "lost",
         turnsUsed: next.turns.length,
       });
     }
@@ -113,6 +119,7 @@ export function BattleFlow({
           Turn {battle.turns.length + 1} of {MAX_TURNS}
         </h2>
         <HitPoints hp={progress!.hp} />
+        {last && <p className="lead">Last turn: {resultSentence(last)}</p>}
         {/* UI rule 1: the threat comes before the moves. */}
         <p className="notice">
           <strong>Threat:</strong> {turn.threat}
@@ -129,7 +136,7 @@ export function BattleFlow({
           Turn {last.turnNumber} result
         </h2>
         <p className="damage">{damageLabel(last.damage)}</p>
-        <p>{counterattackSentence(last.moveId && moveLabel(last.moveId).name, last.counterattack)}</p>
+        <p>{resultSentence(last)}</p>
         <HitPoints hp={progress!.hp} />
         <button type="button" className="button-main" onClick={() => setStep(progress!.finished ? "end" : "turn")}>
           {progress!.finished ? "See how it ended" : "Next turn"}
@@ -212,6 +219,11 @@ function TeamForm({ offer, onStart }: { offer: BattleOffer; onStart: (team: stri
       </button>
     </form>
   );
+}
+
+/** UI rule 2: "You chose X. Y happens." */
+function resultSentence(turn: BattleState["turns"][number]): string {
+  return counterattackSentence(turn.moveId && moveLabel(turn.moveId).name, turn.counterattack);
 }
 
 /** The move and its creature, for example "TTL (Cache)". */

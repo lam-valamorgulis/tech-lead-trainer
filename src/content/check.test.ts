@@ -230,6 +230,14 @@ describe("checkContent", () => {
       ]);
     });
 
+    it("fails when a scenario id does not start with its town id", () => {
+      const town = fixtureTown();
+      town.scenarios[0].id = "t05-sale-day";
+      expect(check(town, [...ledgerWithoutScenarios, "t05-sale-day"])).toEqual([
+        { where: "t99.t05-sale-day", message: "A scenario of t99 must have an id that starts with t99-." },
+      ]);
+    });
+
     it("fails when a move table names a move that does not exist", () => {
       const town = fixtureTown();
       town.scenarios[0].turns[0].moves[2].moveId = "cookie.secure";
