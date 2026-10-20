@@ -49,6 +49,23 @@ describe("gymBattles", () => {
     ]);
   });
 
+  it("prefers a battle with both sides of a pair, also when one side is a wrong move in its table", () => {
+    // This town pairs cache.ttl with cookie.http-only. Battle 1 gives cookie.http-only no row at all,
+    // so it holds only one side. The other battles list both in turn 1 (best TTL, wrong HttpOnly).
+    const content = fixtureTown();
+    content.confusablePairs = [["cache.ttl", "cookie.http-only"]];
+    const [scenario] = content.scenarios;
+    content.scenarios = Array.from({ length: 6 }, (_, i) => ({ ...structuredClone(scenario), id: `t99-sale-${i + 1}` }));
+    // In battle 1, HttpOnly becomes another move: No store in turn 1, TTL in turn 3 (each 0 damage).
+    content.scenarios[0].turns.forEach((turn, index) => {
+      const instead = index === 0 ? "cache.no-store" : "cache.ttl";
+      turn.moves = turn.moves.map((row) => (row.moveId === "cookie.http-only" ? { ...row, moveId: instead } : row));
+    });
+    const town = buildBundle([townSchema.parse(content)]).towns[0];
+    const gym = gymBattles({ town, catches: caught("cache", "cookie", "proxy"), battles: [] });
+    expect(gym?.[0].scenario.id).toBe("t99-sale-2");
+  });
+
   it("needs 5 ready scenarios, so a learner with too few caught creatures cannot start it yet", () => {
     expect(gymBattles({ town: townWithScenarios(4), catches: caught("cache", "proxy"), battles: [] })).toBeNull();
     expect(gymBattles({ town: townWithScenarios(7), catches: caught("cache"), battles: [] })).toBeNull();

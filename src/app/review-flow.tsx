@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ReviewItem } from "@/content";
+import { dayNumber } from "@/core/day";
 import { gradeReview, type DueState, type Grade } from "@/core/review";
 import { postEvents } from "@/lib/events/post-events";
 import { ReportWrong } from "./report-wrong";
@@ -10,7 +11,13 @@ import { GlossaryText } from "./glossary-text";
 /** The 2 sentences the learner wrote after a battle about this item (design 10), if they still wait. */
 export type TeachBack = { scenarioName: string; sentences: [string, string] };
 
-export type DueReview = { state: DueState; item: ReviewItem; teachBack?: TeachBack | null };
+export type DueReview = {
+  state: DueState;
+  item: ReviewItem;
+  teachBack?: TeachBack | null;
+  /** The name of the due item this one was mixed in next to, before its own due day. */
+  mixedWith?: string;
+};
 
 const GRADES: { grade: Grade; label: string }[] = [
   { grade: "again", label: "Again" },
@@ -55,7 +62,7 @@ export function ReviewFlow({
 }
 
 function ReviewCard({
-  review: { state, item, teachBack },
+  review: { state, item, teachBack, mixedWith },
   position,
   today,
   sessionId,
@@ -79,11 +86,16 @@ function ReviewCard({
     heading.current?.focus();
   }, [revealedAt]);
 
+  /** The schedule after a grade. The due day makes an early (mixed-in) review keep its schedule. */
+  function nextReview(choice: Grade) {
+    return gradeReview({ step: state.step, gradedDay: today, grade: choice, dueDay: state.dueDay });
+  }
+
   function grade(choice: Grade) {
     // A fast double tap saves one review.
     if (graded.current || !revealedAt) return;
     graded.current = true;
-    const next = gradeReview({ step: state.step, gradedDay: today, grade: choice });
+    const next = nextReview(choice);
     const gradedAt = new Date().toISOString();
     void postEvents([
       {
@@ -113,6 +125,9 @@ function ReviewCard({
       <h2 id="review-title" ref={heading} tabIndex={-1}>
         Review {position}: {item.name}
       </h2>
+      {mixedWith && (
+        <p className="notice">Mixed in: easy to confuse with {mixedWith}.</p>
+      )}
       <p>
         <GlossaryText text={item.review.question} />
       </p>
@@ -151,11 +166,13 @@ function ReviewCard({
           <fieldset className="choices grades">
             <legend>How well did you know it?</legend>
             {GRADES.map(({ grade: choice, label }) => {
-              const next = gradeReview({ step: state.step, gradedDay: today, grade: choice });
+              const next = nextReview(choice);
+              // Days until the next review. An early review keeps its due day, so this is not always the step.
+              const days = next.dueDay ? dayNumber(next.dueDay) - dayNumber(today) : null;
               return (
                 <button key={choice} type="button" className="button-quiet" onClick={() => grade(choice)}>
                   {label}
-                  <span className="grade-hint">{next.dueDay ? ` · ${next.step} day${next.step === 1 ? "" : "s"}` : " · done"}</span>
+                  <span className="grade-hint">{days !== null ? ` · ${days} day${days === 1 ? "" : "s"}` : " · done"}</span>
                 </button>
               );
             })}

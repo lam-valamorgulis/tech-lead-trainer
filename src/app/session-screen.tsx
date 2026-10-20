@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { currentTown, reviewItem, scenarioName } from "@/content";
+import { confusablePairs, currentTown, reviewItem, scenarioName } from "@/content";
 import { battleRechecks, bestMoveRates, formatBestMoveRate, nextBattle, type BattleOffer, type BestMoveRate } from "@/core/battle";
 import { nextCatch, type CatchItem } from "@/core/catch";
 import { teachBackFor } from "@/core/discuss";
@@ -189,13 +189,15 @@ function useTodaysPlan(
       // A lost battle and a model answer with missing key points bring moves back tomorrow.
       const rechecks = battleRechecks(history);
       const isReviewable = (id: string) => reviewItem(id) !== undefined;
-      const due = dueReviews({ states: reviewStates(catches, reviews, rechecks), reviews, today, isReviewable }).map(
+      const states = reviewStates(catches, reviews, rechecks);
+      const due = dueReviews({ states, reviews, today, isReviewable, pairs: confusablePairs }).map(
         (state): DueReview => {
           // Design 10: the teach-back of a battle comes back at the next review of its items.
           const teachBack = teachBackFor(state.itemId, history.teachBacks, reviews);
           return {
             state,
             item: reviewItem(state.itemId)!,
+            mixedWith: state.mixedWith && reviewItem(state.mixedWith)?.name,
             teachBack: teachBack && {
               scenarioName: scenarioName(teachBack.scenarioId) ?? teachBack.scenarioId,
               sentences: teachBack.sentences,

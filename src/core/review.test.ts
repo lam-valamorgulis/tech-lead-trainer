@@ -94,10 +94,12 @@ describe("reviewStates", () => {
     });
 
     it("brings back an item whose reviews had ended", () => {
-      const ended = [...Array(7)].map((_, i) => reviewed("cache", `2026-10-${11 + i}`, "good"));
+      // Good on each due day: steps 1, 3, 7, 14, 30, 90, 180, then the reviews end.
+      const dueDays = ["2026-10-11", "2026-10-14", "2026-10-21", "2026-11-04", "2026-12-04", "2027-03-04", "2027-08-31"];
+      const ended = dueDays.map((day) => reviewed("cache", day, "good"));
       expect(reviewStates(catches, ended).get("cache")?.dueDay).toBeNull();
-      const states = reviewStates(catches, ended, [{ itemId: "cache", learningDay: "2026-10-20" }]);
-      expect(states.get("cache")).toMatchObject({ step: 180, dueDay: "2026-10-21" });
+      const states = reviewStates(catches, ended, [{ itemId: "cache", learningDay: "2027-09-10" }]);
+      expect(states.get("cache")).toMatchObject({ step: 180, dueDay: "2027-09-11" });
     });
 
     it("does nothing for an item that is not caught, or was caught after the battle", () => {
@@ -143,9 +145,9 @@ describe("dueReviews", () => {
 
   it("leaves out items whose reviews have ended", () => {
     const records = [caught("cache", "2026-01-01")];
-    const reviews = (["good", "good", "good", "good", "good", "good", "good"] as const).map((grade, i) =>
-      reviewed("cache", `2026-0${i + 1}-15`, grade),
-    );
+    // Good on or after each due day, through all 7 steps.
+    const days = ["2026-01-15", "2026-02-15", "2026-03-15", "2026-04-15", "2026-05-15", "2026-08-15", "2027-02-15"];
+    const reviews = days.map((day) => reviewed("cache", day, "good"));
     expect(dueReviews({ states: reviewStates(records, reviews), reviews, today: "2027-12-31" })).toEqual([]);
   });
 
@@ -166,5 +168,89 @@ describe("dueReviews", () => {
       isReviewable: (id) => !retired.has(id),
     });
     expect(due.map((s) => s.itemId)).toEqual(["item2", "item3", "item4", "item5", "item6", "item7", "item8", "item9"]);
+  });
+});
+
+describe("an early review, before the due day (a mixed-in confusable partner)", () => {
+  it("keeps the step and the due day after Good, Easy or Hard, so seeing it early never skips spacing", () => {
+    for (const grade of ["good", "easy", "hard"] as const) {
+      expect(gradeReview({ step: 3, gradedDay: "2026-10-10", grade, dueDay: "2026-10-12" })).toEqual({
+        step: 3,
+        dueDay: "2026-10-12",
+      });
+    }
+  });
+
+  it("still goes back one step after Again, because a real mistake counts", () => {
+    expect(gradeReview({ step: 3, gradedDay: "2026-10-10", grade: "again", dueDay: "2026-10-12" })).toEqual({
+      step: 1,
+      dueDay: "2026-10-11",
+    });
+  });
+
+  it("is replayed the same way from the log", () => {
+    // Caught on the 1st: due on the 2nd. Good on the 2nd: step 3, due on the 5th. Then Good early on the 3rd.
+    const states = reviewStates(
+      [caught("cookie", "2026-10-01")],
+      [reviewed("cookie", "2026-10-02", "good"), reviewed("cookie", "2026-10-03", "good")],
+    );
+    expect(states.get("cookie")).toMatchObject({ step: 3, dueDay: "2026-10-05" });
+  });
+});
+
+describe("dueReviews with confusable pairs", () => {
+  const TODAY = "2026-10-10";
+  const pairs: [string, string][] = [
+    ["cache", "cookie"],
+    ["proxy", "cache.ttl"],
+  ];
+  const ids = (list: { itemId: string; mixedWith?: string }[]) => list.map((s) => (s.mixedWith ? `${s.itemId}~${s.mixedWith}` : s.itemId));
+
+  it("puts a caught partner right after a due item, even when the partner is not due, and marks it", () => {
+    // cache is due today. cookie was caught today, so it is not due until tomorrow.
+    const states = reviewStates([caught("cache", "2026-10-09"), caught("cookie", TODAY)], []);
+    expect(ids(dueReviews({ states, reviews: [], today: TODAY, pairs }))).toEqual(["cache", "cookie~cache"]);
+  });
+
+  it("moves a due partner next to its pair", () => {
+    const states = reviewStates(
+      [caught("cache", "2026-10-07"), caught("proxy", "2026-10-08"), caught("cookie", "2026-10-09")],
+      [],
+    );
+    expect(ids(dueReviews({ states, reviews: [], today: TODAY, pairs }))).toEqual(["cache", "cookie", "proxy"]);
+  });
+
+  it("never lets a partner take a place from a due item: the 8 places go to the oldest due items first", () => {
+    // 8 due items, caught on days 1 to 8. cache is the oldest. cookie, its partner, is not due yet.
+    const records = [
+      caught("cache", "2026-10-01"),
+      ...Array.from({ length: 7 }, (_, i) => caught(`item${i}`, `2026-10-0${i + 2}`)),
+      caught("cookie", TODAY),
+    ];
+    const due = dueReviews({ states: reviewStates(records, []), reviews: [], today: TODAY, pairs });
+    expect(ids(due)).toEqual(["cache", "item0", "item1", "item2", "item3", "item4", "item5", "item6"]);
+  });
+
+  it("moves a due partner up only inside today's places, never past an older due item that would drop out", () => {
+    // 9 due items, oldest first: cache, item0..item6, cookie. Only 8 fit, so cookie stays out.
+    const records = [
+      caught("cache", "2026-10-01"),
+      ...Array.from({ length: 7 }, (_, i) => caught(`item${i}`, `2026-10-0${i + 2}`)),
+      caught("cookie", "2026-10-09"),
+    ];
+    const due = dueReviews({ states: reviewStates(records, []), reviews: [], today: TODAY, pairs });
+    expect(ids(due)).toEqual(["cache", "item0", "item1", "item2", "item3", "item4", "item5", "item6"]);
+  });
+
+  it("adds no partner that is not caught, already reviewed today, or past the daily limit of 8", () => {
+    const one = reviewStates([caught("cache", "2026-10-09")], []);
+    expect(ids(dueReviews({ states: one, reviews: [], today: TODAY, pairs }))).toEqual(["cache"]);
+
+    const both = reviewStates([caught("cache", "2026-10-09"), caught("cookie", TODAY)], []);
+    const cookieDone = [reviewed("cookie", TODAY, "good")];
+    expect(ids(dueReviews({ states: both, reviews: cookieDone, today: TODAY, pairs }))).toEqual(["cache"]);
+
+    const sevenDone = Array.from({ length: 7 }, (_, i) => reviewed(`other-${i}`, TODAY, "good"));
+    expect(ids(dueReviews({ states: both, reviews: sevenDone, today: TODAY, pairs }))).toEqual(["cache"]);
   });
 });
