@@ -29,6 +29,10 @@
       "definition": "Many servers share the requests, but they look like one server to the client."
     },
     {
+      "word": "manipulator in the middle (MITM)",
+      "definition": "An attacker who sits between the browser and the server, and reads or changes the traffic."
+    },
+    {
       "word": "MIME sniffing",
       "definition": "The browser guesses the MIME type by looking at the bytes of the file."
     },
@@ -47,6 +51,10 @@
     {
       "word": "reason phrase",
       "definition": "The short, optional text after the status code, like Not Found, written for humans."
+    },
+    {
+      "word": "safe method",
+      "definition": "An HTTP method that only reads data and does not change the state of the server."
     },
     {
       "word": "session",

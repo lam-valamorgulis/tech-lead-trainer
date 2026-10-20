@@ -28,8 +28,8 @@
             }
           },
           "review": {
-            "question": "In HTTP, which side starts every request?",
-            "answer": "The client, usually the browser. The server only answers."
+            "question": "What can sit between the client and the server?",
+            "answer": "Proxies, for example caches or gateways."
           },
           "workedExample": {
             "problem": "Your product manager wants the server to send a new price to an open product page. You only use plain HTTP.",
@@ -56,7 +56,7 @@
                 "explanation": "The user agent is any tool that acts for the user. Most often it is the web browser."
               },
               "card": {
-                "text": "The user agent is any tool that acts for the user. Most often, it is the web browser. It can also be a program that developers use to debug their apps. The user agent is the client side of HTTP. It always sends the request first.",
+                "text": "The user agent is any tool that acts for the user. Most often, it is the web browser. It can also be a program that developers use to debug their apps. The browser is always the side that starts the request.",
                 "example": "You type a URL and press Enter. Your browser is the user agent. You test your API with a debugging program. Now that program is the user agent.",
                 "source": {
                   "title": "MDN: Overview of HTTP",
@@ -67,7 +67,7 @@
                 "question": "Besides a web browser, what else can be a user agent?",
                 "answer": "A program that developers use to debug their applications."
               },
-              "hash": "cca5febbe83fd105"
+              "hash": "fc17a6c5d58ca092"
             },
             {
               "id": "client-server.web-server",
@@ -98,7 +98,7 @@
               "hash": "8a6614591ce9972e"
             }
           ],
-          "hash": "e2717084d8d8cfa4"
+          "hash": "38c8482859651e2c"
         },
         {
           "id": "http-message",
@@ -207,7 +207,7 @@
                 "explanation": "An empty line shows that the metadata is complete. The optional body comes after it."
               },
               "card": {
-                "text": "After the start-line come the headers. In HTTP/1.x, a header is a case-insensitive name, a colon, and a value. The whole header is on one line. Then an empty line shows that the headers are complete. The optional body comes after it. Only PATCH, POST, and PUT requests have a body. Some responses, like 204 No Content, have no body.",
+                "text": "After the start-line come the headers. In HTTP/1.x, a header is a case-insensitive name, a colon, and a value. The whole header is on one line. Then an empty line shows that the headers are complete. The optional body comes after it. Usually, only PATCH, POST, and PUT requests have a body. Some responses, like 204 No Content, have no body.",
                 "example": "A form request has the header Content-Type: application/x-www-form-urlencoded. Then comes one empty line. Then the body is name=FirstName+LastName&email=bsmth%40example.com.",
                 "source": {
                   "title": "MDN: HTTP messages",
@@ -215,10 +215,10 @@
                 }
               },
               "review": {
-                "question": "Which three request methods have a body, according to MDN?",
+                "question": "Which three request methods usually have a body?",
                 "answer": "PATCH, POST, and PUT."
               },
-              "hash": "b53d7b60aa2dba0b"
+              "hash": "e5fe565e79bfcf3e"
             }
           ],
           "hash": "b0a623c0dc76d0e3"
@@ -379,7 +379,7 @@
               "Most of the codes are 301. The 300 class is a redirect, not a failure.",
               "Only the 400 and 500 classes are errors. The 400 class is the client, the 500 class is the server."
             ],
-            "answer": "Count only 4xx and 5xx codes as errors. Treat 2xx and 3xx codes as normal."
+            "answer": "Count only 4xx and 5xx codes as errors. A 3xx code is a redirect, not a failure."
           },
           "moves": [
             {
@@ -433,10 +433,10 @@
                 }
               },
               "review": {
-                "question": "Which header holds the new URL in a redirect response?",
-                "answer": "The Location header."
+                "question": "Which two redirect codes are permanent?",
+                "answer": "301 and 308. Search engines then update the old URL."
               },
-              "hash": "28d3d4fecc8654cf"
+              "hash": "b4885087c8750895"
             },
             {
               "id": "status-code.client-error",
@@ -495,7 +495,7 @@
               "hash": "98166d13b44ef2e4"
             }
           ],
-          "hash": "7267b3d325e274d3"
+          "hash": "f9604cdc5525d003"
         },
         {
           "id": "content-type",
@@ -509,7 +509,7 @@
               "The language of the page"
             ],
             "correctChoice": 2,
-            "explanation": "In requests like POST or PUT, Content-Type says what type of content is sent. The client uses Accept to say what it can understand."
+            "explanation": "In requests like POST or PUT, Content-Type says what type of content is sent."
           },
           "card": {
             "text": "The Content-Type header gives the media type of the resource. In a response, it tells the client the type of the returned data. In a POST or PUT request, it tells the server the type of content sent. A strict server may answer with a 415 client error. Browsers may ignore the value if they do MIME sniffing. The header X-Content-Type-Options: nosniff stops that.",
@@ -545,7 +545,7 @@
                   "They ask the user where to save the file"
                 ],
                 "correctChoice": 0,
-                "explanation": "Browsers use the MIME type, not the file extension. CSS sent as text/plain is not recognized as CSS, so it is ignored."
+                "explanation": "Browsers use the MIME type, not the file extension. Most browsers do not treat CSS sent as text/plain as CSS, so they ignore it."
               },
               "card": {
                 "text": "A MIME type, or media type, says the nature and format of a file. It has a type and a subtype, with a slash between and no spaces. An optional parameter can follow, like charset=UTF-8. MIME types are case-insensitive, but people usually write them in lowercase. Browsers use the MIME type, not the file extension, to decide how to handle a URL.",
@@ -559,7 +559,7 @@
                 "question": "What does a browser use to decide how to handle a file?",
                 "answer": "The MIME type in the Content-Type header, not the file extension."
               },
-              "hash": "ea1b4ceccb4edfd4"
+              "hash": "44964f5420972cf8"
             },
             {
               "id": "content-type.negotiation",
@@ -590,7 +590,7 @@
               "hash": "44e5f62655a31807"
             }
           ],
-          "hash": "e6c87c28e85184dc"
+          "hash": "54acaf0ec3813931"
         },
         {
           "id": "stateless-http",
@@ -759,25 +759,25 @@
                 "choices": [
                   "After 24 hours",
                   "After the next response",
-                  "Never, until you clear it by hand",
+                  "After exactly one hour",
                   "When the current session ends"
                 ],
                 "correctChoice": 3,
-                "explanation": "This is a session cookie. The browser decides when the current session ends."
+                "explanation": "This is a session cookie. The browser removes it when the session ends."
               },
               "card": {
-                "text": "A session cookie has no Expires and no Max-Age attribute. It is deleted when the current session ends. The browser decides when that is. Some browsers restore sessions, so a session cookie can last a long time. A permanent cookie is deleted at the Expires date, or after the Max-Age period. Max-Age is less error-prone and wins when both are set.",
+                "text": "A session cookie has no Expires and no Max-Age attribute. The browser removes it when the session ends, which is when the browser shuts down. Many browsers can restore a session, and then session cookies come back too. A permanent cookie ends at the Expires date, or after Max-Age seconds. Max-Age wins when both are set.",
                 "example": "Set-Cookie: id=a3fWa; Max-Age=2592000 keeps the cookie for 2592000 seconds. Set-Cookie: id=a3fWa; Expires=Thu, 31 Oct 2021 07:28:00 GMT keeps it until that date.",
                 "source": {
-                  "title": "MDN: Using HTTP cookies",
-                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies"
+                  "title": "MDN: Set-Cookie header",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie"
                 }
               },
               "review": {
                 "question": "Expires and Max-Age are both set. Which one wins?",
-                "answer": "Max-Age. It takes precedence and is less error-prone."
+                "answer": "Max-Age. It has precedence over Expires."
               },
-              "hash": "c0ad85db4b4c0dbd"
+              "hash": "f53a1c8873b8dc5b"
             },
             {
               "id": "cookie.secure-httponly",
@@ -811,29 +811,29 @@
               "id": "cookie.samesite",
               "name": "SameSite",
               "catch": {
-                "question": "A cookie has no SameSite attribute. How does the browser treat it?",
+                "question": "You set SameSite=None on a cookie. What must the cookie also have?",
                 "choices": [
-                  "As SameSite=None",
-                  "As SameSite=Strict",
-                  "As SameSite=Lax",
-                  "It refuses to store the cookie"
+                  "The HttpOnly attribute",
+                  "The Secure attribute",
+                  "A Max-Age attribute",
+                  "A Domain attribute"
                 ],
-                "correctChoice": 2,
-                "explanation": "With no SameSite attribute, the browser treats the cookie as Lax."
+                "correctChoice": 1,
+                "explanation": "SameSite=None sends the cookie with cross-site requests. The Secure attribute must also be set."
               },
               "card": {
-                "text": "SameSite controls when the browser sends a cookie with requests from other sites. Strict sends it only with requests from the cookie's own site. Lax also sends it when you navigate to the site from another site. None sends it with same-site and cross-site requests. None also needs Secure. No SameSite attribute means Lax.",
-                "example": "The shop sets its cart cookie with Set-Cookie: cart=110045_77895_53420; SameSite=Strict. A widget for other sites uses Set-Cookie: widget_session=7yjgj57e4n3d; SameSite=None; Secure; HttpOnly.",
+                "text": "SameSite controls when the browser sends a cookie with cross-site requests. Strict sends it only with requests from the site that set it. Lax also sends it when you follow a link to that site from another site. None sends it with same-site and cross-site requests. None also needs Secure. Some browsers use Lax when there is no SameSite attribute.",
+                "example": "The shop sets its cart cookie with Set-Cookie: cart=abc123; SameSite=Strict. A widget used on other sites sets Set-Cookie: widget_session=xyz789; SameSite=None; Secure.",
                 "source": {
-                  "title": "MDN: Using HTTP cookies",
-                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies"
+                  "title": "MDN: Set-Cookie header",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie"
                 }
               },
               "review": {
-                "question": "What must you add when you set SameSite=None?",
-                "answer": "The Secure attribute. SameSite=None needs a secure context."
+                "question": "Which SameSite value sends a cookie only with requests from the site that set it?",
+                "answer": "Strict."
               },
-              "hash": "c5bc435ce4cada0a"
+              "hash": "5d9d3b9e8f42594f"
             }
           ],
           "hash": "b5a1b01018a1a41a"
@@ -1104,7 +1104,7 @@
                   "Parallel requests over the same connection"
                 ],
                 "correctChoice": 3,
-                "explanation": "HTTP/2 sends parallel requests over one connection. It replaced HTTP/1.1 pipelining."
+                "explanation": "HTTP/2 sends parallel requests over one connection."
               },
               "card": {
                 "text": "HTTP/2 is a multiplexed protocol. Parallel requests can go over the same connection. In HTTP/1.1, a client had to wait for each resource before it asked for the next one. This wait is called head-of-line blocking. HTTP/2 is also binary, not text. You cannot read or write it by hand.",
@@ -1118,7 +1118,7 @@
                 "question": "What is head-of-line blocking in HTTP/1.1?",
                 "answer": "The client waits for one resource to download before it asks for the next one."
               },
-              "hash": "1aed1dde6a3e0db8"
+              "hash": "a11b2b92d1797eed"
             },
             {
               "id": "http-version.quic",
@@ -1225,7 +1225,7 @@
                   "The server sends the certificate twice",
                   "The certificate is stored in a cookie",
                   "The domain owner signs the certificate with a password",
-                  "A certificate authority signed it, and the browser trusts that authority"
+                  "A trusted certificate authority signed it"
                 ],
                 "correctChoice": 3,
                 "explanation": "A certificate authority signs the certificate. The browser checks that the signature chains back to a root certificate it already has."
@@ -1242,7 +1242,7 @@
                 "question": "What does a certificate authority do?",
                 "answer": "It signs digital certificates and their public keys. This says the information in them is correct."
               },
-              "hash": "099171ac82f6485d"
+              "hash": "39412cb6947b5c9e"
             },
             {
               "id": "tls.version",
@@ -1354,7 +1354,7 @@
                 "explanation": "Browsers ship with a preload list of HSTS domains. A listed domain uses HTTPS even on the first visit."
               },
               "card": {
-                "text": "HSTS has one weakness. It works only after the browser gets the header once over HTTPS. So the very first http request is open to attacks. Preloading fixes this. Google runs an HSTS preload service, and all browsers use its list. To qualify, max-age must be at least 31536000, which is one year. You also need includeSubDomains and preload.",
+                "text": "HSTS has one weakness. It works only after the browser gets the header once over HTTPS. So the very first http request is open to attacks. Preloading fixes this. Google runs an HSTS preload service, and all browsers use its list. Its rules include a max-age of at least 31536000, which is one year. The header also needs includeSubDomains and preload.",
                 "example": "Strict-Transport-Security: max-age=63072000; includeSubDomains; preload. This header sets two years and can join the preload list.",
                 "source": {
                   "title": "MDN: Strict-Transport-Security header",
@@ -1365,7 +1365,7 @@
                 "question": "What is the smallest max-age a domain needs for the HSTS preload list?",
                 "answer": "31536000 seconds, which is one year. The header also needs includeSubDomains and preload."
               },
-              "hash": "f6148c38d2eb4085"
+              "hash": "f9e96aa293300c73"
             }
           ],
           "hash": "d8fc4de1db4b6e2d"
@@ -1639,7 +1639,7 @@
                 "explanation": "A simple request uses GET, HEAD or POST, safelisted headers, and one of three Content-Type values. application/x-www-form-urlencoded is one of them."
               },
               "card": {
-                "text": "A simple request needs no preflight. It must meet all these rules. The method is GET, HEAD or POST. You set only CORS-safelisted headers: Accept, Accept-Language, Content-Language, Content-Type or Range. Content-Type is only application/x-www-form-urlencoded, multipart/form-data or text/plain. No ReadableStream is used in the request.",
+                "text": "A simple request needs no preflight. These are its main rules. The method is GET, HEAD or POST. You set only CORS-safelisted headers, such as Accept, Accept-Language, Content-Language and Content-Type. Content-Type is only application/x-www-form-urlencoded, multipart/form-data or text/plain. No ReadableStream is used in the request.",
                 "example": "A POST with Content-Type: text/plain and no custom headers is a simple request. A POST with Content-Type: application/json is not, so the browser sends a preflight first.",
                 "source": {
                   "title": "MDN: Cross-Origin Resource Sharing (CORS)",
@@ -1650,7 +1650,7 @@
                 "question": "Which three methods can a simple request use?",
                 "answer": "GET, HEAD and POST."
               },
-              "hash": "488e972896a7dc89"
+              "hash": "41e16a63058f57ba"
             },
             {
               "id": "cors.preflight",
