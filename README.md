@@ -48,6 +48,10 @@ To let an email sign in locally, add it to the allow list:
 docker exec supabase_db_tech-lead-trainer psql -U postgres -c "insert into allowed_emails (email) values ('you@example.com')"
 ```
 
+## Production setup
+
+Run `scripts/setup-production.sh` once on your Mac. It walks you through 10 steps: the Supabase project (free plan), the migrations, sign-in with a code, the allow list, the Vercel project, and the iPhone install. It writes only public values, to `.env.wizard`. Secrets stay in Supabase and Vercel.
+
 ## Sign-in setup
 
 People sign in with a 6-digit code sent by email. There are no magic links, because a link opens in Safari and not in the installed app.
