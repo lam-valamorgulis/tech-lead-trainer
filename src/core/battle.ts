@@ -71,6 +71,22 @@ export function nextBattle({
 }): BattleOffer | null {
   if (committedMinutes === 3) return null;
   if (battles.some((battle) => battle.learningDay === today)) return null;
+  return readyOffers({ town, catches, battles })[0] ?? null;
+}
+
+/**
+ * Every scenario the learner can win today, as a battle offer, the least played first. A
+ * scenario is ready when the team can hold the creature of every best move.
+ */
+export function readyOffers({
+  town,
+  catches,
+  battles,
+}: {
+  town: BundledTown;
+  catches: CatchRecord[];
+  battles: BattleRecord[];
+}): BattleOffer[] {
   const caught = caughtIds(catches);
   // A retired creature cannot join a team, even when it was caught.
   const choices = town.creatures.filter((creature) => !creature.retired && caught.has(creature.id)).map((c) => c.id);
@@ -79,13 +95,13 @@ export function nextBattle({
   );
   const plays = (scenario: BundledScenario) => battles.filter((battle) => battle.scenarioId === scenario.id).length;
   // A stable sort keeps file order between scenarios played equally often.
-  const [scenario] = [...ready].sort((a, b) => plays(a) - plays(b));
-  if (!scenario) return null;
-  return {
-    scenario,
-    team: { size: Math.min(TEAM_SIZE, choices.length), choices },
-    workedExamples: workedExamplesFor(town, scenario, catches, battles),
-  };
+  return [...ready]
+    .sort((a, b) => plays(a) - plays(b))
+    .map((scenario) => ({
+      scenario,
+      team: { size: Math.min(TEAM_SIZE, choices.length), choices },
+      workedExamples: workedExamplesFor(town, scenario, catches, battles),
+    }));
 }
 
 /** The concepts a scenario uses: the creatures of its best moves. */

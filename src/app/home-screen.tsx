@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { currentTown } from "@/content";
+import { currentTown, towns } from "@/content";
 import { placementProgress } from "@/core/placement";
 import { learningDay } from "@/core/day";
 import { needsPlan, planSentence } from "@/core/plan";
@@ -16,6 +16,9 @@ import { PlanForm } from "./plan-form";
 import { RestStop } from "./rest-stop";
 import { SessionScreen, type CommittedMinutes } from "./session-screen";
 import { WeeklySummaryCard } from "./weekly-summary";
+import { badges, gymIsOpen } from "@/core/gym";
+import { currentTownNumber } from "@/core/roadmap";
+import { loadGymRecords } from "@/lib/gym-log";
 
 const CHOICES: CommittedMinutes[] = [3, 15, 45];
 
@@ -26,6 +29,7 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
   const [rateFailed, setRateFailed] = useState(false);
   const [allChoices, setAllChoices] = useState(false);
   const placementTown = usePlacementTown(profile.programStartDate);
+  const gymTown = useGymTown(profile.programStartDate);
   const rate = status?.rate;
 
   useEffect(() => {
@@ -95,6 +99,14 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
           <br />
           This week: <strong>{status ? formatWeekMinutes(status.weekMinutes) : "…"}</strong>
         </p>
+        {gymTown && (
+          <div className="notice row">
+            <Link href={`/gym/${gymTown.id}`} className="button button-quiet">
+              Enter the Gym
+            </Link>
+            <span className="lead">The Gym of {gymTown.name} is open: win 4 of 5 for the badge</span>
+          </div>
+        )}
         {placementTown && (
           <div className="notice row">
             <Link href={`/placement/${placementTown.id}`} className="button button-quiet">
@@ -166,6 +178,33 @@ function usePlacementTown(programStartDate: string): PlacementOffer | null {
         // Next keeps this screen's state when you leave and come back, so clear an old offer too.
         setTown(placementProgress(current, records).done ? null : { id: current.id, questions: current.placement.length });
       })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [programStartDate]);
+  return town;
+}
+
+type GymOffer = { id: string; name: string };
+
+/**
+ * The learner's own town when its Gym is open and its badge is not earned yet, so home can
+ * offer it. A town with no content yet has no Gym. If the Gyms cannot load, home offers none.
+ */
+function useGymTown(programStartDate: string): GymOffer | null {
+  const [town, setTown] = useState<GymOffer | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const client = browserClient();
+    currentLearningDay(client)
+      .then(async (today) => {
+        const own = towns.find((t) => t.number === currentTownNumber(programStartDate, today));
+        if (!own || !gymIsOpen(programStartDate, own.number, today)) return null;
+        const earned = badges(await loadGymRecords(client, today)).some((badge) => badge.townId === own.id);
+        return earned ? null : { id: own.id, name: own.name };
+      })
+      .then((offer) => !cancelled && setTown(offer))
       .catch(() => undefined);
     return () => {
       cancelled = true;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { currentTown, reviewItem, scenarioName } from "@/content";
 import { battleRechecks, bestMoveRates, formatBestMoveRate, nextBattle, type BattleOffer, type BestMoveRate } from "@/core/battle";
 import { nextCatch, type CatchItem } from "@/core/catch";
@@ -10,7 +10,6 @@ import type { ThirtyDayRate } from "@/core/day";
 import { loadBattleHistory } from "@/lib/battle-log";
 import { loadCatchRecords } from "@/lib/catch-log";
 import { loadReviewRecords } from "@/lib/review-log";
-import { deviceLabel } from "@/lib/events/device";
 import { postEvents } from "@/lib/events/post-events";
 import type { SessionEvent } from "@/lib/events/write-events";
 import { formatWeekMinutes } from "@/core/week";
@@ -19,11 +18,9 @@ import { browserClient } from "@/lib/supabase/browser";
 import { BattleFlow } from "./battle-flow";
 import { CatchFlow } from "./catch-flow";
 import { ReviewFlow, type DueReview } from "./review-flow";
+import { useActiveTime } from "./use-active-time";
 
 export type CommittedMinutes = SessionEvent["committedMinutes"];
-
-/** Active time is saved every 60 seconds (design 12.2). */
-const SAVE_EVERY_MS = 60_000;
 
 /** The learning number of the current town (design 7): how often the learner picked the best move. */
 type BestMoves = { townName: string; rate: BestMoveRate };
@@ -88,47 +85,11 @@ function RunningSession({
   programStartDate: string;
   onFinished: (summary: Summary) => void;
 }) {
-  const [activeSeconds, setActiveSeconds] = useState(0);
-  const seconds = useRef(0);
   const [sessionId] = useState(() => crypto.randomUUID());
+  const { activeSeconds, snapshot } = useActiveTime(sessionId, committedMinutes);
   const [finishing, setFinishing] = useState(false);
   const { plan, paused } = useTodaysPlan(committedMinutes, programStartDate);
   const working = plan.state === "reviews" || plan.state === "catch" || plan.state === "battle";
-
-  function snapshot(): SessionEvent {
-    return {
-      type: "session",
-      clientEventId: crypto.randomUUID(),
-      sessionId,
-      occurredAt: new Date().toISOString(),
-      committedMinutes,
-      activeSeconds: seconds.current,
-      device: deviceLabel(),
-    };
-  }
-
-  useEffect(() => {
-    // Time in the background does not count.
-    const tick = setInterval(() => {
-      if (document.visibilityState !== "visible") return;
-      seconds.current += 1;
-      setActiveSeconds(seconds.current);
-    }, 1000);
-    // Saves at the start, every 60 seconds, and when the app goes to the background.
-    void postEvents([snapshot()]);
-    const save = setInterval(() => void postEvents([snapshot()]), SAVE_EVERY_MS);
-    const onHide = () => {
-      if (document.visibilityState === "hidden") void postEvents([snapshot()], { keepalive: true });
-    };
-    document.addEventListener("visibilitychange", onHide);
-    return () => {
-      clearInterval(tick);
-      clearInterval(save);
-      document.removeEventListener("visibilitychange", onHide);
-    };
-    // The session starts once, when this screen opens.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   async function finish() {
     setFinishing(true);

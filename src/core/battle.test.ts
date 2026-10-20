@@ -49,11 +49,9 @@ describe("nextBattle", () => {
   });
 
   it("offers the scenario played the fewest times, and file order breaks a tie", () => {
-    const content = fixtureTown();
-    content.scenarios.push({ ...structuredClone(content.scenarios[0]), id: "t99-flash-sale" });
-    const twoScenarios = buildBundle([townSchema.parse(content)]).towns[0];
+    // The fixture has 5 scenarios: t99-sale-day first, then t99-flash-sale, and three more.
     const offer = (battles: BattleRecord[]) =>
-      nextBattle({ town: twoScenarios, catches: caught("cache", "proxy"), battles, today: TODAY, committedMinutes: 15 })
+      nextBattle({ town: town(), catches: caught("cache", "proxy"), battles, today: TODAY, committedMinutes: 15 })
         ?.scenario.id;
 
     expect(offer([])).toBe("t99-sale-day");
@@ -63,7 +61,7 @@ describe("nextBattle", () => {
         { battleId: "b1", scenarioId: "t99-sale-day", learningDay: "2026-10-18" },
         { battleId: "b2", scenarioId: "t99-flash-sale", learningDay: "2026-10-19" },
       ]),
-    ).toBe("t99-sale-day");
+    ).toBe("t99-holiday-rush");
   });
 
   it("offers nothing when a best move belongs to a retired creature, which no team can hold", () => {
@@ -75,7 +73,7 @@ describe("nextBattle", () => {
 
   it("never offers a retired scenario", () => {
     const content = fixtureTown();
-    Object.assign(content.scenarios[0], { retired: true });
+    for (const scenario of content.scenarios) Object.assign(scenario, { retired: true });
     const retired = buildBundle([townSchema.parse(content)]).towns[0];
     expect(nextBattle({ town: retired, catches: caught("cache", "proxy"), battles: [], today: TODAY, committedMinutes: 15 })).toBeNull();
   });

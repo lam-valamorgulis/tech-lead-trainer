@@ -35,12 +35,16 @@ export function BattleFlow({
   offer,
   sessionId,
   onDone,
+  battleId: givenBattleId,
 }: {
   offer: BattleOffer;
   sessionId: string;
-  onDone: () => void;
+  /** Called when the learner leaves the end screen, with whether they won. */
+  onDone: (won: boolean) => void;
+  /** The battle id, when the caller needs it, as the Gym does. A new one by default. */
+  battleId?: string;
 }) {
-  const [battleId] = useState(() => crypto.randomUUID());
+  const [battleId] = useState(() => givenBattleId ?? crypto.randomUUID());
   const [battle, setBattle] = useState<BattleState | null>(null);
   const [step, setStep] = useState<Step>("team");
   // Worked examples come first, one screen each, then they hide (design 7.1).
@@ -247,7 +251,7 @@ export function BattleFlow({
           ? `The opponent's HP reached 0 in ${battle.turns.length} turns.`
           : `The opponent still has HP ${progress!.hp}. A lost battle is practice too.`}
       </p>
-      <DiscussInClaude battle={battle} whys={whys} ticks={ticks} eventFields={battleFields} onDone={onDone} />
+      <DiscussInClaude battle={battle} whys={whys} ticks={ticks} eventFields={battleFields} onDone={() => onDone(progress!.won)} />
     </section>
   );
 }

@@ -10,7 +10,7 @@ function check(town: unknown = fixtureTown(), ledger = fixtureLedger, glossary: 
 function townWithoutScenarios() {
   return { ...fixtureTown(), scenarios: [] };
 }
-const ledgerWithoutScenarios = fixtureLedger.filter((id) => id !== "t99-sale-day");
+const ledgerWithoutScenarios = fixtureLedger.filter((id) => !id.startsWith("t99-"));
 
 const words = (count: number) => Array.from({ length: count }, (_, i) => `word${i}`).join(" ");
 
@@ -233,7 +233,7 @@ describe("checkContent", () => {
     it("fails when a scenario id does not start with its town id", () => {
       const town = fixtureTown();
       town.scenarios[0].id = "t05-sale-day";
-      expect(check(town, [...ledgerWithoutScenarios, "t05-sale-day"])).toEqual([
+      expect(check(town, [...fixtureLedger.filter((id) => id !== "t99-sale-day"), "t05-sale-day"])).toEqual([
         { where: "t99.t05-sale-day", message: "A scenario of t99 must have an id that starts with t99-." },
       ]);
     });
@@ -247,9 +247,10 @@ describe("checkContent", () => {
     });
 
     it("fails when a move table names a retired move, because nobody can catch it any more", () => {
-      const town = fixtureTown();
+      // Only "Sale day", so each problem shows once.
+      const town = { ...fixtureTown(), scenarios: fixtureTown().scenarios.slice(0, 1) };
       Object.assign(town.creatures[1].moves[0], { retired: true });
-      expect(check(town)).toEqual([
+      expect(check(town, [...ledgerWithoutScenarios, "t99-sale-day"])).toEqual([
         { where: "t99.t99-sale-day.turns.0", message: "cookie.http-only is retired, so it cannot be in a move table." },
         { where: "t99.t99-sale-day.turns.2", message: "cookie.http-only is retired, so it cannot be in a move table." },
       ]);

@@ -1,8 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { towns } from "@/content";
+import { badges, gymIsOpen, type GymRecord } from "@/core/gym";
 import { currentTownNumber, ROADMAP, townStartDay, townToPlay } from "@/core/roadmap";
+import { loadGymRecords } from "@/lib/gym-log";
 import { currentLearningDay } from "@/lib/learning-log";
 import { browserClient } from "@/lib/supabase/browser";
 import { PixelSprite } from "../pixel-sprite";
@@ -40,14 +43,17 @@ const SPRITE_SCALE = 4;
 
 /** The 12 towns of the year (design 4). The learner's town comes from their own day 1. */
 export function MapScreen({ programStartDate }: { programStartDate: string }) {
-  const [today, setToday] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState<{ today: string; gyms: GymRecord[] | null } | null>(null);
   const [failed, setFailed] = useState(false);
   const [picked, setPicked] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    currentLearningDay(browserClient())
-      .then((day) => !cancelled && setToday(day))
+    const client = browserClient();
+    currentLearningDay(client)
+      // The map works without the badges, so a failed Gym read only hides them.
+      .then(async (today) => ({ today, gyms: await loadGymRecords(client, today).catch(() => null) }))
+      .then((value) => !cancelled && setLoaded(value))
       .catch(() => !cancelled && setFailed(true));
     return () => {
       cancelled = true;
@@ -55,7 +61,8 @@ export function MapScreen({ programStartDate }: { programStartDate: string }) {
   }, []);
 
   if (failed) return <p role="alert" className="error">We could not load the map. Check your connection.</p>;
-  if (!today) return <p className="lead">Loading…</p>;
+  if (!loaded) return <p className="lead">Loading…</p>;
+  const { today } = loaded;
 
   const current = currentTownNumber(programStartDate, today);
   const stateOf = (number: number): TownState => (number < current ? "past" : number === current ? "current" : "locked");
@@ -63,6 +70,8 @@ export function MapScreen({ programStartDate }: { programStartDate: string }) {
   // A town with content uses its own name, so the map and the town never disagree.
   const nameOf = (number: number) => towns.find((town) => town.number === number)?.name ?? ROADMAP[number - 1].name;
   const played = townToPlay(towns, current);
+  const shownTown = towns.find((town) => town.number === shown.number);
+  const earned = loaded.gyms ? badges(loaded.gyms) : null;
 
   return (
     <>
@@ -95,6 +104,30 @@ export function MapScreen({ programStartDate }: { programStartDate: string }) {
           <p className="lead">
             Its creatures are not ready yet. You keep playing Town {played.number}: {played.name}.
           </p>
+        )}
+        {shownTown && gymIsOpen(programStartDate, shownTown.number, today) && (
+          <Link href={`/gym/${shownTown.id}`} className="button button-quiet">
+            Enter the Gym
+          </Link>
+        )}
+      </section>
+      <section className="stack" aria-labelledby="badges-title">
+        <h2 id="badges-title">Badges</h2>
+        {earned === null ? (
+          <p className="lead">We could not load your badges. Check your connection.</p>
+        ) : earned.length === 0 ? (
+          <p className="lead">No badges yet. Win 4 of the 5 battles in a town&apos;s Gym to earn one.</p>
+        ) : (
+          <ul className="badge-list">
+            {earned.map(({ townId, earnedOn }) => {
+              const town = towns.find((t) => t.id === townId);
+              return (
+                <li key={townId}>
+                  <span aria-hidden="true">🏅</span> {town ? `Town ${town.number}: ${town.name}` : townId} · {formatDay(earnedOn)}
+                </li>
+              );
+            })}
+          </ul>
         )}
       </section>
     </>

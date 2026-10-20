@@ -25,7 +25,7 @@ describe("every table in the public schema", () => {
   });
 
   it("includes the tables built so far", () => {
-    expect(tables.map((t) => t.name)).toEqual(expect.arrayContaining(["allowed_emails", "profiles", "session_events", "catch_events", "review_events", "review_state", "placement_events", "content_reports", "push_subscriptions", "reminders", "battle_turn_events", "battle_events", "battle_check_events", "battle_discuss_events", "battle_teach_back_events", "backups", "weekly_summaries"]));
+    expect(tables.map((t) => t.name)).toEqual(expect.arrayContaining(["allowed_emails", "profiles", "session_events", "catch_events", "review_events", "review_state", "placement_events", "content_reports", "push_subscriptions", "reminders", "battle_turn_events", "battle_events", "battle_check_events", "battle_discuss_events", "battle_teach_back_events", "backups", "weekly_summaries", "gym_events"]));
   });
 
   it("has row-level security on", () => {
