@@ -10,6 +10,7 @@
   --color-accent-text: #14132b;
   --color-success: #06d6a0;
   --color-error: #ff9e9e; /* 9.2:1 on --color-bg. */
+  --color-line: #6f6ba0; /* A quiet border, 3.7:1 on --color-bg (rule 11: 3:1 for UI). */
 
   /* Rule 8: pixel font for headings and short labels only. */
   --font-heading: var(--font-pixel), ui-monospace, monospace;
@@ -193,6 +194,21 @@ a.button {
   gap: 8px;
 }
 
+/* The 4 links on home stay on one line, so they never push the commit buttons off a small phone. */
+.home-nav {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.home-nav a.button {
+  align-self: stretch;
+  padding: 2px 4px;
+  font-size: 15px;
+  line-height: 1.2;
+  text-align: center;
+}
+
 /* UI rule 5: the commit buttons sit in the lower half of the screen. */
 .commit {
   margin-top: auto;
@@ -345,7 +361,7 @@ h2[tabindex="-1"]:focus {
   touch-action: manipulation;
 }
 
-.week-summary ul {
+.week-summary-numbers {
   margin: 4px 0 0;
   padding-left: 20px;
 }
@@ -535,4 +551,79 @@ h2[tabindex="-1"]:focus {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+/* Tracking (ticket #30): one long screen that scrolls. Sections stack with space between. */
+.tracking {
+  gap: calc(var(--space) * 1.5);
+}
+
+.tracking-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+/* The learning calendar: 7 equal columns that fit a 375 px wide phone. */
+.calendar {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 4px;
+  text-align: center;
+  font-size: 15px;
+}
+
+.calendar th {
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+.calendar td {
+  height: 40px;
+  border-radius: 4px;
+}
+
+.calendar-not-learned {
+  color: var(--color-muted);
+  border: 1px solid var(--color-line);
+}
+
+/* A learned day: a dot and a green border, never colour alone (UI rule 4). */
+.calendar-learned {
+  border: 2px solid var(--color-success);
+}
+
+.calendar-mark {
+  display: block;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--color-success);
+}
+
+.later-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.later-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* A long goal breaks inside its line, so it never pushes the Remove button off the screen. */
+.later-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.tracking [role="alert"]:empty,
+.tracking [role="status"]:empty {
+  margin: 0;
 }

@@ -54,7 +54,7 @@ export async function loadLearningStatus(client: SupabaseClient): Promise<Learni
 }
 
 /** Today, and the snapshots of the 30-day window plus one day: a session counts for the day it started. */
-async function loadRecentSnapshots(client: SupabaseClient) {
+export async function loadRecentSnapshots(client: SupabaseClient) {
   const today = await currentLearningDay(client);
   const from = addDays(today, -RATE_WINDOW_DAYS);
   const recent = await loadSnapshots(client, (query) => query.gte("learning_day", from));

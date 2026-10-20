@@ -12,29 +12,40 @@ import { loadWeeklySummary } from "@/lib/load-weekly-summary";
  */
 export function WeeklySummaryCard() {
   const summary = useWeeklySummary();
-  if (!summary) return null;
-  const weakest = summary.weakest.map((creature) => creature.name).join(", ");
+  if (!summary || summary === "failed") return null;
   return (
     <details className="notice week-summary">
       <summary>Week summary: {formatWeek(summary.weekStart)}</summary>
-      <ul>
-        <li>Days learned: {summary.daysLearned} of 7</li>
-        <li>Time: {formatWeekMinutes(summary.minutes, summary.goalMinutes)}</li>
-        <li>Best moves: {formatBestMoveRate(summary.bestMoves)}</li>
-        <li>Weakest creatures: {weakest || "none this week"}</li>
-      </ul>
+      <WeeklySummaryNumbers summary={summary} />
     </details>
   );
 }
 
-function useWeeklySummary(): StoredWeeklySummary | null {
-  const [summary, setSummary] = useState<StoredWeeklySummary | null>(null);
+/** The saved numbers of one Sunday summary, as they were shown. */
+export function WeeklySummaryNumbers({ summary }: { summary: StoredWeeklySummary }) {
+  const weakest = summary.weakest.map((creature) => creature.name).join(", ");
+  return (
+    <ul className="week-summary-numbers">
+      <li>Days learned: {summary.daysLearned} of 7</li>
+      <li>Time: {formatWeekMinutes(summary.minutes, summary.goalMinutes)}</li>
+      <li>Best moves: {formatBestMoveRate(summary.bestMoves)}</li>
+      <li>Weakest creatures: {weakest || "none this week"}</li>
+    </ul>
+  );
+}
+
+/**
+ * The last Sunday summary: undefined while it loads, null when that week had no learning,
+ * and "failed" when it cannot load.
+ */
+export function useWeeklySummary(): StoredWeeklySummary | null | "failed" | undefined {
+  const [summary, setSummary] = useState<StoredWeeklySummary | null | "failed" | undefined>(undefined);
   useEffect(() => {
     let cancelled = false;
     loadWeeklySummary()
       // Next keeps this screen's state when you leave and come back, so "none" is set too.
       .then((value) => !cancelled && setSummary(value))
-      .catch(() => !cancelled && setSummary(null));
+      .catch(() => !cancelled && setSummary("failed"));
     return () => {
       cancelled = true;
     };
