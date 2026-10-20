@@ -223,6 +223,23 @@ describe("weekly backup and restore", () => {
     expect(Number(next.rows[0].id)).toBeGreaterThan(Number(backup.tables.content_reports[0].id));
   });
 
+  it("restores an older file that has no table added after it was written", async () => {
+    const older = `restore_seam_b_old_${crypto.randomUUID().slice(0, 8)}`;
+    const db = new pg.Client({ connectionString: createEmptyDatabase(older) });
+    await db.connect();
+    try {
+      // A file from before ticket #23 has no weekly_summaries key.
+      const tables: Partial<Backup["tables"]> = { ...backup.tables };
+      delete tables.weekly_summaries;
+      const report = await restoreBackup(db, { ...backup, tables } as Backup);
+      expect(report.rows.weekly_summaries).toBe(0);
+      expect(report.rows.review_events).toBe(backup.tables.review_events.length);
+    } finally {
+      await db.end();
+      dropDatabase(older);
+    }
+  });
+
   it("refuses a database that already has data, and changes nothing", async () => {
     const count = async () => (await restored.query("select count(*)::int as n from public.review_events")).rows[0].n;
     const rowsBefore = await count();

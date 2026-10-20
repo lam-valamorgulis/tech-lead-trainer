@@ -12,17 +12,17 @@ export async function POST(request: Request): Promise<Response> {
   if (!config) return Response.json({ error: "Reminders are not set up." }, { status: 503 });
   if (!hasCronSecret(request, config.cronSecret)) return Response.json({ error: "Not allowed." }, { status: 401 });
 
-  const admin = serverAdminClient();
   const now = new Date();
   try {
+    const admin = serverAdminClient();
     const run = await sendDueReminders(admin, now, webPushSender(config.vapid));
     // The summaries come after the reminders, so a summary problem never delays a reminder.
     // Home also makes a missing summary when it opens, so a failed run here loses nothing.
-    const summaries = await createDueWeeklySummaries(admin, now).catch((error) => {
+    const summariesChecked = await createDueWeeklySummaries(admin, now).catch((error) => {
       console.error("weekly summaries failed", error);
       return 0;
     });
-    return Response.json({ ...run, summaries });
+    return Response.json({ ...run, summariesChecked });
   } catch (error) {
     console.error("POST /api/reminders/notify failed", error);
     return Response.json({ error: "The reminder run failed." }, { status: 500 });

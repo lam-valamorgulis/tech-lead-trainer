@@ -1,3 +1,4 @@
+import type { Creature, CreatureOf } from "../core/week.ts";
 import type { BundledTown, ContentBundle } from "./bundle.ts";
 import type { Card } from "./schema.ts";
 import generated from "./bundle.generated.json";
@@ -28,7 +29,7 @@ export type ReviewItem = {
 };
 
 const reviewItems = new Map<string, ReviewItem>();
-const creatures = new Map<string, { id: string; name: string }>();
+const creatures = new Map<string, Creature>();
 for (const town of bundle.towns) {
   for (const creature of town.creatures) {
     if (creature.retired) continue;
@@ -49,9 +50,7 @@ export function reviewItem(id: string): ReviewItem | undefined {
 }
 
 /** The creature a reviewed item belongs to: the creature itself, or the creature of a move. */
-export function creatureOf(itemId: string): { id: string; name: string } | undefined {
-  return creatures.get(itemId);
-}
+export const creatureOf: CreatureOf = (itemId) => creatures.get(itemId);
 
 const cards = new Map<string, { name: string; card: Card }>();
 for (const town of bundle.towns) {

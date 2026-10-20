@@ -5,6 +5,9 @@
 -- The server makes the row for the week that ended on Sunday at 20:00 home time. It counts
 -- only events from before that moment (`summary_at`). Two runs at the same moment make one
 -- row: the unique key below, and the server inserts with "on conflict do nothing".
+-- An event from before `summary_at` that reaches the server after the row exists (for example
+-- from a phone that was offline) is not added: the summary stays as it was first shown.
+-- A week with no session at all gets no row.
 
 create table public.weekly_summaries (
   id bigint generated always as identity primary key,

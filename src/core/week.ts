@@ -28,8 +28,6 @@ export function weekStart(day: LearningDay): LearningDay {
 /** The Sunday summary is made at 20:00 home time (design 3). */
 export const SUMMARY_MINUTE_OF_DAY = 20 * 60;
 
-const DAY_MINUTES = 24 * 60;
-
 /**
  * The week whose Sunday summary is the latest one due at `now`, and the moment it is due:
  * Sunday 20:00 in the home time zone. The summary counts what happened before that moment.
@@ -38,7 +36,7 @@ const DAY_MINUTES = 24 * 60;
 export function latestSummaryWeek(now: Date, timeZone: string): { weekStart: LearningDay; summaryAt: Date } {
   const wallClock = homeWallClock(now, timeZone);
   const date = new Date(wallClock).toISOString().slice(0, 10);
-  const minute = Math.floor(wallClock / 60_000) % DAY_MINUTES;
+  const minute = Math.floor(wallClock / 60_000) % (24 * 60);
   const day = weekday(date);
   // Sunday after 20:00 is the summary day itself. Any other time goes back to the Sunday before.
   const sunday = day === 6 && minute >= SUMMARY_MINUTE_OF_DAY ? date : addDays(date, -(day + 1));
@@ -60,14 +58,14 @@ export function weekMinutes(snapshots: SessionSnapshot[], today: LearningDay): n
   return Math.floor(seconds / 60);
 }
 
-/** For example "12 Oct – 18 Oct": the Monday and the Sunday of the week. */
-export function formatWeek(weekStart: LearningDay): string {
-  // A fixed list, so every browser shows the same text (some write "Sept").
-  const day = (date: LearningDay) => `${Number(date.slice(8, 10))} ${MONTHS[Number(date.slice(5, 7)) - 1]}`;
-  return `${day(weekStart)} – ${day(addDays(weekStart, 6))}`;
-}
-
+/** A fixed list, so every browser shows the same text (some write "Sept"). */
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** For example "12 Oct – 18 Oct": the Monday and the Sunday of the week. */
+export function formatWeek(monday: LearningDay): string {
+  const day = (date: LearningDay) => `${Number(date.slice(8, 10))} ${MONTHS[Number(date.slice(5, 7)) - 1]}`;
+  return `${day(monday)} – ${day(addDays(monday, 6))}`;
+}
 
 /** For example "1 h 20 min of 5 h 15 min". */
 export function formatWeekMinutes(minutes: number, goalMinutes: number = WEEKLY_GOAL_MINUTES): string {
@@ -121,6 +119,9 @@ export type WeeklySummary = {
   bestMoves: BestMoveRate;
   weakest: Creature[];
 };
+
+/** A saved summary. `summaryAt` is Sunday 20:00 home time: the summary counts what came before. */
+export type StoredWeeklySummary = WeeklySummary & { summaryAt: string };
 
 /**
  * The summary of the week that starts on `weekStart`. Records on other learning days are left

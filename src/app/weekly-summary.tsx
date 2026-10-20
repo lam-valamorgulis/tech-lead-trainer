@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { formatBestMoveRate } from "@/core/battle";
-import { formatWeek, formatWeekMinutes } from "@/core/week";
+import { formatWeek, formatWeekMinutes, type StoredWeeklySummary } from "@/core/week";
 import { loadWeeklySummary } from "@/lib/load-weekly-summary";
-import type { StoredWeeklySummary } from "@/lib/weekly-summary";
 
 /**
  * The Sunday summary of the last finished week (ticket #23), closed until tapped, so home stays

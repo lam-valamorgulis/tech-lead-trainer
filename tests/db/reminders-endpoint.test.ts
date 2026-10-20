@@ -120,7 +120,7 @@ describe("POST /api/reminders/notify", () => {
     await writeEvents(user.client, [snapshot(0), snapshot(5)]);
 
     const response = await notify(`Bearer ${CRON_SECRET}`);
-    expect(await response.json()).toEqual(expect.objectContaining({ summaries: expect.any(Number) }));
+    expect(await response.json()).toEqual(expect.objectContaining({ summariesChecked: expect.any(Number) }));
     const { data } = await user.client.from("weekly_summaries").select("week_start, minutes");
     expect(data).toEqual([{ week_start: weekStart, minutes: 5 }]);
   });

@@ -1,5 +1,5 @@
 import { browserClient } from "@/lib/supabase/browser";
-import type { StoredWeeklySummary } from "./weekly-summary";
+import type { StoredWeeklySummary } from "@/core/week";
 
 /**
  * The Sunday summary of the last finished week, from POST /api/weekly-summary. The server

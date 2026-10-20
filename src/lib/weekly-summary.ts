@@ -2,15 +2,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { creatureOf } from "@/content";
 import { addDays, type LearningDay } from "@/core/day";
 import type { ReviewRecord } from "@/core/review";
-import { latestSummaryWeek, weeklySummary, type Creature, type WeeklySummary } from "@/core/week";
+import { latestSummaryWeek, weeklySummary, type Creature, type StoredWeeklySummary } from "@/core/week";
 import { toSnapshot, type SnapshotRow } from "@/lib/learning-log";
 import { selectAll } from "@/lib/select-all";
 
 // The Sunday summary (ticket #23, design 3): made once for the week that ended on Sunday at
 // 20:00 home time, then saved as it was shown. Server code only: it writes with the secret key.
-
-/** A saved summary. `summaryAt` is Sunday 20:00 home time: the summary counts what came before. */
-export type StoredWeeklySummary = WeeklySummary & { summaryAt: string };
 
 type SummaryRow = {
   week_start: string;
@@ -32,7 +29,15 @@ const SUMMARY_COLUMNS =
  * `admin` must use the secret key, because only the server writes summaries.
  */
 export async function ensureWeeklySummary(admin: SupabaseClient, userId: string, now: Date): Promise<StoredWeeklySummary | null> {
-  const timeZone = await homeTimeZone(admin, userId);
+  return ensureSummaryIn(admin, userId, await homeTimeZone(admin, userId), now);
+}
+
+async function ensureSummaryIn(
+  admin: SupabaseClient,
+  userId: string,
+  timeZone: string,
+  now: Date,
+): Promise<StoredWeeklySummary | null> {
   const week = latestSummaryWeek(now, timeZone);
   const saved = await savedSummary(admin, userId, week.weekStart);
   if (saved) return saved;
@@ -56,12 +61,17 @@ export async function ensureWeeklySummary(admin: SupabaseClient, userId: string,
  */
 export async function createDueWeeklySummaries(admin: SupabaseClient, now: Date): Promise<number> {
   const profiles = await selectAll((from, to) =>
-    admin.from("profiles").select("user_id").order("user_id").range(from, to).returns<{ user_id: string }[]>(),
+    admin
+      .from("profiles")
+      .select("user_id, home_time_zone")
+      .order("user_id")
+      .range(from, to)
+      .returns<{ user_id: string; home_time_zone: string }[]>(),
   );
   let checked = 0;
-  for (const { user_id } of profiles) {
+  for (const profile of profiles) {
     try {
-      await ensureWeeklySummary(admin, user_id, now);
+      await ensureSummaryIn(admin, profile.user_id, profile.home_time_zone, now);
       checked += 1;
     } catch (error) {
       console.error("weekly summary failed for one user", error);
@@ -110,12 +120,13 @@ async function summaryOfWeek(
         .range(start, end)
         .returns<Row[]>(),
     );
-  const [sessions, reviews, turns] = await Promise.all([
-    logOf<SnapshotRow>("session_events", "session_id, occurred_at, learning_day, active_seconds", addDays(weekStart, -1)),
+  // Sessions first: an empty week, which every timer run checks again, then costs one read.
+  const sessions = await logOf<SnapshotRow>("session_events", "session_id, occurred_at, learning_day, active_seconds", addDays(weekStart, -1));
+  if (!sessions.some((row) => row.learning_day >= weekStart)) return null;
+  const [reviews, turns] = await Promise.all([
     logOf<{ item_id: string; learning_day: string; grade: ReviewRecord["grade"] }>("review_events", "item_id, learning_day, grade", weekStart),
     logOf<{ best_move: boolean; learning_day: string }>("battle_turn_events", "best_move, learning_day", weekStart),
   ]);
-  if (!sessions.some((row) => row.learning_day >= weekStart)) return null;
 
   const summary = weeklySummary({
     weekStart,
