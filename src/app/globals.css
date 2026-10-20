@@ -323,3 +323,7 @@ h2[tabindex="-1"]:focus {
   padding: 12px;
   border-left: 4px solid var(--color-accent);
 }
+
+.notice.row {
+  align-items: center;
+}

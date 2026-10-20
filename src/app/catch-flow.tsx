@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { checkCatchAnswer, type CatchAnswer, type CatchItem } from "@/core/catch";
 import { postEvents } from "@/lib/events/post-events";
 import type { CatchEvent } from "@/lib/events/write-events";
+import { CONFIDENCE, type Confidence } from "./confidence";
 
 type Phase =
   | { name: "ask"; attempt: CatchEvent["phase"] }
@@ -11,13 +12,7 @@ type Phase =
   | { name: "card"; caught: boolean }
   | { name: "result"; caught: boolean; answer: CatchAnswer };
 
-type Confidence = CatchEvent["confidence"];
 
-const CONFIDENCE: { value: Confidence; label: string }[] = [
-  { value: 1, label: "Guess" },
-  { value: 2, label: "Think so" },
-  { value: 3, label: "Sure" },
-];
 
 /**
  * Catch (design 6): try the question first, then read the card. A right answer catches the

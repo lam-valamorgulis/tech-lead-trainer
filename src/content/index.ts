@@ -8,6 +8,11 @@ const bundle = (process.env.NEXT_PUBLIC_CONTENT_SET === "fixture" ? fixture : ge
 
 export const towns: BundledTown[] = bundle.towns.filter((town) => !town.retired);
 
+/** A town by its id, as used in links such as /placement/t01. */
+export function getTown(id: string): BundledTown | undefined {
+  return towns.find((town) => town.id === id);
+}
+
 /** The town a learner is in. Every learner starts at town 1; the map ticket moves them on. */
 export function currentTown(): BundledTown | undefined {
   return towns.find((town) => town.number === 1);

@@ -2,18 +2,21 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { currentTown } from "@/content";
 import type { ThirtyDayRate } from "@/core/day";
-import { formatRate, loadThirtyDayRate } from "@/lib/learning-log";
+import { placementProgress } from "@/core/placement";
+import { currentLearningDay, formatRate, loadThirtyDayRate } from "@/lib/learning-log";
+import { loadPlacementRecords } from "@/lib/placement-log";
 import { browserClient } from "@/lib/supabase/browser";
-import type { SignedIn } from "./auth-gate";
 import { SessionScreen, type CommittedMinutes } from "./session-screen";
 
 const CHOICES: CommittedMinutes[] = [3, 15, 45];
 
-export function HomeScreen({ email }: SignedIn) {
+export function HomeScreen() {
   const [session, setSession] = useState<CommittedMinutes | null>(null);
   const [rate, setRate] = useState<ThirtyDayRate | null>(null);
   const [rateFailed, setRateFailed] = useState(false);
+  const placementTown = usePlacementTown();
 
   useEffect(() => {
     if (session !== null) return;
@@ -37,7 +40,14 @@ export function HomeScreen({ email }: SignedIn) {
           Learned <strong>{rate ? formatRate(rate) : "…"}</strong>
           {rateFailed && " (could not load)"}
         </p>
-        <p className="lead">Signed in as {email}</p>
+        {placementTown && (
+          <div className="notice row">
+            <Link href={`/placement/${placementTown.id}`} className="button button-quiet">
+              Take the placement test
+            </Link>
+            <span className="lead">{placementTown.questions} questions</span>
+          </div>
+        )}
         <nav className="row" aria-label="More">
           <Link href="/field-guide" className="button button-quiet">
             Field Guide
@@ -58,4 +68,32 @@ export function HomeScreen({ email }: SignedIn) {
       </section>
     </>
   );
+}
+
+type PlacementOffer = { id: string; questions: number };
+
+/**
+ * The current town when its placement test is not done yet, so home can offer it.
+ * If the answers cannot load, the offer stays hidden: the test is optional (design 13 cut list).
+ */
+function usePlacementTown(): PlacementOffer | null {
+  const [town, setTown] = useState<PlacementOffer | null>(null);
+  useEffect(() => {
+    const current = currentTown();
+    if (!current || current.placement.length === 0) return;
+    let cancelled = false;
+    const client = browserClient();
+    currentLearningDay(client)
+      .then((today) => loadPlacementRecords(client, today))
+      .then((records) => {
+        if (cancelled) return;
+        // Next keeps this screen's state when you leave and come back, so clear an old offer too.
+        setTown(placementProgress(current, records).done ? null : { id: current.id, questions: current.placement.length });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return town;
 }

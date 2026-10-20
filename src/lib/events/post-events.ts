@@ -27,15 +27,10 @@ export function postEvents(events: LearningEvent[], options?: SendOptions): Prom
 }
 
 /**
- * Events of one type that have not reached the server yet, for example a catch made offline.
- * An event the server already saved (its reply may still be on the way) is left out.
+ * A copy of the events of one type that have not reached the server yet, for example a catch
+ * made offline. Take it BEFORE reading the database: an event that is sent in between is then in
+ * the copy or in the database, never in neither. Remove the ones the database already has.
  */
-export function pendingEvents<T extends LearningEvent["type"]>(
-  type: T,
-  savedClientEventIds: Set<string>,
-): Extract<LearningEvent, { type: T }>[] {
-  return outbox
-    .pending()
-    .filter((event): event is Extract<LearningEvent, { type: T }> => event.type === type)
-    .filter((event) => !savedClientEventIds.has(event.clientEventId));
+export function pendingEvents<T extends LearningEvent["type"]>(type: T): Extract<LearningEvent, { type: T }>[] {
+  return outbox.pending().filter((event): event is Extract<LearningEvent, { type: T }> => event.type === type);
 }

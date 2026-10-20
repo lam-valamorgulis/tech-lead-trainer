@@ -16,8 +16,14 @@ export type CatchItem = {
   card: BundledCreature["card"];
 };
 
-/** What the rules need from a saved catch event. */
-export type CatchRecord = { itemId: string; correct: boolean; learningDay: LearningDay };
+/** What the rules need from a saved catch event, or from a right placement answer. */
+export type CatchRecord = {
+  itemId: string;
+  correct: boolean;
+  learningDay: LearningDay;
+  /** A placement answer catches without using up the day's catch. */
+  fromPlacement?: boolean;
+};
 
 /** Every item of a town in teaching order: each creature, then its moves. */
 export function catchQueue(town: BundledTown): CatchItem[] {
@@ -55,7 +61,7 @@ export function nextCatch({
   paused?: boolean;
 }): CatchItem | null {
   if (committedMinutes === 3 || paused) return null;
-  if (records.some((r) => r.learningDay === today)) return null;
+  if (records.some((r) => r.learningDay === today && !r.fromPlacement)) return null;
   const caught = caughtIds(records);
   return catchQueue(town).find((item) => !caught.has(item.id)) ?? null;
 }

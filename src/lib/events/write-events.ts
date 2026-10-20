@@ -51,15 +51,38 @@ export const reviewEventSchema = z.object({
   confidence: z.union([z.literal(1), z.literal(2), z.literal(3)]).nullable(),
 });
 
-export const eventSchema = z.discriminatedUnion("type", [sessionEventSchema, catchEventSchema, reviewEventSchema]);
+export const placementEventSchema = z.object({
+  type: z.literal("placement"),
+  ...base,
+  townId: z.string().regex(/^t\d{2}$/),
+  itemId: z.string().min(1).max(100),
+  contentHash: z.string().regex(/^[0-9a-f]{16}$/),
+  answerText: z.string().max(2000),
+  correct: z.boolean(),
+  /** 1 = guess, 2 = think so, 3 = sure. */
+  confidence: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+});
+
+export const eventSchema = z.discriminatedUnion("type", [
+  sessionEventSchema,
+  catchEventSchema,
+  reviewEventSchema,
+  placementEventSchema,
+]);
 export const eventBatchSchema = z.object({ events: z.array(eventSchema).min(1).max(100) });
 
 export type SessionEvent = z.infer<typeof sessionEventSchema>;
 export type CatchEvent = z.infer<typeof catchEventSchema>;
 export type ReviewEvent = z.infer<typeof reviewEventSchema>;
+export type PlacementEvent = z.infer<typeof placementEventSchema>;
 export type LearningEvent = z.infer<typeof eventSchema>;
 
-const TABLES = { session: "session_events", catch: "catch_events", review: "review_events" } as const satisfies Record<LearningEvent["type"], string>;
+const TABLES = {
+  session: "session_events",
+  catch: "catch_events",
+  review: "review_events",
+  placement: "placement_events",
+} as const satisfies Record<LearningEvent["type"], string>;
 
 /** Every event table. "Download my data" exports each one. */
 export const EVENT_TABLES = Object.values(TABLES);
@@ -106,11 +129,23 @@ function toRow(event: LearningEvent) {
         typed_answer: event.typedAnswer,
         confidence: event.confidence,
       };
+    case "placement":
+      return {
+        client_event_id: event.clientEventId,
+        session_id: event.sessionId,
+        occurred_at: event.occurredAt,
+        town_id: event.townId,
+        item_id: event.itemId,
+        content_hash: event.contentHash,
+        answer_text: event.answerText,
+        correct: event.correct,
+        confidence: event.confidence,
+      };
   }
 }
 
 /** Postgres errors that mean the event itself is wrong, so sending it again cannot help. */
-const REFUSED_CODES = new Set(["22023", "23514", "23502", "22P02", "23503", "42501"]);
+const REFUSED_CODES = new Set(["22023", "23514", "23502", "22P02", "23503", "23505", "42501"]);
 
 export class EventWriteError extends Error {
   constructor(
