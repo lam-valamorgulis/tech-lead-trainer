@@ -12,6 +12,12 @@ Otherwise take the **frontier**: open `ready-for-agent` issues in the earliest o
 
 Content tickets (town content, battle scenarios, weekend packs) are drafted in simple English from the primary sources in `research/roadmap-sources.md`. Every fact is traceable to its cited source. How to write and fact-check them: `docs/agents/content-authoring.md`. A content PR merges on green CI after that fact check, like any other ticket. It needs no "approved" comment. Keep each content PR readable on a phone, because the owner may read it to learn.
 
+## Live database
+
+Never write to the live database during a ticket. This includes test accounts and test data for an owner check. Vercel previews use the live database.
+
+Prove special states with seam C on local Supabase, for example the Rest Stop after 3 days. The owner check in the PR uses the owner's normal account only. If a state cannot be reached that way, the PR says so.
+
 ## Ship
 
 Ship a sprint when its milestone has no open `ready-for-agent` ticket left. The owner can also say **"ship"** earlier.
