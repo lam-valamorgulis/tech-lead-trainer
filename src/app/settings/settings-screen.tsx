@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { fetchMyData, saveFile, shareFile, usesShareSheet } from "@/lib/download-data";
 import { browserClient } from "@/lib/supabase/browser";
+import { PlanForm } from "../plan-form";
 import type { SignedIn } from "../auth-gate";
 
 export function SettingsScreen({ userId, email, profile, setProfile }: SignedIn) {
@@ -47,6 +48,21 @@ export function SettingsScreen({ userId, email, profile, setProfile }: SignedIn)
         >
           Use this phone&apos;s time zone
         </button>
+      </section>
+      <section className="stack" aria-labelledby="plans-title">
+        <h2 id="plans-title">Your plans</h2>
+        <PlanForm
+          userId={userId}
+          profile={profile}
+          submitLabel="Save plans"
+          onSaved={setProfile}
+        />
+        <p className="lead">
+          Reminders: {profile.morningReminderTime} and {profile.eveningReminderTime}
+        </p>
+        <p className="lead">
+          Keep the same reminder time for your first 12 weeks. One fixed cue every day helps the habit grow.
+        </p>
       </section>
       <DataSection />
       <section className="stack" aria-labelledby="program-title">

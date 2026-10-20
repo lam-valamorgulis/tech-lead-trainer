@@ -9,7 +9,9 @@ export type Profile = {
   plainFont: boolean;
   reduceEffects: boolean;
   soundOn: boolean;
+  /** The learner's cue, the words after "After": "my morning coffee". See `planSentence`. */
   ifThenPlan: string | null;
+  /** The whole tired-day sentence: "If I am tired, I tap 3." */
   tiredDayPlan: string | null;
   /** Day 1 of the program, "YYYY-MM-DD". */
   programStartDate: string;
@@ -60,4 +62,17 @@ function toProfile(row: ProfileRow): Profile {
     tiredDayPlan: row.tired_day_plan,
     programStartDate: row.program_start_date,
   };
+}
+
+/** Saves both if-then plans (design 3). `ifThenPlan` holds the learner's cue, the words after "After I". */
+export async function savePlans(
+  client: SupabaseClient,
+  userId: string,
+  plans: { ifThenPlan: string; tiredDayPlan: string },
+): Promise<void> {
+  const { error } = await client
+    .from("profiles")
+    .update({ if_then_plan: plans.ifThenPlan, tired_day_plan: plans.tiredDayPlan })
+    .eq("user_id", userId);
+  if (error) throw error;
 }

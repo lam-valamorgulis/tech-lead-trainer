@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   // Playwright opens the dev server on 127.0.0.1.
   allowedDevOrigins: ["127.0.0.1"],
+  // The dev badge sits in the bottom-left corner and covers links there in seam C tests.
+  devIndicators: false,
 };
 
 export default nextConfig;

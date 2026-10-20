@@ -5,14 +5,19 @@ import { useEffect, useState } from "react";
 import { currentTown } from "@/content";
 import type { ThirtyDayRate } from "@/core/day";
 import { placementProgress } from "@/core/placement";
+import { learningDay } from "@/core/day";
+import { needsPlan, planSentence } from "@/core/plan";
 import { currentLearningDay, formatRate, loadThirtyDayRate } from "@/lib/learning-log";
 import { loadPlacementRecords } from "@/lib/placement-log";
 import { browserClient } from "@/lib/supabase/browser";
+import type { SignedIn } from "./auth-gate";
+import { PlanForm } from "./plan-form";
 import { SessionScreen, type CommittedMinutes } from "./session-screen";
 
 const CHOICES: CommittedMinutes[] = [3, 15, 45];
 
-export function HomeScreen() {
+export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
+  const [planLater, setPlanLater] = usePlanLater(learningDay(new Date(), profile.homeTimeZone, profile.dayCutoffHour));
   const [session, setSession] = useState<CommittedMinutes | null>(null);
   const [rate, setRate] = useState<ThirtyDayRate | null>(null);
   const [rateFailed, setRateFailed] = useState(false);
@@ -28,6 +33,22 @@ export function HomeScreen() {
       cancelled = true;
     };
   }, [session]);
+
+  if (needsPlan(profile) && !planLater) {
+    return (
+      <section className="stack" aria-labelledby="plan-title">
+        <h2 id="plan-title">Your if-then plan</h2>
+        <p className="lead">Tie learning to something you already do every day. Write it in your own words.</p>
+        <PlanForm
+          userId={userId}
+          profile={profile}
+          submitLabel="Save my plan"
+          onSaved={setProfile}
+          onLater={() => setPlanLater(true)}
+        />
+      </section>
+    );
+  }
 
   if (session !== null) {
     return <SessionScreen committedMinutes={session} onDone={() => setSession(null)} />;
@@ -59,6 +80,12 @@ export function HomeScreen() {
       </div>
 
       <section className="commit" aria-labelledby="commit-title">
+        {profile.ifThenPlan && (
+          <div className="plan-lines">
+            <p className="lead">{planSentence(profile.ifThenPlan)}</p>
+            <p className="lead">{profile.tiredDayPlan}</p>
+          </div>
+        )}
         <h2 id="commit-title">Today I commit to:</h2>
         {CHOICES.map((minutes) => (
           <button key={minutes} type="button" className="button-main" onClick={() => setSession(minutes)}>
@@ -96,4 +123,31 @@ function usePlacementTown(): PlacementOffer | null {
     };
   }, []);
   return town;
+}
+
+const PLAN_LATER_KEY = "plan-later-until";
+
+/**
+ * "Later" on the plan screen hides it for the rest of the learning day, on this device.
+ * Storage can fail (private mode); then the screen simply asks again.
+ */
+function usePlanLater(today: string): [boolean, (later: boolean) => void] {
+  const [later, setLater] = useState(() => {
+    try {
+      return window.localStorage.getItem(PLAN_LATER_KEY) === today;
+    } catch {
+      return false;
+    }
+  });
+  return [
+    later,
+    (value) => {
+      setLater(value);
+      try {
+        if (value) window.localStorage.setItem(PLAN_LATER_KEY, today);
+      } catch {
+        // Keep "Later" for this visit only.
+      }
+    },
+  ];
 }

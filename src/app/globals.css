@@ -135,6 +135,10 @@ button,
   border-radius: 4px;
 }
 
+.field input::placeholder {
+  color: var(--color-muted);
+}
+
 .field input:focus-visible,
 button:focus-visible,
 a.button:focus-visible {
@@ -326,4 +330,14 @@ h2[tabindex="-1"]:focus {
 
 .notice.row {
   align-items: center;
+}
+
+/* At most two lines per plan, so a long plan never pushes the commit buttons off screen. */
+.plan-lines p {
+  margin: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
 }
