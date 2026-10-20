@@ -64,8 +64,34 @@ export function gradeReview({
   return { step: next, dueDay: addDays(gradedDay, next) };
 }
 
-/** The review state of every caught item, replayed from the event log. Records must be in time order. */
-export function reviewStates(catches: CatchRecord[], reviews: ReviewRecord[]): Map<string, ReviewState> {
+/**
+ * A battle asks to see an item again soon (design 7): a lost battle, or a model answer whose key
+ * points the learner did not all say. See `battleRechecks` in battle.ts.
+ */
+export type RecheckRecord = { itemId: string; learningDay: LearningDay };
+
+/**
+ * A recheck makes the item due on the first review step after the battle day, that is tomorrow.
+ * It keeps the step and the stage, and it never moves a due day later. It does nothing for an
+ * item that was not caught yet on that day.
+ */
+function applyRecheck(states: Map<string, ReviewState>, recheck: RecheckRecord) {
+  const state = states.get(recheck.itemId);
+  if (!state || recheck.learningDay < state.caughtDay) return;
+  const due = addDays(recheck.learningDay, REVIEW_STEPS[0]);
+  if (state.dueDay === null || state.dueDay > due) state.dueDay = due;
+}
+
+/**
+ * The review state of every caught item, replayed from the event log. Records must be in time order.
+ * Rechecks count in day order with the reviews, after the reviews of the same day: a day's
+ * battle comes after its reviews.
+ */
+export function reviewStates(
+  catches: CatchRecord[],
+  reviews: ReviewRecord[],
+  rechecks: RecheckRecord[] = [],
+): Map<string, ReviewState> {
   const states = new Map<string, ReviewState>();
   for (const record of catches) {
     if (!record.correct || states.has(record.itemId)) continue;
@@ -78,14 +104,23 @@ export function reviewStates(catches: CatchRecord[], reviews: ReviewRecord[]): M
       stage: 1,
     });
   }
+  // A stable sort keeps the order of the rechecks inside one day.
+  const waiting = [...rechecks].sort((a, b) => a.learningDay.localeCompare(b.learningDay));
+  let next = 0;
+  const recheckBefore = (day: LearningDay) => {
+    while (next < waiting.length && waiting[next].learningDay < day) applyRecheck(states, waiting[next++]);
+  };
   for (const review of reviews) {
+    recheckBefore(review.learningDay);
     const state = states.get(review.itemId);
     if (!state) continue;
-    const next = gradeReview({ step: state.step, gradedDay: review.learningDay, grade: review.grade });
-    state.stage = stageAfter(state.stage, review.grade, next);
-    state.step = next.step;
-    state.dueDay = next.dueDay;
+    const graded = gradeReview({ step: state.step, gradedDay: review.learningDay, grade: review.grade });
+    state.stage = stageAfter(state.stage, review.grade, graded);
+    state.step = graded.step;
+    state.dueDay = graded.dueDay;
   }
+  // The rechecks after the last review.
+  while (next < waiting.length) applyRecheck(states, waiting[next++]);
   return states;
 }
 
@@ -137,12 +172,14 @@ export function backlogPaused(
   reviews: ReviewRecord[],
   today: LearningDay,
   isReviewable: (itemId: string) => boolean = () => true,
+  rechecks: RecheckRecord[] = [],
 ): boolean {
   for (let back = 0; back < BACKLOG_DAYS; back += 1) {
     const day = addDays(today, -back);
     const states = reviewStates(
       catches.filter((c) => c.learningDay < day),
       reviews.filter((r) => r.learningDay < day),
+      rechecks.filter((r) => r.learningDay < day),
     );
     const due = allDue(states, day).filter((state) => isReviewable(state.itemId));
     if (due.length <= DAILY_REVIEW_LIMIT) return false;

@@ -275,6 +275,12 @@
                   "damage": 0,
                   "counterattack": "Scripts cannot read the cookie, but the page is still slow."
                 }
+              ],
+              "modelAnswer": "Give the logo and styles a long TTL. Browsers keep a copy, so the server sends each file once.",
+              "keyPoints": [
+                "The logo and styles rarely change.",
+                "A TTL lets browsers reuse their copy.",
+                "A new logo shows only after the TTL ends."
               ]
             },
             {
@@ -295,6 +301,12 @@
                   "damage": 0,
                   "counterattack": "The old price stays until its copy is too old."
                 }
+              ],
+              "modelAnswer": "Mark the price response no-store. Every visitor then gets the current price from the server.",
+              "keyPoints": [
+                "A price must never come from an old copy.",
+                "No store stops every cache from keeping it.",
+                "Each price check now costs a server request."
               ]
             },
             {
@@ -315,10 +327,16 @@
                   "damage": 0,
                   "counterattack": "The cookie is safer, but far visitors still wait."
                 }
+              ],
+              "modelAnswer": "Put a CDN in front of the shop. Its servers near each visitor answer instead of the far origin.",
+              "keyPoints": [
+                "Distance makes each request slow.",
+                "A CDN keeps copies near the visitor.",
+                "The CDN costs money for the network."
               ]
             }
           ],
-          "hash": "0a541880ffe52ff7"
+          "hash": "250d0907fdbbae23"
         }
       ]
     }

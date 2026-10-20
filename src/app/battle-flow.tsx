@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { reviewItem } from "@/content";
 import {
   battleProgress,
+  checkTurn,
   counterattackSentence,
   creatureOf,
   damageLabel,
@@ -19,11 +20,12 @@ import { postEvents } from "@/lib/events/post-events";
 import type { LearningEvent } from "@/lib/events/write-events";
 import { OPPONENT_LOOK } from "./opponent-look";
 
-type Step = "team" | "turn" | "result" | "end";
+type Step = "team" | "turn" | "result" | "check" | "end";
 
 /**
  * Battle (design 7): see the opponent and pick a team. Each turn shows the threat first, then
  * the moves. The "why" comes before the result. The damage comes from the move table.
+ * After each result, the model answer: the learner ticks the key points they said.
  */
 export function BattleFlow({
   offer,
@@ -37,8 +39,11 @@ export function BattleFlow({
   const [battleId] = useState(() => crypto.randomUUID());
   const [battle, setBattle] = useState<BattleState | null>(null);
   const [step, setStep] = useState<Step>("team");
-  // Each turn is saved once, even after a fast double tap.
+  // Each turn and each self-check is saved once, even after a fast double tap.
   const played = useRef(new Set<number>());
+  const checked = useRef(new Set<number>());
+  // The why of each turn, shown next to its model answer.
+  const [whys, setWhys] = useState<Record<number, string>>({});
   const heading = useRef<HTMLHeadingElement>(null);
   const progress = battle ? battleProgress(battle) : null;
 
@@ -47,25 +52,27 @@ export function BattleFlow({
     heading.current?.focus();
   }, [step, battle?.turns.length]);
 
+  const battleFields = () => ({
+    sessionId,
+    occurredAt: new Date().toISOString(),
+    battleId,
+    scenarioId: offer.scenario.id,
+    contentHash: offer.scenario.hash,
+  });
+
   function makeMove(moveId: string | null, whyText: string) {
     if (!battle) return;
     const turnNumber = battle.turns.length + 1;
     if (played.current.has(turnNumber)) return;
     const next = playTurn(battle, moveId);
     played.current.add(turnNumber);
+    setWhys((before) => ({ ...before, [turnNumber]: whyText }));
     const turn = next.turns[next.turns.length - 1];
-    const battleFields = {
-      sessionId,
-      occurredAt: new Date().toISOString(),
-      battleId,
-      scenarioId: offer.scenario.id,
-      contentHash: offer.scenario.hash,
-    };
     const events: LearningEvent[] = [
       {
         type: "battle-turn",
         clientEventId: crypto.randomUUID(),
-        ...battleFields,
+        ...battleFields(),
         turnNumber,
         moveId: turn.moveId,
         damage: turn.damage,
@@ -78,7 +85,7 @@ export function BattleFlow({
       events.push({
         type: "battle",
         clientEventId: crypto.randomUUID(),
-        ...battleFields,
+        ...battleFields(),
         team: next.team,
         result: outcome.won ? "won" : "lost",
         turnsUsed: next.turns.length,
@@ -87,6 +94,18 @@ export function BattleFlow({
     void postEvents(events);
     setBattle(next);
     setStep("result");
+  }
+
+  /** Saves the ticks of the last turn. They change only the review schedule, never the battle. */
+  function saveCheck(tickedPoints: number[]) {
+    if (!battle) return;
+    const { turnNumber } = battle.turns[battle.turns.length - 1];
+    if (!checked.current.has(turnNumber)) {
+      checked.current.add(turnNumber);
+      const check = checkTurn(battle, turnNumber, tickedPoints);
+      void postEvents([{ type: "battle-check", clientEventId: crypto.randomUUID(), ...battleFields(), ...check }]);
+    }
+    setStep(battleProgress(battle).finished ? "end" : "turn");
   }
 
   if (!battle || step === "team") {
@@ -138,9 +157,28 @@ export function BattleFlow({
         <p className="damage">{damageLabel(last.damage)}</p>
         <p>{resultSentence(last)}</p>
         <HitPoints hp={progress!.hp} />
-        <button type="button" className="button-main" onClick={() => setStep(progress!.finished ? "end" : "turn")}>
-          {progress!.finished ? "See how it ended" : "Next turn"}
+        <button type="button" className="button-main" onClick={() => setStep("check")}>
+          See the model answer
         </button>
+      </section>
+    );
+  }
+
+  if (step === "check") {
+    const turn = battle.scenario.turns[last.turnNumber - 1];
+    return (
+      <section className="stack" aria-labelledby="check-title">
+        <h2 id="check-title" ref={heading} tabIndex={-1}>
+          Model answer
+        </h2>
+        <p className="lead">Your why: {whys[last.turnNumber]}</p>
+        <p>{turn.modelAnswer}</p>
+        <CheckForm
+          key={last.turnNumber}
+          keyPoints={turn.keyPoints}
+          nextLabel={progress!.finished ? "See how it ended" : "Next turn"}
+          onSave={saveCheck}
+        />
       </section>
     );
   }
@@ -159,6 +197,46 @@ export function BattleFlow({
         Continue
       </button>
     </section>
+  );
+}
+
+/** The self-check (design 7.7): tick the key points you said. Any number of ticks is fine. */
+function CheckForm({
+  keyPoints,
+  nextLabel,
+  onSave,
+}: {
+  keyPoints: string[];
+  nextLabel: string;
+  onSave: (tickedPoints: number[]) => void;
+}) {
+  const [ticked, setTicked] = useState<number[]>([]);
+
+  function toggle(point: number) {
+    setTicked(ticked.includes(point) ? ticked.filter((p) => p !== point) : [...ticked, point]);
+  }
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    onSave(ticked);
+  }
+
+  return (
+    <form className="stack" onSubmit={submit}>
+      <fieldset className="choices">
+        <legend>Tick the key points you said in your why.</legend>
+        {keyPoints.map((point, index) => (
+          <label key={index} className="choice">
+            <input type="checkbox" checked={ticked.includes(index + 1)} onChange={() => toggle(index + 1)} />
+            <span>{point}</span>
+          </label>
+        ))}
+      </fieldset>
+      <p className="lead">A point you did not say comes back in tomorrow&apos;s reviews. Your ticks never change the damage.</p>
+      <button type="submit" className="button-main">
+        {nextLabel}
+      </button>
+    </form>
   );
 }
 

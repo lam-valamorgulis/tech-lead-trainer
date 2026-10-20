@@ -80,6 +80,17 @@ test("a full battle: team pick, threat first, why before the result, damage and 
     await expect(page.getByText("Strong hit · 2 ●●")).toBeVisible();
     await expect(page.getByText("You chose TTL. The logo loads fast, but a new logo takes an hour to show.")).toBeVisible();
     await expect(page.getByText("Opponent HP 2 of 4")).toBeVisible();
+    await page.getByRole("button", { name: "See the model answer" }).click();
+
+    // Design 7.7: the model answer and its 3 key points, next to the learner's own why.
+    await expect(page.getByRole("heading", { name: "Model answer" })).toBeFocused();
+    await expect(page.getByText("Your why: The logo rarely changes, so a copy can live for an hour.")).toBeVisible();
+    await expect(page.getByText("Give the logo and styles a long TTL.", { exact: false })).toBeVisible();
+    await expect(page.getByRole("checkbox")).toHaveCount(3);
+    await page.getByLabel("The logo and styles rarely change.").check();
+    await page.getByLabel("A new logo shows only after the TTL ends.").check();
+    const ticks = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+    expect(ticks.violations).toEqual([]);
     await page.getByRole("button", { name: "Next turn" }).click();
 
     await expect(page.getByRole("heading", { name: "Turn 2 of 3" })).toBeFocused();
@@ -89,6 +100,9 @@ test("a full battle: team pick, threat first, why before the result, damage and 
     ).toBeVisible();
     await playTurn(page, "No store (Cache)", "A price must never come from an old copy.", isPhone);
     await expect(page.getByText("Opponent HP 0 of 4")).toBeVisible();
+    await page.getByRole("button", { name: "See the model answer" }).click();
+    await expect(page.getByRole("heading", { name: "Model answer" })).toBeFocused();
+    // No ticks this time: No store comes back for review tomorrow.
     await page.getByRole("button", { name: "See how it ended" }).click();
 
     await expect(page.getByRole("heading", { name: "You won!" })).toBeVisible();
@@ -117,9 +131,26 @@ test("a full battle: team pick, threat first, why before the result, damage and 
         ),
       )
       .toEqual([{ result: "won", turns_used: 2, team: ["cache", "cookie", "proxy"] }]);
+    await expect
+      .poll(() =>
+        sql<{ turn_number: number; best_move_id: string; ticked_points: number[] }>(
+          local,
+          `select turn_number, best_move_id, ticked_points from battle_check_events c join auth.users u on u.id = c.user_id
+            where u.email = $1 order by turn_number`,
+          [user.email],
+        ),
+      )
+      .toEqual([
+        { turn_number: 1, best_move_id: "cache.ttl", ticked_points: [1, 3] },
+        { turn_number: 2, best_move_id: "cache.no-store", ticked_points: [] },
+      ]);
+
+    // The summary shows the best-move rate as the learning number, never the win rate.
+    await page.getByRole("button", { name: "Finish" }).click();
+    await expect(page.getByText("Best moves in Fixture Town: 100% (2 of 2 turns)")).toBeVisible();
+    await expect(page.getByText(/win rate|battles won/i)).toHaveCount(0);
 
     // One battle per day.
-    await page.getByRole("button", { name: "Finish" }).click();
     await page.getByRole("button", { name: "Back home" }).click();
     await page.getByRole("button", { name: "15 minutes" }).click();
     await expect(page.getByText("Nothing is due today.")).toBeVisible();

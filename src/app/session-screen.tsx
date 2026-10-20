@@ -2,11 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { currentTown, reviewItem } from "@/content";
-import { nextBattle, type BattleOffer } from "@/core/battle";
+import { battleRechecks, bestMoveRates, formatBestMoveRate, nextBattle, type BattleOffer, type BestMoveRate } from "@/core/battle";
 import { nextCatch, type CatchItem } from "@/core/catch";
 import { backlogPaused, DAILY_REVIEW_LIMIT, dueReviews, reviewStates } from "@/core/review";
 import type { ThirtyDayRate } from "@/core/day";
-import { loadBattleRecords } from "@/lib/battle-log";
+import { loadBattleHistory } from "@/lib/battle-log";
 import { loadCatchRecords } from "@/lib/catch-log";
 import { loadReviewRecords } from "@/lib/review-log";
 import { deviceLabel } from "@/lib/events/device";
@@ -23,7 +23,10 @@ export type CommittedMinutes = SessionEvent["committedMinutes"];
 /** Active time is saved every 60 seconds (design 12.2). */
 const SAVE_EVERY_MS = 60_000;
 
-type Summary = { saved: boolean; rate: ThirtyDayRate | null };
+/** The learning number of the current town (design 7): how often the learner picked the best move. */
+type BestMoves = { townName: string; rate: BestMoveRate };
+
+type Summary = { saved: boolean; rate: ThirtyDayRate | null; bestMoves: BestMoves | null };
 
 export function SessionScreen({ committedMinutes, onDone }: { committedMinutes: CommittedMinutes; onDone: () => void }) {
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -42,6 +45,14 @@ export function SessionScreen({ committedMinutes, onDone }: { committedMinutes: 
           {!summary.rate && " (could not load)"}
         </p>
         <p className="lead">A day counts when you learn for 3 minutes or more.</p>
+        {summary.bestMoves && (
+          <>
+            <p>
+              Best moves in {summary.bestMoves.townName}: {formatBestMoveRate(summary.bestMoves.rate)}
+            </p>
+            <p className="lead">Your learning number: how often you picked the best move in a battle.</p>
+          </>
+        )}
         <button type="button" className="button-main" onClick={onDone}>
           Back home
         </button>
@@ -104,8 +115,11 @@ function RunningSession({
   async function finish() {
     setFinishing(true);
     const saved = await postEvents([snapshot()]);
-    const rate = await loadThirtyDayRate(browserClient()).catch(() => null);
-    onFinished({ saved, rate });
+    const [rate, bestMoves] = await Promise.all([
+      loadThirtyDayRate(browserClient()).catch(() => null),
+      loadBestMoves().catch(() => null),
+    ]);
+    onFinished({ saved, rate, bestMoves });
   }
 
   return (
@@ -184,17 +198,20 @@ function useTodaysPlan(committedMinutes: CommittedMinutes): { plan: TodaysPlan; 
     const client = browserClient();
     (async () => {
       const today = await currentLearningDay(client);
-      const [catches, reviews, battles] = await Promise.all([
+      const [catches, reviews, history] = await Promise.all([
         loadCatchRecords(client, today),
         loadReviewRecords(client, today),
-        loadBattleRecords(client, today),
+        loadBattleHistory(client, today),
       ]);
+      const battles = history.battles;
+      // A lost battle and a model answer with missing key points bring moves back tomorrow.
+      const rechecks = battleRechecks(history);
       const isReviewable = (id: string) => reviewItem(id) !== undefined;
-      const due = dueReviews({ states: reviewStates(catches, reviews), reviews, today, isReviewable }).map(
+      const due = dueReviews({ states: reviewStates(catches, reviews, rechecks), reviews, today, isReviewable }).map(
         (state) => ({ state, item: reviewItem(state.itemId)! }),
       );
       const town = currentTown();
-      const paused = backlogPaused(catches, reviews, today, isReviewable);
+      const paused = backlogPaused(catches, reviews, today, isReviewable, rechecks);
       const catchItem = town ? nextCatch({ town, records: catches, today, committedMinutes, paused }) : null;
       // The battle uses the creatures caught before today's session.
       const battle = town ? nextBattle({ town, catches, battles, today, committedMinutes }) : null;
@@ -230,6 +247,15 @@ function planStep(
   }
   if (work.reviews.length === 0 && !work.catchItem && !work.battle) return { state: "nothing" };
   return { state: "done" };
+}
+
+/** The best-move rate of the current town, from every turn the learner played there. */
+async function loadBestMoves(): Promise<BestMoves | null> {
+  const town = currentTown();
+  if (!town) return null;
+  const client = browserClient();
+  const history = await loadBattleHistory(client, await currentLearningDay(client));
+  return { townName: town.name, rate: bestMoveRates(history.turns).get(town.id) ?? { bestMoves: 0, turns: 0 } };
 }
 
 function formatMinutes(seconds: number): string {

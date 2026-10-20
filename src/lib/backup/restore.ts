@@ -2,7 +2,16 @@
 // It talks to Postgres directly, as the table owner `postgres`, in one transaction:
 // a failure leaves the database as empty as it was.
 // Relative imports with .ts let `scripts/backup.mjs` run this file in Node.
-import { reviewStateRows, type CatchRow, type PlacementRow, type ReviewRow, type StateRow } from "../review-state.ts";
+import {
+  reviewStateRows,
+  type BattleCheckRow,
+  type BattleEndRow,
+  type BattleTurnRow,
+  type CatchRow,
+  type PlacementRow,
+  type ReviewRow,
+  type StateRow,
+} from "../review-state.ts";
 import { BACKUP_SCHEMA_VERSION, BACKUP_TABLES, type Backup, type BackupTable, type Row } from "./backup.ts";
 
 /** The one method of a `pg` client the restore uses. */
@@ -92,10 +101,22 @@ async function rebuildFromLog(db: Database, userId: string): Promise<StateRow[]>
     [userId],
   );
   const reviews = await db.query(`select item_id, ${learningDayText}, grade from public.review_events ${oneUserInTimeOrder}`, [userId]);
+  const battleTurns = await db.query("select battle_id, move_id from public.battle_turn_events where user_id = $1 order by id", [userId]);
+  const battleEnds = await db.query(
+    `select battle_id, result, ${learningDayText} from public.battle_events where user_id = $1 and result = 'lost' order by id`,
+    [userId],
+  );
+  const battleChecks = await db.query(
+    `select battle_id, turn_number, best_move_id, ticked_points, ${learningDayText} from public.battle_check_events where user_id = $1 order by id`,
+    [userId],
+  );
   return reviewStateRows(userId, {
     placements: placements.rows as PlacementRow[],
     catches: catches.rows as CatchRow[],
     reviews: reviews.rows as ReviewRow[],
+    battleTurns: battleTurns.rows as BattleTurnRow[],
+    battleEnds: battleEnds.rows as BattleEndRow[],
+    battleChecks: battleChecks.rows as BattleCheckRow[],
   });
 }
 

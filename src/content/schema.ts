@@ -85,9 +85,16 @@ export const moveTableRowSchema = z.object({
   counterattack: text,
 });
 
+/** Each turn's model answer has this many key points. The learner ticks the ones they said. */
+export const KEY_POINTS = 3;
+
 export const battleTurnSchema = z.object({
   threat: text,
   moves: z.array(moveTableRowSchema).min(3).max(4),
+  /** The answer a senior engineer gives to this threat, shown after the turn's result (design 7.7). */
+  modelAnswer: text,
+  /** Exactly 3 short points of the model answer. Ticks on them change only the review schedule. */
+  keyPoints: z.array(text).length(KEY_POINTS, `A turn has exactly ${KEY_POINTS} key points.`),
 });
 
 /** A battle against one real tech situation (design 7). */

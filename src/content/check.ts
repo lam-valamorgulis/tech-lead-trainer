@@ -215,6 +215,8 @@ function scenarioProblems(town: Town, scenario: Scenario, moves: Map<string, Mov
   scenario.turns.forEach((turn, index) => {
     const at = `${scenarioAt}.turns.${index}`;
     problems.push(...sentenceProblems(`${at}.threat`, turn.threat));
+    problems.push(...sentenceProblems(`${at}.modelAnswer`, turn.modelAnswer));
+    turn.keyPoints.forEach((point, i) => problems.push(...sentenceProblems(`${at}.keyPoints.${i}`, point)));
     const top = Math.max(...turn.moves.map((row) => row.damage));
     const best = turn.moves.filter((row) => row.damage === top).length;
     if (best !== 1) {

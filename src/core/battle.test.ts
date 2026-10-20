@@ -4,15 +4,23 @@ import { fixtureTown } from "@/content/fixture-town";
 import { townSchema } from "@/content/schema";
 import {
   battleProgress,
+  battleRechecks,
+  bestMoveRates,
+  checkTurn,
   counterattackSentence,
   damageLabel,
+  formatBestMoveRate,
   nextBattle,
   playTurn,
   startBattle,
   usableMoves,
+  type BattleEndRecord,
   type BattleRecord,
+  type CheckRecord,
+  type TurnRecord,
 } from "./battle.ts";
 import type { CatchRecord } from "./catch.ts";
+import { reviewStates } from "./review.ts";
 
 // The fixture scenario "t99-sale-day": the best moves are cache.ttl, cache.no-store and proxy.cdn.
 const town = () => buildBundle([townSchema.parse(fixtureTown())]).towns[0];
@@ -186,5 +194,128 @@ describe("counterattackSentence", () => {
       "You chose TTL. The logo loads fast, but a new logo takes an hour to show.",
     );
     expect(counterattackSentence(null, null)).toBe("You had no move for this threat. Nothing changes.");
+  });
+});
+
+describe("the self-check on a model answer", () => {
+  const start = (catches: CatchRecord[], team: string[]) =>
+    startBattle(nextBattle({ town: town(), catches, battles: [], today: TODAY, committedMinutes: 15 })!, team);
+  // Damage 0, 0, 2: HP 2 is left, so the battle is lost.
+  const lostBattle = () =>
+    playTurn(playTurn(playTurn(start(caught("cache", "cookie", "proxy"), ["cache", "cookie", "proxy"]), "cookie.http-only"), "cache.ttl"), "proxy.cdn");
+
+  it("records the ticked key points and the turn's best move, fixed at play time", () => {
+    expect(checkTurn(lostBattle(), 1, [3, 1])).toEqual({ turnNumber: 1, bestMoveId: "cache.ttl", tickedPoints: [1, 3] });
+    expect(checkTurn(lostBattle(), 2, [])).toEqual({ turnNumber: 2, bestMoveId: "cache.no-store", tickedPoints: [] });
+  });
+
+  it("refuses a turn that was not played, and points that do not exist", () => {
+    const oneTurn = playTurn(start(caught("cache", "proxy"), ["cache", "proxy"]), "cache.ttl");
+    expect(() => checkTurn(oneTurn, 2, [])).toThrow("Turn 2 was not played.");
+    expect(() => checkTurn(oneTurn, 1, [4])).toThrow("A key point is 1, 2 or 3.");
+    expect(() => checkTurn(oneTurn, 1, [2, 2])).toThrow("A key point is ticked once.");
+  });
+
+  it("changes only the review state: the damage, the HP and the result stay the same", () => {
+    const battle = lostBattle();
+    const before = structuredClone(battle);
+    const checks: CheckRecord[] = battle.turns.map((turn) => ({
+      ...checkTurn(battle, turn.turnNumber, []),
+      battleId: "b1",
+      learningDay: TODAY,
+    }));
+    expect(battle).toEqual(before);
+    expect(battleProgress(battle)).toEqual({ hp: 2, turnNumber: 3, finished: true, won: false });
+
+    // The best moves sit on the 3-day step after one Good, due 10-19 + 3 = 10-22.
+    const catches = caught("cache.ttl", "cache.no-store", "proxy.cdn");
+    const goods = catches.map((record) => ({ itemId: record.itemId, learningDay: "2026-10-19", grade: "good" as const }));
+    expect(reviewStates(catches, goods).get("cache.ttl")).toMatchObject({ step: 3, dueDay: "2026-10-22" });
+    const checked = reviewStates(catches, goods, battleRechecks({ turns: [], ends: [], checks }));
+    for (const itemId of ["cache.ttl", "cache.no-store", "proxy.cdn"]) {
+      expect(checked.get(itemId)).toMatchObject({ step: 3, dueDay: "2026-10-21" });
+    }
+  });
+});
+
+describe("battleRechecks", () => {
+  const turn = (battleId: string, turnNumber: number, moveId: string | null): TurnRecord => ({
+    battleId,
+    scenarioId: "t99-sale-day",
+    turnNumber,
+    moveId,
+    bestMove: false,
+    learningDay: TODAY,
+  });
+
+  it("brings back a turn's best move tomorrow when the learner did not say all 3 key points", () => {
+    const checks: CheckRecord[] = [
+      { battleId: "b1", turnNumber: 1, bestMoveId: "cache.ttl", tickedPoints: [1, 2, 3], learningDay: TODAY },
+      { battleId: "b1", turnNumber: 2, bestMoveId: "cache.no-store", tickedPoints: [1, 3], learningDay: TODAY },
+    ];
+    expect(battleRechecks({ turns: [], ends: [], checks })).toEqual([{ itemId: "cache.no-store", learningDay: TODAY }]);
+  });
+
+  it("makes every move used in a lost battle due, once each", () => {
+    const turns = [turn("b1", 1, "cookie.http-only"), turn("b1", 2, "cache.ttl"), turn("b1", 3, "cache.ttl"), turn("b2", 1, "proxy.cdn")];
+    const ends: BattleEndRecord[] = [{ battleId: "b1", result: "lost", learningDay: TODAY }];
+    expect(battleRechecks({ turns, ends, checks: [] })).toEqual([
+      { itemId: "cookie.http-only", learningDay: TODAY },
+      { itemId: "cache.ttl", learningDay: TODAY },
+    ]);
+  });
+
+  it("leaves a won or unfinished battle alone, and a turn with no move", () => {
+    const turns = [turn("b1", 1, "cache.ttl"), turn("b2", 1, "proxy.cdn"), turn("b3", 1, null)];
+    const ends: BattleEndRecord[] = [
+      { battleId: "b1", result: "won", learningDay: TODAY },
+      { battleId: "b3", result: "lost", learningDay: TODAY },
+    ];
+    expect(battleRechecks({ turns, ends, checks: [] })).toEqual([]);
+  });
+
+  it("makes the used moves of a lost battle due tomorrow in the review schedule", () => {
+    const catches = caught("cache.ttl", "proxy.cdn").map((record) => ({ ...record, learningDay: "2026-10-01" }));
+    // Both on the 7-day step after two Goods, due 10-25.
+    const reviews = ["cache.ttl", "proxy.cdn"].flatMap((itemId) => [
+      { itemId, learningDay: "2026-10-02", grade: "good" as const },
+      { itemId, learningDay: "2026-10-18", grade: "good" as const },
+    ]);
+    const turns = [turn("b1", 1, "cache.ttl"), turn("b1", 2, "cache.no-store")];
+    const ends: BattleEndRecord[] = [{ battleId: "b1", result: "lost", learningDay: TODAY }];
+    const states = reviewStates(catches, reviews, battleRechecks({ turns, ends, checks: [] }));
+    expect(states.get("cache.ttl")).toMatchObject({ step: 7, dueDay: "2026-10-21" });
+    expect(states.get("proxy.cdn")).toMatchObject({ step: 7, dueDay: "2026-10-25" });
+  });
+});
+
+describe("the best-move rate", () => {
+  const turn = (scenarioId: string, bestMove: boolean): TurnRecord => ({
+    battleId: "b1",
+    scenarioId,
+    turnNumber: 1,
+    moveId: bestMove ? "cache.ttl" : null,
+    bestMove,
+    learningDay: TODAY,
+  });
+
+  it("counts the turns played with the best move, per town, from the stored flags", () => {
+    const rates = bestMoveRates([
+      turn("t01-black-friday", true),
+      turn("t01-black-friday", false),
+      turn("t01-login-storm", true),
+      turn("t02-slow-search", false),
+    ]);
+    expect(rates).toEqual(
+      new Map([
+        ["t01", { bestMoves: 2, turns: 3 }],
+        ["t02", { bestMoves: 0, turns: 1 }],
+      ]),
+    );
+  });
+
+  it("reads as a share of turns, never as wins", () => {
+    expect(formatBestMoveRate({ bestMoves: 2, turns: 3 })).toBe("67% (2 of 3 turns)");
+    expect(formatBestMoveRate({ bestMoves: 0, turns: 0 })).toBe("no battle turns yet");
   });
 });

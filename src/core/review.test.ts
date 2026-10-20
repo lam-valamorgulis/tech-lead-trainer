@@ -71,6 +71,59 @@ describe("reviewStates", () => {
     ];
     expect(reviewStates(records, []).get("cache")).toMatchObject({ caughtDay: "2026-10-10", dueDay: "2026-10-11" });
   });
+
+  describe("a recheck from a battle", () => {
+    // cache: caught 10-10, Good 10-11 (step 3), Good 10-14 (step 7, due 10-21).
+    const catches = [caught("cache", "2026-10-10")];
+    const reviews = [reviewed("cache", "2026-10-11", "good"), reviewed("cache", "2026-10-14", "good")];
+
+    it("makes the item due the next day and keeps its step and stage", () => {
+      const states = reviewStates(catches, reviews, [{ itemId: "cache", learningDay: "2026-10-16" }]);
+      expect(states.get("cache")).toEqual({
+        itemId: "cache",
+        step: 7,
+        dueDay: "2026-10-17",
+        caughtDay: "2026-10-10",
+        stage: 1,
+      });
+    });
+
+    it("never moves a due day later", () => {
+      const states = reviewStates(catches, reviews, [{ itemId: "cache", learningDay: "2026-10-22" }]);
+      expect(states.get("cache")?.dueDay).toBe("2026-10-21");
+    });
+
+    it("brings back an item whose reviews had ended", () => {
+      const ended = [...Array(7)].map((_, i) => reviewed("cache", `2026-10-${11 + i}`, "good"));
+      expect(reviewStates(catches, ended).get("cache")?.dueDay).toBeNull();
+      const states = reviewStates(catches, ended, [{ itemId: "cache", learningDay: "2026-10-20" }]);
+      expect(states.get("cache")).toMatchObject({ step: 180, dueDay: "2026-10-21" });
+    });
+
+    it("does nothing for an item that is not caught, or was caught after the battle", () => {
+      const states = reviewStates(catches, [], [
+        { itemId: "cache.ttl", learningDay: "2026-10-12" },
+        { itemId: "cache", learningDay: "2026-10-09" },
+      ]);
+      expect([...states.keys()]).toEqual(["cache"]);
+      expect(states.get("cache")?.dueDay).toBe("2026-10-11");
+    });
+
+    it("counts in day order with the reviews: a later review moves the item on again", () => {
+      const states = reviewStates(
+        catches,
+        [...reviews, reviewed("cache", "2026-10-17", "good")],
+        [{ itemId: "cache", learningDay: "2026-10-16" }],
+      );
+      // Due 10-17 by the recheck, then Good on 10-17 from step 7 gives step 14.
+      expect(states.get("cache")).toMatchObject({ step: 14, dueDay: "2026-10-31" });
+    });
+
+    it("counts after the reviews of the same day, because the battle comes after the reviews", () => {
+      const states = reviewStates(catches, reviews, [{ itemId: "cache", learningDay: "2026-10-14" }]);
+      expect(states.get("cache")).toMatchObject({ step: 7, dueDay: "2026-10-15" });
+    });
+  });
 });
 
 describe("dueReviews", () => {

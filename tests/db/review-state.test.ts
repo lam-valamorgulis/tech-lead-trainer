@@ -136,3 +136,69 @@ describe("the review state cache", () => {
     expect(await stateOf(user.client)).toEqual(newer);
   });
 });
+
+describe("the review state cache after a battle", () => {
+  let user: { id: string; email: string; client: SupabaseClient };
+  let token: string;
+  const battleId = crypto.randomUUID();
+  const battle = { sessionId, battleId, scenarioId: "t99-sale-day", contentHash: "0123456789abcdef" };
+
+  beforeAll(async () => {
+    user = await signedInUser("state-battle");
+    await ensureProfile(user.client);
+    token = (await user.client.auth.getSession()).data.session!.access_token;
+  });
+
+  afterAll(async () => {
+    await forgetEmail(user.email);
+  });
+
+  it("brings back a used move of a lost battle and an unticked best move tomorrow, and a rebuild agrees", async () => {
+    // Both moves reach the 14-day step 9 days ago, so they are due in 5 days.
+    for (const itemId of ["cache.ttl", "proxy.cdn"]) {
+      await post(token, [catchEvent(itemId, daysAgo(20))]);
+      await post(token, [
+        reviewEvent(itemId, daysAgo(19), "good", 1, 3),
+        reviewEvent(itemId, daysAgo(16), "good", 3, 7),
+        reviewEvent(itemId, daysAgo(9), "good", 7, 14),
+      ]);
+    }
+    const { data: today } = await user.client.rpc("current_learning_day");
+    const tomorrow = new Date(Date.parse(`${today}T00:00:00Z`) + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const steps = async () => (await stateOf(user.client))!.map((row) => [row.item_id, row.step, row.due_day]);
+    const before = await steps();
+    expect(before.every(([, step, due]) => step === 14 && due !== tomorrow)).toBe(true);
+
+    const now = new Date().toISOString();
+    const event = { clientEventId: crypto.randomUUID(), occurredAt: now, ...battle };
+    await post(token, [
+      { type: "battle-turn", ...event, turnNumber: 1, moveId: "cache.ttl", damage: 0, bestMove: false, whyText: "Old copies are fine." },
+    ]);
+    // Ticks of all 3 points change nothing.
+    await post(token, [
+      { type: "battle-check", ...event, clientEventId: crypto.randomUUID(), turnNumber: 1, bestMoveId: "proxy.cdn", tickedPoints: [1, 2, 3] },
+    ]);
+    expect(await steps()).toEqual(before);
+
+    // The end of the battle arrives in its own request, after the turn.
+    await post(token, [
+      { type: "battle", ...event, clientEventId: crypto.randomUUID(), team: ["cache", "proxy"], result: "lost", turnsUsed: 3 },
+    ]);
+    expect(await steps()).toEqual([
+      ["cache.ttl", 14, tomorrow],
+      ["proxy.cdn", 14, before[1][2]],
+    ]);
+
+    await post(token, [
+      { type: "battle-check", ...event, clientEventId: crypto.randomUUID(), turnNumber: 2, bestMoveId: "proxy.cdn", tickedPoints: [2] },
+    ]);
+    const live = await stateOf(user.client);
+    expect(live!.map((row) => [row.item_id, row.step, row.due_day])).toEqual([
+      ["cache.ttl", 14, tomorrow],
+      ["proxy.cdn", 14, tomorrow],
+    ]);
+
+    await rebuildReviewState(adminClient(), user.id);
+    expect(await stateOf(user.client)).toEqual(live);
+  });
+});

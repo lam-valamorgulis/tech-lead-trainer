@@ -167,6 +167,12 @@ export function fixtureTown() {
               { moveId: "proxy.cdn", damage: 1, counterattack: "Far visitors are faster, but each first load is still slow." },
               { moveId: "cookie.http-only", damage: 0, counterattack: "Scripts cannot read the cookie, but the page is still slow." },
             ],
+            modelAnswer: "Give the logo and styles a long TTL. Browsers keep a copy, so the server sends each file once.",
+            keyPoints: [
+              "The logo and styles rarely change.",
+              "A TTL lets browsers reuse their copy.",
+              "A new logo shows only after the TTL ends.",
+            ],
           },
           {
             threat: "The new sale price does not show. Visitors see the old price.",
@@ -175,6 +181,12 @@ export function fixtureTown() {
               { moveId: "proxy.cdn", damage: 1, counterattack: "Near copies update sooner, but some visitors still see the old price." },
               { moveId: "cache.ttl", damage: 0, counterattack: "The old price stays until its copy is too old." },
             ],
+            modelAnswer: "Mark the price response no-store. Every visitor then gets the current price from the server.",
+            keyPoints: [
+              "A price must never come from an old copy.",
+              "No store stops every cache from keeping it.",
+              "Each price check now costs a server request.",
+            ],
           },
           {
             threat: "Visitors far away wait three seconds for each page.",
@@ -182,6 +194,12 @@ export function fixtureTown() {
               { moveId: "proxy.cdn", damage: 2, counterattack: "Pages now load near each visitor, but the network costs more." },
               { moveId: "cache.no-store", damage: 0, counterattack: "Every page is fetched again, so far visitors wait longer." },
               { moveId: "cookie.http-only", damage: 0, counterattack: "The cookie is safer, but far visitors still wait." },
+            ],
+            modelAnswer: "Put a CDN in front of the shop. Its servers near each visitor answer instead of the far origin.",
+            keyPoints: [
+              "Distance makes each request slow.",
+              "A CDN keeps copies near the visitor.",
+              "The CDN costs money for the network.",
             ],
           },
         ],
