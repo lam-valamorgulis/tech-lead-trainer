@@ -395,7 +395,8 @@ h2[tabindex="-1"]:focus {
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* Columns never grow to fit a label, so a label that is too long shows as a test failure. */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
 

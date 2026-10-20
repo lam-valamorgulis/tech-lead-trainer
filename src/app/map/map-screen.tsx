@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { currentTownNumber, ROADMAP, townStartDay } from "@/core/roadmap";
+import { towns } from "@/content";
+import { currentTownNumber, ROADMAP, townStartDay, townToPlay } from "@/core/roadmap";
 import { currentLearningDay } from "@/lib/learning-log";
 import { browserClient } from "@/lib/supabase/browser";
 import { PixelSprite } from "../pixel-sprite";
@@ -30,7 +31,8 @@ const HOUSE = [
 const PALETTES: Record<TownState, Record<string, string>> = {
   current: { R: "#ffd166", W: "#f4f3ff", D: "#14132b", G: "#06d6a0" },
   past: { R: "#06d6a0", W: "#b9b6d9", D: "#14132b", G: "#06d6a0" },
-  locked: { R: "#4a4770", W: "#2c2a4f", D: "#14132b", G: "#4a4770" },
+  // The roof and ground keep 3:1 contrast on the background (UI rule 11).
+  locked: { R: "#6f6ba0", W: "#4a4770", D: "#14132b", G: "#6f6ba0" },
 };
 
 /** 12 pixels shown 4 times larger: 48 px, a full tap target (UI rule 6). */
@@ -58,6 +60,9 @@ export function MapScreen({ programStartDate }: { programStartDate: string }) {
   const current = currentTownNumber(programStartDate, today);
   const stateOf = (number: number): TownState => (number < current ? "past" : number === current ? "current" : "locked");
   const shown = ROADMAP.find((town) => town.number === (picked ?? current))!;
+  // A town with content uses its own name, so the map and the town never disagree.
+  const nameOf = (number: number) => towns.find((town) => town.number === number)?.name ?? ROADMAP[number - 1].name;
+  const played = townToPlay(towns, current);
 
   return (
     <>
@@ -81,11 +86,16 @@ export function MapScreen({ programStartDate }: { programStartDate: string }) {
       </ol>
       <section className="card stack" aria-live="polite" aria-labelledby="town-title">
         <h2 id="town-title">
-          Town {shown.number}: {shown.name}
+          Town {shown.number}: {nameOf(shown.number)}
         </h2>
         <p>
           Month {shown.number} · {monthNote(stateOf(shown.number), townStartDay(programStartDate, shown.number))}
         </p>
+        {shown.number === current && played && played.number !== current && (
+          <p className="lead">
+            Its creatures are not ready yet. You keep playing Town {played.number}: {played.name}.
+          </p>
+        )}
       </section>
     </>
   );

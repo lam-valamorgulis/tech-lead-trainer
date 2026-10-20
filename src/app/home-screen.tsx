@@ -153,7 +153,8 @@ function usePlacementTown(programStartDate: string): PlacementOffer | null {
         return { current, records: await loadPlacementRecords(client, today) };
       })
       .then((loaded) => {
-        if (cancelled || !loaded) return;
+        if (cancelled) return;
+        if (!loaded) return setTown(null);
         const { current, records } = loaded;
         // Next keeps this screen's state when you leave and come back, so clear an old offer too.
         setTown(placementProgress(current, records).done ? null : { id: current.id, questions: current.placement.length });

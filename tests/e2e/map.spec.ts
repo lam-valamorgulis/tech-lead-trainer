@@ -12,8 +12,9 @@ test("the map shows 12 towns, marks the learner's town, and a tap shows a town's
     await expect(towns).toHaveCount(12);
 
     // A new learner is on day 1, so town 1 is theirs and the rest are not open yet.
+    // Seam C uses the fixture town as town 1, so its name comes from the fixture.
     await expect(page.getByRole("button", { name: "Town 1 You are here" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Town 1: Web and HTTP in depth" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Town 1: Fixture Town" })).toBeVisible();
     await expect(page.getByText("Month 1 · your town now")).toBeVisible();
 
     await page.getByRole("button", { name: "Town 2 Not open yet" }).click();
@@ -32,6 +33,21 @@ test("the map shows 12 towns, marks the learner's town, and a tap shows a town's
       expect(sprite.rendering).toBe("pixelated");
       expect(Number.isInteger(sprite.scale) && sprite.scale >= 2).toBe(true);
     }
+
+    // The labels fit on the smallest iPhone too (375 px wide).
+    await page.setViewportSize({ width: 375, height: 667 });
+    const overflowing = await towns.evaluateAll((buttons) =>
+      buttons
+        .filter((button) => {
+          const box = button.getBoundingClientRect();
+          return [...button.querySelectorAll("span")].some((label) => {
+            const inner = label.getBoundingClientRect();
+            return inner.left < box.left || inner.right > box.right;
+          });
+        })
+        .map((button) => button.textContent),
+    );
+    expect(overflowing).toEqual([]);
 
     const accessibility = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
     expect(accessibility.violations).toEqual([]);
@@ -53,6 +69,8 @@ test("a learner whose day 1 was 70 days ago is in town 3", async ({ page }) => {
     await expect(page.getByRole("button", { name: "Town 3 You are here" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Town 1 Past" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Town 4 Not open yet" })).toBeVisible();
+    // Town 3 has no content, so the learner keeps playing the last town that has some.
+    await expect(page.getByText("Its creatures are not ready yet. You keep playing Town 1: Fixture Town.")).toBeVisible();
   } finally {
     await user.forget();
   }

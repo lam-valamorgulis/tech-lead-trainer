@@ -16,10 +16,10 @@ const STATUS_LABEL: Record<CreatureStatus, string> = {
   "not-met": "Not met yet",
 };
 
-type Loaded = { town: BundledTown | undefined; catches: CatchRecord[]; reviews: ReviewRecord[] };
+type FieldGuideData = { town: BundledTown | undefined; catches: CatchRecord[]; reviews: ReviewRecord[] };
 
 export function FieldGuideScreen({ programStartDate }: { programStartDate: string }) {
-  const [records, setRecords] = useState<Loaded | null>(null);
+  const [records, setRecords] = useState<FieldGuideData | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -39,7 +39,7 @@ export function FieldGuideScreen({ programStartDate }: { programStartDate: strin
 
   if (failed) return <p role="alert" className="error">We could not load your Field Guide. Check your connection.</p>;
   if (!records) return <p className="lead">Loading…</p>;
-  if (!records.town) return <p className="lead">No creatures here yet. The town 1 content comes next.</p>;
+  if (!records.town) return <p className="lead">No creatures here yet. The content for your town comes next.</p>;
 
   const view = fieldGuideProgress(records.town, records.catches, records.reviews);
   return (
