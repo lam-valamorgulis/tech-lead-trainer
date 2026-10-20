@@ -35,6 +35,44 @@ describe("town 1 content", () => {
     }
   });
 
+  // Ticket #18: battle scenarios.
+  it("has at least 12 battle scenarios, enough for most days of month 1 and the Gym", () => {
+    expect(town.scenarios.length).toBeGreaterThanOrEqual(12);
+  });
+
+  it("uses only moves of town 1 creatures in its move tables", () => {
+    const moveIds = new Set(town.creatures.flatMap((creature) => creature.moves.map((move) => move.id)));
+    for (const scenario of town.scenarios) {
+      for (const turn of scenario.turns) {
+        for (const row of turn.moves) expect(moveIds.has(row.moveId), `${scenario.id}: ${row.moveId}`).toBe(true);
+      }
+    }
+  });
+
+  it("puts the best move in every row position, so the file order gives no hint", () => {
+    const turns = town.scenarios.flatMap((scenario) => scenario.turns);
+    const bestPositions = new Set(
+      turns.map((turn) => turn.moves.findIndex((row) => row.damage === Math.max(...turn.moves.map((r) => r.damage)))),
+    );
+    expect([...bestPositions].sort()).toEqual([0, 1, 2, 3]);
+  });
+
+  it("orders scenarios by the day they can start, so early days have a battle", () => {
+    // The app offers a scenario once the creature of each best move is caught, in catch order.
+    const catchOrder = town.creatures.map((creature) => creature.id);
+    const readyAfter = town.scenarios.map((scenario) =>
+      Math.max(
+        ...scenario.turns.map((turn) => {
+          const best = turn.moves.reduce((top, row) => (row.damage > top.damage ? row : top));
+          return catchOrder.indexOf(best.moveId.split(".")[0]);
+        }),
+      ),
+    );
+    expect(readyAfter).toEqual([...readyAfter].sort((a, b) => a - b));
+    // The first scenario needs only the first 2 creatures: Client and server, HTTP message.
+    expect(readyAfter[0]).toBe(1);
+  });
+
   it("puts only town 1 items in its confusable pairs, and never pairs an item with itself", () => {
     const ids = new Set(items.map((item) => item.id));
     expect(town.confusablePairs.length).toBeGreaterThan(0);

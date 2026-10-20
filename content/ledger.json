@@ -55,6 +55,21 @@
     "cors.allow-origin",
     "cors.simple-request",
     "cors.preflight",
-    "cors.credentials"
+    "cors.credentials",
+    "t01-empty-sign-up",
+    "t01-live-prices",
+    "t01-crawler-deletes",
+    "t01-account-errors",
+    "t01-moved-shop",
+    "t01-broken-styles",
+    "t01-lost-cart",
+    "t01-partner-widget",
+    "t01-busy-night",
+    "t01-office-network",
+    "t01-public-wifi",
+    "t01-certificate-warning",
+    "t01-broken-menu",
+    "t01-new-blog",
+    "t01-new-front-end"
   ]
 }
