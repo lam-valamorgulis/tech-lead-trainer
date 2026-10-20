@@ -118,12 +118,15 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
             <span className="lead">{placementTown.questions} questions</span>
           </div>
         )}
-        <nav className="row" aria-label="More">
+        <nav className="home-nav" aria-label="More">
           <Link href="/map" className="button button-quiet">
             Map
           </Link>
           <Link href="/field-guide" className="button button-quiet">
             Field Guide
+          </Link>
+          <Link href="/tracking" className="button button-quiet">
+            Tracking
           </Link>
           <Link href="/settings" className="button button-quiet">
             Settings

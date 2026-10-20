@@ -25,6 +25,8 @@ export const BACKUP_TABLES = [
   "push_subscriptions",
   "reminders",
   "weekly_summaries",
+  "year_goals",
+  "later_goals",
   "review_state",
 ] as const;
 
@@ -96,6 +98,8 @@ const READ_ORDER: Record<BackupTable, string[]> = {
   reminders: ["id"],
   weekly_summaries: ["id"],
   gym_events: ["id"],
+  year_goals: ["user_id", "goal"],
+  later_goals: ["id"],
 };
 
 async function readUsers(client: SupabaseClient): Promise<User[]> {

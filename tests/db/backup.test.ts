@@ -5,8 +5,10 @@ import { BACKUP_TABLES, readBackup, type Backup } from "@/lib/backup/backup";
 import { restoreBackup } from "@/lib/backup/restore";
 import { openBackup, parseBackupKey, sealBackup } from "@/lib/backup/seal";
 import { writeEvents, type LearningEvent } from "@/lib/events/write-events";
+import { addLaterGoal, removeLaterGoal } from "@/lib/later-list";
 import { ensureProfile } from "@/lib/profile";
 import { rebuildReviewState } from "@/lib/review-state";
+import { saveYearGoal } from "@/lib/year-goals";
 import { createEmptyDatabase, dropDatabase } from "../../scripts/empty-database.mjs";
 import { adminClient, forgetEmail, signedInUser, sql } from "./helpers";
 
@@ -150,6 +152,9 @@ describe("weekly backup and restore", () => {
       weakest_creatures: [{ id: "cache", name: "Cache" }],
     });
     if (summary.error) throw summary.error;
+    await saveYearGoal(learner.client, "interview-tower", true);
+    await addLaterGoal(learner.client, "Learn Rust");
+    await removeLaterGoal(learner.client, (await addLaterGoal(learner.client, "Learn Go")).id);
     // The learner moves home after the events. A restore must keep each event's own learning day.
     await sql("update public.profiles set home_time_zone = 'America/Los_Angeles' where user_id = $1", [learner.id]);
 
@@ -182,6 +187,12 @@ describe("weekly backup and restore", () => {
     expect(backup.tables.content_reports).toEqual([expect.objectContaining({ message: "Typo" })]);
     expect(backup.tables.weekly_summaries).toEqual([
       expect.objectContaining({ week_start: "2026-10-12", minutes: 50, weakest_creatures: [{ id: "cache", name: "Cache" }] }),
+    ]);
+    expect(backup.tables.year_goals).toEqual([expect.objectContaining({ goal: "interview-tower", checked: true })]);
+    // A removed Later goal is in the backup too, with its removal time.
+    expect(backup.tables.later_goals).toEqual([
+      expect.objectContaining({ text: "Learn Rust", removed_at: null }),
+      expect.objectContaining({ text: "Learn Go", removed_at: expect.any(String) }),
     ]);
   });
 
