@@ -18,7 +18,11 @@ describe("catchQueue", () => {
     expect(catchQueue(town()).map((item) => [item.id, item.kind])).toEqual([
       ["cache", "creature"],
       ["cache.ttl", "move"],
+      ["cache.no-store", "move"],
       ["cookie", "creature"],
+      ["cookie.http-only", "move"],
+      ["proxy", "creature"],
+      ["proxy.cdn", "move"],
     ]);
   });
 
@@ -26,7 +30,14 @@ describe("catchQueue", () => {
     const content = fixtureTown();
     Object.assign(content.creatures[0].moves[0], { retired: true });
     const [retired] = buildBundle([townSchema.parse(content)]).towns;
-    expect(catchQueue(retired).map((item) => item.id)).toEqual(["cache", "cookie"]);
+    expect(catchQueue(retired).map((item) => item.id)).toEqual([
+      "cache",
+      "cache.no-store",
+      "cookie",
+      "cookie.http-only",
+      "proxy",
+      "proxy.cdn",
+    ]);
   });
 });
 
@@ -59,7 +70,7 @@ describe("nextCatch", () => {
   });
 
   it("offers nothing when every item is caught", () => {
-    const records = ["cache", "cache.ttl", "cookie"].map((id) => record(id, true));
+    const records = catchQueue(town()).map((item) => record(item.id, true));
     expect(nextCatch({ town: town(), records, today: TODAY, committedMinutes: 15 })).toBeNull();
   });
 
@@ -91,8 +102,9 @@ describe("fieldGuideProgress", () => {
       townName: "Fixture Town",
       caughtCount: 1,
       creatures: [
-        { id: "cache", name: "Cache", status: "caught", stage: 1, movesCaught: 1, movesTotal: 1 },
-        { id: "cookie", name: "Cookie", status: "not-met", stage: null, movesCaught: 0, movesTotal: 0 },
+        { id: "cache", name: "Cache", status: "caught", stage: 1, movesCaught: 1, movesTotal: 2 },
+        { id: "cookie", name: "Cookie", status: "not-met", stage: null, movesCaught: 0, movesTotal: 1 },
+        { id: "proxy", name: "Proxy", status: "not-met", stage: null, movesCaught: 0, movesTotal: 1 },
       ],
     });
   });
@@ -101,8 +113,12 @@ describe("fieldGuideProgress", () => {
     const content = fixtureTown();
     Object.assign(content.creatures[1], { retired: true });
     const [retired] = buildBundle([townSchema.parse(content)]).towns;
-    expect(fieldGuideProgress(retired, [], []).creatures.map((c) => c.id)).toEqual(["cache"]);
-    expect(fieldGuideProgress(retired, [record("cookie", true)], []).creatures.map((c) => c.id)).toEqual(["cache", "cookie"]);
+    expect(fieldGuideProgress(retired, [], []).creatures.map((c) => c.id)).toEqual(["cache", "proxy"]);
+    expect(fieldGuideProgress(retired, [record("cookie", true)], []).creatures.map((c) => c.id)).toEqual([
+      "cache",
+      "cookie",
+      "proxy",
+    ]);
   });
 
   it("shows the stage a creature has evolved to", () => {

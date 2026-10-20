@@ -42,4 +42,17 @@ describe("buildBundle", () => {
     renamed.creatures[0].name = "Caching";
     expect(buildBundle([renamed]).towns[0].creatures[0].hash).toBe(buildBundle([town()]).towns[0].creatures[0].hash);
   });
+
+  it("gives every battle scenario a hash that changes with its move table, not with its name", () => {
+    const [scenario] = buildBundle([town()]).towns[0].scenarios;
+    expect(scenario.hash).toMatch(/^[0-9a-f]{16}$/);
+
+    const renamed = town();
+    renamed.scenarios[0].name = "Big sale";
+    expect(buildBundle([renamed]).towns[0].scenarios[0].hash).toBe(scenario.hash);
+
+    const edited = town();
+    edited.scenarios[0].turns[0].moves[1].damage = 0;
+    expect(buildBundle([edited]).towns[0].scenarios[0].hash).not.toBe(scenario.hash);
+  });
 });

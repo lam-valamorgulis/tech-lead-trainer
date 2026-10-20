@@ -63,11 +63,42 @@ export const placementEventSchema = z.object({
   confidence: z.union([z.literal(1), z.literal(2), z.literal(3)]),
 });
 
+const scenarioId = z.string().regex(/^t\d{2}-[a-z0-9]+(-[a-z0-9]+)*$/);
+
+/** One played battle turn. `bestMove` is decided at play time and never recomputed. */
+export const battleTurnEventSchema = z.object({
+  type: z.literal("battle-turn"),
+  ...base,
+  battleId: z.uuid(),
+  scenarioId,
+  contentHash: z.string().regex(/^[0-9a-f]{16}$/),
+  turnNumber: z.int().min(1).max(3),
+  /** Null when the team had no move for this threat. */
+  moveId: z.string().min(1).max(100).nullable(),
+  damage: z.union([z.literal(0), z.literal(1), z.literal(2)]),
+  bestMove: z.boolean(),
+  whyText: z.string().trim().min(1).max(1000),
+});
+
+/** The end of a battle. */
+export const battleEventSchema = z.object({
+  type: z.literal("battle"),
+  ...base,
+  battleId: z.uuid(),
+  scenarioId,
+  contentHash: z.string().regex(/^[0-9a-f]{16}$/),
+  team: z.array(z.string().min(1).max(100)).min(1).max(3),
+  result: z.enum(["won", "lost"]),
+  turnsUsed: z.int().min(1).max(3),
+});
+
 export const eventSchema = z.discriminatedUnion("type", [
   sessionEventSchema,
   catchEventSchema,
   reviewEventSchema,
   placementEventSchema,
+  battleTurnEventSchema,
+  battleEventSchema,
 ]);
 export const eventBatchSchema = z.object({ events: z.array(eventSchema).min(1).max(100) });
 
@@ -75,6 +106,8 @@ export type SessionEvent = z.infer<typeof sessionEventSchema>;
 export type CatchEvent = z.infer<typeof catchEventSchema>;
 export type ReviewEvent = z.infer<typeof reviewEventSchema>;
 export type PlacementEvent = z.infer<typeof placementEventSchema>;
+export type BattleTurnEvent = z.infer<typeof battleTurnEventSchema>;
+export type BattleEvent = z.infer<typeof battleEventSchema>;
 export type LearningEvent = z.infer<typeof eventSchema>;
 
 const TABLES = {
@@ -82,6 +115,8 @@ const TABLES = {
   catch: "catch_events",
   review: "review_events",
   placement: "placement_events",
+  "battle-turn": "battle_turn_events",
+  battle: "battle_events",
 } as const satisfies Record<LearningEvent["type"], string>;
 
 /** Every event table. "Download my data" exports each one. */
@@ -140,6 +175,32 @@ function toRow(event: LearningEvent) {
         answer_text: event.answerText,
         correct: event.correct,
         confidence: event.confidence,
+      };
+    case "battle-turn":
+      return {
+        client_event_id: event.clientEventId,
+        session_id: event.sessionId,
+        occurred_at: event.occurredAt,
+        battle_id: event.battleId,
+        scenario_id: event.scenarioId,
+        content_hash: event.contentHash,
+        turn_number: event.turnNumber,
+        move_id: event.moveId,
+        damage: event.damage,
+        best_move: event.bestMove,
+        why_text: event.whyText,
+      };
+    case "battle":
+      return {
+        client_event_id: event.clientEventId,
+        session_id: event.sessionId,
+        occurred_at: event.occurredAt,
+        battle_id: event.battleId,
+        scenario_id: event.scenarioId,
+        content_hash: event.contentHash,
+        team: event.team,
+        result: event.result,
+        turns_used: event.turnsUsed,
       };
   }
 }

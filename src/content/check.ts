@@ -1,4 +1,5 @@
-import { glossarySchema, townSchema, type Creature, type Move, type Town } from "./schema.ts";
+import { OPPONENT_HP } from "../core/battle.ts";
+import { glossarySchema, townSchema, type Creature, type Move, type Scenario, type Town } from "./schema.ts";
 
 export type ContentInput = {
   /** The parsed JSON of each town file. Not trusted yet. */
@@ -84,9 +85,13 @@ function plainTextProblems(prefix: string, value: unknown): Problem[] {
   );
 }
 
-/** Every id in the content, in file order: towns, creatures and moves. */
+/** Every id in the content, in file order: towns, creatures, moves and battle scenarios. */
 export function contentIds(towns: Town[]): string[] {
-  return towns.flatMap((town) => [town.id, ...town.creatures.flatMap((c) => [c.id, ...c.moves.map((m) => m.id)])]);
+  return towns.flatMap((town) => [
+    town.id,
+    ...town.creatures.flatMap((c) => [c.id, ...c.moves.map((m) => m.id)]),
+    ...town.scenarios.map((s) => s.id),
+  ]);
 }
 
 function idProblems(towns: Town[], ledger: string[]): Problem[] {
@@ -96,6 +101,7 @@ function idProblems(towns: Town[], ledger: string[]): Problem[] {
   for (const town of towns) {
     where.set(town.id, town.id);
     for (const item of items(town)) where.set(item.id, itemLabel(town, item));
+    for (const scenario of town.scenarios) where.set(scenario.id, `${town.id}.${scenario.id}`);
   }
 
   const seen = new Set<string>();
@@ -180,6 +186,57 @@ function townProblems(town: Town, allTowns: Town[]): Problem[] {
     }
   });
 
+  // A move table can use the moves of any town, like a confusable pair.
+  const moves = new Map(allTowns.flatMap((t) => t.creatures.flatMap((c) => c.moves)).map((m) => [m.id, m]));
+  for (const scenario of town.scenarios) {
+    problems.push(...scenarioProblems(town, scenario, moves));
+  }
+
+  return problems;
+}
+
+/** The rules that keep every battle playable and its best-move rate measurable (design 12.3). */
+function scenarioProblems(town: Town, scenario: Scenario, moves: Map<string, Move>): Problem[] {
+  const problems: Problem[] = [];
+  const scenarioAt = `${town.id}.${scenario.id}`;
+  problems.push(...sentenceProblems(`${scenarioAt}.problem`, scenario.problem));
+
+  const bestTotal = scenario.turns.reduce((sum, turn) => sum + Math.max(...turn.moves.map((row) => row.damage)), 0);
+  if (bestTotal < OPPONENT_HP) {
+    problems.push({
+      where: scenarioAt,
+      message: `The best moves do ${bestTotal} damage in total. A perfect battle must bring the opponent's HP ${OPPONENT_HP} to 0.`,
+    });
+  }
+
+  scenario.turns.forEach((turn, index) => {
+    const at = `${scenarioAt}.turns.${index}`;
+    problems.push(...sentenceProblems(`${at}.threat`, turn.threat));
+    const top = Math.max(...turn.moves.map((row) => row.damage));
+    const best = turn.moves.filter((row) => row.damage === top).length;
+    if (best !== 1) {
+      problems.push({
+        where: at,
+        message: `The turn has ${best} moves with the top damage ${top}. It needs exactly one best move.`,
+      });
+    }
+    const seen = new Set<string>();
+    turn.moves.forEach(({ moveId, counterattack }, row) => {
+      if (seen.has(moveId)) problems.push({ where: at, message: `${moveId} is in the move table more than once.` });
+      seen.add(moveId);
+      const count = sentences(counterattack).length;
+      if (count !== 1) {
+        problems.push({
+          where: `${at}.moves.${row}.counterattack`,
+          message: `A counterattack is one sentence. This has ${count}.`,
+        });
+      }
+      problems.push(...sentenceProblems(`${at}.moves.${row}.counterattack`, counterattack));
+      const move = moves.get(moveId);
+      if (!move) problems.push({ where: at, message: `${moveId} is not a move in any town.` });
+      else if (move.retired) problems.push({ where: at, message: `${moveId} is retired, so it cannot be in a move table.` });
+    });
+  });
   return problems;
 }
 

@@ -42,7 +42,7 @@ test("commit 15 minutes, catch one creature, and see it in the Field Guide", asy
     await page.getByRole("link", { name: "Field Guide" }).click();
     const cache = page.getByRole("listitem").filter({ hasText: "Cache" });
     await expect(cache).toContainText("Caught · stage 1");
-    await expect(page.getByText("Fixture Town: 1 of 2 caught")).toBeVisible();
+    await expect(page.getByText("Fixture Town: 1 of 3 caught")).toBeVisible();
 
     // One new item per day: a second session today offers no catch.
     await page.getByRole("link", { name: "Back" }).click();

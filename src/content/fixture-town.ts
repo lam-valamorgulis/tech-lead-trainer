@@ -49,6 +49,22 @@ export function fixtureTown() {
             },
             review: { question: "What does TTL mean?", answer: "Time to live: how long a copy stays fresh." },
           },
+          {
+            id: "cache.no-store",
+            name: "No store",
+            catch: {
+              question: "Which header stops a cache from keeping a copy?",
+              choices: ["Cache-Control: no-store", "Content-Type", "Set-Cookie"],
+              correctChoice: 0,
+              explanation: "no-store tells every cache to keep no copy.",
+            },
+            card: {
+              text: "no-store tells caches to keep no copy. Every request goes to the server.",
+              example: "A bank sends no-store on the account page.",
+              source,
+            },
+            review: { question: "What does no-store do?", answer: "It tells caches to keep no copy of the response." },
+          },
         ],
       },
       {
@@ -71,18 +87,120 @@ export function fixtureTown() {
           steps: ["Store a cart id in a cookie."],
           answer: "The cookie brings the cart id back with each request.",
         },
-        moves: [],
+        moves: [
+          {
+            id: "cookie.http-only",
+            name: "HttpOnly",
+            catch: {
+              question: "What keeps page scripts from reading a cookie?",
+              choices: ["The HttpOnly attribute", "A long name", "A short value"],
+              correctChoice: 0,
+              explanation: "HttpOnly hides the cookie from scripts on the page.",
+            },
+            card: {
+              text: "HttpOnly hides a cookie from page scripts. The browser still sends it to the server.",
+              example: "The shop marks its session cookie HttpOnly.",
+              source,
+            },
+            review: { question: "What does HttpOnly do?", answer: "It hides the cookie from page scripts." },
+          },
+        ],
+      },
+      {
+        id: "proxy",
+        name: "Proxy",
+        catch: {
+          question: "What sits between the browser and the server and passes requests on?",
+          choices: ["A proxy", "A cookie", "A status code"],
+          correctChoice: 0,
+          explanation: "A proxy receives the request and sends it on.",
+        },
+        card: {
+          text: "A proxy sits between the client and the server. It passes requests on and can keep copies.",
+          example: "A CDN is a proxy close to the visitor.",
+          source,
+        },
+        review: { question: "Where does a proxy sit?", answer: "Between the client and the server." },
+        workedExample: {
+          problem: "Visitors far away wait for every page.",
+          steps: ["Put a proxy close to them.", "Let it keep copies of the pages."],
+          answer: "The proxy answers from a nearby copy.",
+        },
+        moves: [
+          {
+            id: "proxy.cdn",
+            name: "CDN",
+            catch: {
+              question: "What brings copies of a site close to visitors?",
+              choices: ["A CDN", "A cookie", "A form"],
+              correctChoice: 0,
+              explanation: "A CDN keeps copies on servers near visitors.",
+            },
+            card: {
+              text: "A CDN is a group of proxies around the world. Each one keeps copies near visitors.",
+              example: "A visitor in Hanoi gets the logo from a server in Singapore.",
+              source,
+            },
+            review: { question: "What is a CDN?", answer: "Proxies around the world that keep copies near visitors." },
+          },
+        ],
       },
     ],
     placement: [
       { creatureId: "cache", question: "What does a cache keep?", answer: "A copy of a response." },
       { creatureId: "cookie", question: "What is a cookie?", answer: "Small data the browser sends back." },
+      { creatureId: "proxy", question: "What is a proxy?", answer: "A server between the client and the server." },
     ],
     confusablePairs: [["cache", "cookie"]],
+    scenarios: [
+      {
+        id: "t99-sale-day",
+        name: "Sale day",
+        opponentType: "traffic",
+        problem: "A sale starts at noon. Ten times more people open the shop.",
+        // Best moves: cache.ttl, cache.no-store, proxy.cdn. A team with Cache and Proxy can win.
+        turns: [
+          {
+            threat: "Every visitor downloads the same logo and styles again.",
+            moves: [
+              { moveId: "cache.ttl", damage: 2, counterattack: "The logo loads fast, but a new logo takes an hour to show." },
+              { moveId: "proxy.cdn", damage: 1, counterattack: "Far visitors are faster, but each first load is still slow." },
+              { moveId: "cookie.http-only", damage: 0, counterattack: "Scripts cannot read the cookie, but the page is still slow." },
+            ],
+          },
+          {
+            threat: "The new sale price does not show. Visitors see the old price.",
+            moves: [
+              { moveId: "cache.no-store", damage: 2, counterattack: "Prices are fresh, but each price check now reaches the server." },
+              { moveId: "proxy.cdn", damage: 1, counterattack: "Near copies update sooner, but some visitors still see the old price." },
+              { moveId: "cache.ttl", damage: 0, counterattack: "The old price stays until its copy is too old." },
+            ],
+          },
+          {
+            threat: "Visitors far away wait three seconds for each page.",
+            moves: [
+              { moveId: "proxy.cdn", damage: 2, counterattack: "Pages now load near each visitor, but the network costs more." },
+              { moveId: "cache.no-store", damage: 0, counterattack: "Every page is fetched again, so far visitors wait longer." },
+              { moveId: "cookie.http-only", damage: 0, counterattack: "The cookie is safer, but far visitors still wait." },
+            ],
+          },
+        ],
+      },
+    ],
   };
 }
 
-export const fixtureLedger = ["t99", "cache", "cache.ttl", "cookie"];
+export const fixtureLedger = [
+  "t99",
+  "cache",
+  "cache.ttl",
+  "cache.no-store",
+  "cookie",
+  "cookie.http-only",
+  "proxy",
+  "proxy.cdn",
+  "t99-sale-day",
+];
 
 export function fixtureGlossary() {
   return { words: [{ word: "response", definition: "The message a server sends back to a request." }] };

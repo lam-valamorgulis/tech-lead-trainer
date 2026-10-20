@@ -1835,7 +1835,8 @@
           "client-server.user-agent",
           "proxy.forward"
         ]
-      ]
+      ],
+      "scenarios": []
     }
   ]
 }

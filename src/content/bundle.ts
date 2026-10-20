@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { Creature, Move, PlacementQuestion, Town } from "./schema.ts";
+import type { Creature, Move, PlacementQuestion, Scenario, Town } from "./schema.ts";
 
 // The bundle is what the app imports: the content plus a content hash per item.
 // `npm run content:build` writes it to src/content/bundle.generated.json. Runs in Node only.
@@ -8,9 +8,11 @@ type Hashed<T> = T & { hash: string };
 
 export type BundledMove = Hashed<Move>;
 export type BundledCreature = Hashed<Omit<Creature, "moves">> & { moves: BundledMove[] };
-export type BundledTown = Omit<Town, "creatures" | "placement"> & {
+export type BundledScenario = Hashed<Scenario>;
+export type BundledTown = Omit<Town, "creatures" | "placement" | "scenarios"> & {
   creatures: BundledCreature[];
   placement: Hashed<PlacementQuestion>[];
+  scenarios: BundledScenario[];
 };
 export type ContentBundle = { towns: BundledTown[] };
 
@@ -33,6 +35,10 @@ export function buildBundle(towns: Town[]): ContentBundle {
         })),
       })),
       placement: town.placement.map((question) => ({ ...question, hash: contentHash(question) })),
+      scenarios: town.scenarios.map((scenario) => ({
+        ...scenario,
+        hash: contentHash({ opponentType: scenario.opponentType, problem: scenario.problem, turns: scenario.turns }),
+      })),
     })),
   };
 }
