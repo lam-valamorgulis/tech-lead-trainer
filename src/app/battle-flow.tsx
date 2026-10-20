@@ -42,6 +42,8 @@ export function BattleFlow({
   const [battleId] = useState(() => crypto.randomUUID());
   const [battle, setBattle] = useState<BattleState | null>(null);
   const [step, setStep] = useState<Step>("team");
+  // Worked examples come first, one screen each, then they hide (design 7.1).
+  const [examplesRead, setExamplesRead] = useState(0);
   // Each turn and each self-check is saved once, even after a fast double tap.
   const played = useRef(new Set<number>());
   const checked = useRef(new Set<number>());
@@ -55,7 +57,7 @@ export function BattleFlow({
   // A new step replaces the button that was tapped, so focus moves to the new heading.
   useEffect(() => {
     heading.current?.focus();
-  }, [step, battle?.turns.length]);
+  }, [step, battle?.turns.length, examplesRead]);
 
   const battleFields = (): BattleEventFields => ({
     sessionId,
@@ -112,6 +114,38 @@ export function BattleFlow({
       void postEvents([{ type: "battle-check", clientEventId: crypto.randomUUID(), ...battleFields(), ...check }]);
     }
     setStep(battleProgress(battle).finished ? "end" : "turn");
+  }
+
+  const example = offer.workedExamples[examplesRead];
+  if (!battle && example) {
+    const last = examplesRead === offer.workedExamples.length - 1;
+    return (
+      <section className="stack" aria-labelledby="example-title">
+        <h2 id="example-title" ref={heading} tabIndex={-1}>
+          Worked example: {example.name}
+        </h2>
+        <p className="lead">
+          A new concept for a battle. Read how it is solved first. Example {examplesRead + 1} of{" "}
+          {offer.workedExamples.length}.
+        </p>
+        <div className="card stack">
+          <p>
+            <strong>Problem:</strong> {example.workedExample.problem}
+          </p>
+          <ol className="steps">
+            {example.workedExample.steps.map((stepText) => (
+              <li key={stepText}>{stepText}</li>
+            ))}
+          </ol>
+          <p>
+            <strong>Answer:</strong> {example.workedExample.answer}
+          </p>
+        </div>
+        <button type="button" className="button-main" onClick={() => setExamplesRead(examplesRead + 1)}>
+          {last ? "Go to the battle" : "Next example"}
+        </button>
+      </section>
+    );
   }
 
   if (!battle || step === "team") {
