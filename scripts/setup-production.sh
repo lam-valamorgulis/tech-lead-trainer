@@ -283,19 +283,23 @@ stage "Supabase: your email on the allow list"
 say "Only emails on the allow list get a sign-in code."
 ask OWNER_EMAIL "Your email (the one of your Supabase account):"
 OWNER_EMAIL=$(printf '%s' "$OWNER_EMAIL" | tr '[:upper:]' '[:lower:]' | xargs)
+until [[ "$OWNER_EMAIL" =~ ^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]+$ ]]; do
+  ask OWNER_EMAIL "That does not look like an email. Type it again:"
+  OWNER_EMAIL=$(printf '%s' "$OWNER_EMAIL" | tr '[:upper:]' '[:lower:]' | xargs)
+done
 write_env OWNER_EMAIL "$OWNER_EMAIL"
-curl -fsS -X POST "$SUPABASE_URL/rest/v1/allowed_emails?on_conflict=email" \
-  -H "apikey: $SUPABASE_SECRET_KEY" -H "Authorization: Bearer $SUPABASE_SECRET_KEY" \
-  -H "Content-Type: application/json" -H "Prefer: resolution=ignore-duplicates" \
-  -d "{\"email\": \"$OWNER_EMAIL\"}" >/dev/null || true
-FOUND=$(curl -sS "$SUPABASE_URL/rest/v1/allowed_emails?email=eq.$OWNER_EMAIL&select=email" \
-  -H "apikey: $SUPABASE_SECRET_KEY" -H "Authorization: Bearer $SUPABASE_SECRET_KEY" || true)
-if [[ "$FOUND" == *"$OWNER_EMAIL"* ]]; then
+# Through the Supabase CLI login (Management API), not the REST API: the REST call with a
+# secret key failed without a message on the first real run.
+npx supabase db query --linked --project-ref "$SUPABASE_PROJECT_REF" \
+  "insert into public.allowed_emails (email) values ('$OWNER_EMAIL') on conflict do nothing" >/dev/null || true
+if npx supabase db query --linked --project-ref "$SUPABASE_PROJECT_REF" \
+  "select email from public.allowed_emails where email = '$OWNER_EMAIL'" 2>/dev/null | grep -q "\"$OWNER_EMAIL\""; then
   printf '  %s✓%s %s is on the allow list\n' "$GREEN" "$RESET" "$OWNER_EMAIL"
 else
   SKIPPED+=("Add your email to allowed_emails in the Supabase SQL editor")
-  warn "Could not confirm the allow list. Answer: $FOUND"
+  warn "Could not confirm the allow list. Add the email in the Supabase SQL editor."
 fi
+npx supabase unlink >/dev/null 2>&1 || true
 pause
 
 # ── 8 ──────────────────────────────────────────────────────────────────────
