@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, "sprint-*"]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      - name: Content check
+        run: npm run content:check
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Seam A (game rules core)
+        run: npm test
+
+      # The build bakes the public Supabase URL and key into the app, so local Supabase starts first.
+      - name: Start local Supabase
+        run: npm run db:start
+      - name: Write local env
+        run: npm run env:local
+      - name: Build
+        run: npm run build
+        env:
+          # Seam C runs this build, so it uses the fixture town. Vercel builds the real content.
+          NEXT_PUBLIC_CONTENT_SET: fixture
+      - name: Seam B (local Supabase)
+        run: npm run test:db
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps webkit chromium
+      - name: Seam C (iPhone and Desktop Chrome)
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v5
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

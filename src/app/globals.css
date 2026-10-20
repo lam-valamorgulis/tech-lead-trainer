@@ -1,0 +1,356 @@
+/* Base style. UI rules 6, 8 and 11 from the design. */
+
+:root {
+  /* Contrast on --color-bg: text 16.5:1, muted 9.3:1, accent 12.6:1, success 9.6:1.
+     Accent text on accent: 12.6:1. Rule 11 needs 4.5:1 for text and 3:1 for UI. */
+  --color-bg: #14132b; /* Same as APP_BACKGROUND in src/app/brand.ts. */
+  --color-text: #f4f3ff;
+  --color-muted: #b9b6d9;
+  --color-accent: #ffd166;
+  --color-accent-text: #14132b;
+  --color-success: #06d6a0;
+  --color-error: #ff9e9e; /* 9.2:1 on --color-bg. */
+
+  /* Rule 8: pixel font for headings and short labels only. */
+  --font-heading: var(--font-pixel), ui-monospace, monospace;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
+  --text-body: 17px;
+
+  /* Rule 6: tap targets. */
+  --tap-min: 44px;
+  --tap-main: 56px;
+  --space: 16px;
+}
+
+/* The "Plain font" setting turns headings into the body font as well. */
+:root[data-font="plain"] {
+  --font-heading: var(--font-body);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+.pixel-label {
+  font-family: var(--font-heading);
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--color-accent);
+}
+
+h1 {
+  font-size: 20px;
+  margin: 0 0 var(--space);
+}
+
+p {
+  margin: 0 0 var(--space);
+}
+
+.lead {
+  color: var(--color-muted);
+}
+
+/* Rule 6: the shell is at least one screen tall and keeps clear of the notch and home bar. */
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding: calc(var(--space) + env(safe-area-inset-top)) calc(var(--space) + env(safe-area-inset-right))
+    calc(var(--space) + env(safe-area-inset-bottom)) calc(var(--space) + env(safe-area-inset-left));
+}
+
+button,
+.button {
+  min-height: var(--tap-min);
+  min-width: var(--tap-min);
+  touch-action: manipulation;
+  font: inherit;
+}
+
+.button-main {
+  min-height: var(--tap-main);
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+  border: 0;
+  border-radius: 4px;
+}
+
+/* Pixel images scale by whole numbers only (x3, x4). */
+.pixel-art {
+  image-rendering: pixelated;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space);
+}
+
+.stack > p {
+  margin: 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field-label {
+  font-weight: 600;
+}
+
+/* 17px stops iOS Safari from zooming into the field. */
+.field input {
+  min-height: var(--tap-main);
+  padding: 0 12px;
+  font: inherit;
+  font-size: var(--text-body);
+  color: var(--color-text);
+  background: transparent;
+  border: 2px solid var(--color-muted);
+  border-radius: 4px;
+}
+
+.field input::placeholder {
+  color: var(--color-muted);
+}
+
+.field input:focus-visible,
+button:focus-visible,
+a.button:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.button-quiet {
+  background: transparent;
+  color: var(--color-text);
+  border: 2px solid var(--color-muted);
+  border-radius: 4px;
+}
+
+button:disabled {
+  opacity: 0.7;
+}
+
+.error {
+  color: var(--color-error);
+}
+
+.creature-list {
+  list-style: none;
+  margin: 0 0 var(--space);
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.creature-list li {
+  min-height: var(--tap-min);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border: 2px solid var(--color-muted);
+  border-radius: 4px;
+}
+
+a.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  text-decoration: none;
+  align-self: flex-start;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* UI rule 5: the commit buttons sit in the lower half of the screen. */
+.commit {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: var(--space);
+}
+
+.commit h2,
+.stack h2 {
+  font-size: 14px;
+  margin: 0;
+}
+
+.choices {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.choices legend {
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.row-choices {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--tap-min);
+  padding: 8px 12px;
+  border: 2px solid var(--color-muted);
+  border-radius: 4px;
+  touch-action: manipulation;
+}
+
+.choice:has(input:checked) {
+  border-color: var(--color-accent);
+}
+
+.choice input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--color-accent);
+}
+
+.card {
+  padding: var(--space);
+  border: 2px solid var(--color-muted);
+  border-radius: 4px;
+}
+
+.card a {
+  color: var(--color-accent);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.creature {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.creature-status {
+  color: var(--color-muted);
+  font-size: 16px;
+}
+
+.creature-caught {
+  border-color: var(--color-success);
+}
+
+.back {
+  margin-top: var(--space);
+}
+
+/* Headings that receive focus after a step change. */
+h2[tabindex="-1"]:focus {
+  outline: none;
+}
+
+.field textarea {
+  padding: 12px;
+  font: inherit;
+  font-size: var(--text-body);
+  color: var(--color-text);
+  background: transparent;
+  border: 2px solid var(--color-muted);
+  border-radius: 4px;
+}
+
+.grades {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.grades legend {
+  grid-column: 1 / -1;
+}
+
+.grade-hint {
+  color: var(--color-muted);
+}
+
+/* Evolution: one star per stage, and a brighter border at stage 3. Text says the stage too. */
+.creature-sprite {
+  color: var(--color-accent);
+  margin-right: 8px;
+}
+
+.creature-stage-3 {
+  border-color: var(--color-accent);
+}
+
+.notice {
+  padding: 12px;
+  border-left: 4px solid var(--color-accent);
+}
+
+.notice.row {
+  align-items: center;
+}
+
+/* At most two lines per plan, so a long plan never pushes the commit buttons off screen. */
+.plan-lines p {
+  margin: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+/* Empty live regions stay on the page, so a screen reader hears them when text appears. */
+.report [role="alert"]:empty {
+  margin: 0;
+}
+
+.report > .button-quiet {
+  align-self: flex-start;
+}
+
+.report [tabindex="-1"]:focus {
+  outline: none;
+}

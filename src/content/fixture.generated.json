@@ -1,0 +1,130 @@
+{
+  "towns": [
+    {
+      "id": "t99",
+      "number": 1,
+      "name": "Fixture Town",
+      "creatures": [
+        {
+          "id": "cache",
+          "name": "Cache",
+          "catch": {
+            "question": "Why does a browser keep a copy of a page?",
+            "choices": [
+              "To load it faster next time",
+              "To hide it from the server",
+              "To make it smaller"
+            ],
+            "correctChoice": 0,
+            "explanation": "A saved copy can be shown without a new download."
+          },
+          "card": {
+            "text": "A cache keeps a copy of a response. The next request can use the copy. This saves time and network.",
+            "example": "Your browser shows the shop logo from its cache on the second visit.",
+            "source": {
+              "title": "MDN: HTTP caching",
+              "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Caching"
+            }
+          },
+          "review": {
+            "question": "What does a cache keep?",
+            "answer": "A copy of a response, so the next request can skip the download."
+          },
+          "workedExample": {
+            "problem": "The product page loads slowly for every visitor.",
+            "steps": [
+              "Find the parts that change rarely.",
+              "Let the browser cache them for one hour."
+            ],
+            "answer": "Cache the logo and the styles. Keep the price fresh."
+          },
+          "moves": [
+            {
+              "id": "cache.ttl",
+              "name": "TTL",
+              "catch": {
+                "question": "What tells a cache when a copy is too old?",
+                "choices": [
+                  "A time to live",
+                  "A cookie",
+                  "A status code"
+                ],
+                "correctChoice": 0,
+                "explanation": "The time to live says how long the copy stays fresh."
+              },
+              "card": {
+                "text": "TTL means time to live. It says how long a cached copy stays fresh.",
+                "example": "max-age=3600 keeps the logo fresh for one hour.",
+                "source": {
+                  "title": "MDN: HTTP caching",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Caching"
+                }
+              },
+              "review": {
+                "question": "What does TTL mean?",
+                "answer": "Time to live: how long a copy stays fresh."
+              },
+              "hash": "6f3d9d711de6ed75"
+            }
+          ],
+          "hash": "f2de335d3d121152"
+        },
+        {
+          "id": "cookie",
+          "name": "Cookie",
+          "catch": {
+            "question": "How does a server remember you between requests?",
+            "choices": [
+              "It sends a cookie",
+              "It reads your screen",
+              "It keeps the connection open forever"
+            ],
+            "correctChoice": 0,
+            "explanation": "The browser sends the cookie back with each request."
+          },
+          "card": {
+            "text": "A cookie is a small piece of data. The server sends it, and the browser sends it back.",
+            "example": "The shop keeps your cart in a cookie.",
+            "source": {
+              "title": "MDN: HTTP caching",
+              "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Caching"
+            }
+          },
+          "review": {
+            "question": "Who sends a cookie back?",
+            "answer": "The browser, with each request to the same site."
+          },
+          "workedExample": {
+            "problem": "A customer loses the cart on every page.",
+            "steps": [
+              "Store a cart id in a cookie."
+            ],
+            "answer": "The cookie brings the cart id back with each request."
+          },
+          "moves": [],
+          "hash": "ae45557b718775c7"
+        }
+      ],
+      "placement": [
+        {
+          "creatureId": "cache",
+          "question": "What does a cache keep?",
+          "answer": "A copy of a response.",
+          "hash": "98dbf0eb855ad40e"
+        },
+        {
+          "creatureId": "cookie",
+          "question": "What is a cookie?",
+          "answer": "Small data the browser sends back.",
+          "hash": "2f125ac5445fb170"
+        }
+      ],
+      "confusablePairs": [
+        [
+          "cache",
+          "cookie"
+        ]
+      ]
+    }
+  ]
+}
