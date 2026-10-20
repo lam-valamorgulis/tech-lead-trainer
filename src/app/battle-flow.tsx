@@ -21,6 +21,7 @@ import type { BattleEventFields, LearningEvent } from "@/lib/events/write-events
 import { DiscussInClaude } from "./discuss-in-claude";
 import { keepAboveKeyboard } from "./keyboard";
 import { OPPONENT_LOOK } from "./opponent-look";
+import { GlossaryText } from "./glossary-text";
 
 type Step = "team" | "turn" | "result" | "check" | "end";
 
@@ -156,7 +157,9 @@ export function BattleFlow({
           A battle begins: {offer.scenario.name}
         </h2>
         <OpponentType type={offer.scenario.opponentType} />
-        <p>{offer.scenario.problem}</p>
+        <p>
+          <GlossaryText text={offer.scenario.problem} />
+        </p>
         <HitPoints hp={OPPONENT_HP} />
         <TeamForm
           offer={offer}
@@ -182,7 +185,7 @@ export function BattleFlow({
         {last && <p className="lead">Last turn: {resultSentence(last)}</p>}
         {/* UI rule 1: the threat comes before the moves. */}
         <p className="notice">
-          <strong>Threat:</strong> {turn.threat}
+          <strong>Threat:</strong> <GlossaryText text={turn.threat} />
         </p>
         <MoveForm key={battle.turns.length} moves={usableMoves(battle)} onMove={makeMove} />
       </section>

@@ -6,6 +6,7 @@ import { postEvents } from "@/lib/events/post-events";
 import type { CatchEvent } from "@/lib/events/write-events";
 import { CONFIDENCE, type Confidence } from "./confidence";
 import { ReportWrong } from "./report-wrong";
+import { GlossaryText } from "./glossary-text";
 
 type Phase =
   | { name: "ask"; attempt: CatchEvent["phase"] }
@@ -187,9 +188,11 @@ function QuestionForm({
 function CardView({ card }: { card: CatchItem["card"] }) {
   return (
     <div className="card stack">
-      <p>{card.text}</p>
       <p>
-        <strong>Example:</strong> {card.example}
+        <GlossaryText text={card.text} />
+      </p>
+      <p>
+        <strong>Example:</strong> <GlossaryText text={card.example} />
       </p>
       <p>
         <a href={card.source.url} target="_blank" rel="noopener noreferrer">

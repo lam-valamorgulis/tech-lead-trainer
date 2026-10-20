@@ -55,4 +55,10 @@ describe("buildBundle", () => {
     edited.scenarios[0].turns[0].moves[1].damage = 0;
     expect(buildBundle([edited]).towns[0].scenarios[0].hash).not.toBe(scenario.hash);
   });
+
+  it("carries the glossary, so the app can show a definition on tap", () => {
+    const glossary = [{ word: "response", definition: "The message a server sends back to a request." }];
+    expect(buildBundle([town()], glossary).glossary).toEqual(glossary);
+    expect(buildBundle([town()]).glossary).toEqual([]);
+  });
 });

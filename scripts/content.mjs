@@ -5,9 +5,9 @@ import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildBundle } from "../src/content/bundle.ts";
 import { checkContent, contentIds } from "../src/content/check.ts";
-import { fixtureTown } from "../src/content/fixture-town.ts";
+import { fixtureGlossary, fixtureTown } from "../src/content/fixture-town.ts";
 import { addNewIds } from "../src/content/ledger.ts";
-import { townSchema } from "../src/content/schema.ts";
+import { glossarySchema, townSchema } from "../src/content/schema.ts";
 
 const CONTENT = "content";
 const LEDGER = join(CONTENT, "ledger.json");
@@ -43,8 +43,8 @@ if (problems.length > 0) {
 }
 
 const toJson = (value) => `${JSON.stringify(value, null, 2)}\n`;
-const bundle = toJson(buildBundle(towns.map((town) => townSchema.parse(town))));
-const fixtureBundle = toJson(buildBundle([townSchema.parse(fixtureTown())]));
+const bundle = toJson(buildBundle(towns.map((town) => townSchema.parse(town)), glossarySchema.parse(glossary).words));
+const fixtureBundle = toJson(buildBundle([townSchema.parse(fixtureTown())], glossarySchema.parse(fixtureGlossary()).words));
 
 if (mode === "build") {
   writeFileSync(LEDGER, `${JSON.stringify({ ids: ledger }, null, 2)}\n`);

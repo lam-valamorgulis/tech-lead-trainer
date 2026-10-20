@@ -1,4 +1,10 @@
 {
+  "glossary": [
+    {
+      "word": "response",
+      "definition": "The message a server sends back to a request."
+    }
+  ],
   "towns": [
     {
       "id": "t99",
