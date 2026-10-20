@@ -11,7 +11,6 @@ export function SettingsScreen({ userId, email, profile, setProfile }: SignedIn)
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const phoneTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const [plansSaved, setPlansSaved] = useState(false);
 
   async function switchToPhoneTimeZone() {
     setBusy(true);
@@ -56,14 +55,8 @@ export function SettingsScreen({ userId, email, profile, setProfile }: SignedIn)
           userId={userId}
           profile={profile}
           submitLabel="Save plans"
-          onSaved={(saved) => {
-            setProfile(saved);
-            setPlansSaved(true);
-          }}
+          onSaved={setProfile}
         />
-        <p role="status" className="lead">
-          {plansSaved ? "Your plans are saved." : ""}
-        </p>
         <p className="lead">
           Reminders: {profile.morningReminderTime} and {profile.eveningReminderTime}
         </p>

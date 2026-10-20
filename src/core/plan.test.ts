@@ -2,28 +2,28 @@ import { describe, expect, it } from "vitest";
 import { cleanCue, DEFAULT_TIRED_PLAN, needsPlan, planSentence } from "./plan.ts";
 
 describe("planSentence", () => {
-  it("puts the learner's own cue into the if-then plan", () => {
-    expect(planSentence("drink my morning coffee")).toBe(
-      "After I drink my morning coffee, I open the app and tap 3 / 15 / 45.",
-    );
+  it("puts the learner's own cue after 'After', as in the design's example", () => {
+    expect(planSentence("my morning coffee")).toBe("After my morning coffee, I open the app and tap 3 / 15 / 45.");
+    expect(planSentence("I park my bike")).toBe("After I park my bike, I open the app and tap 3 / 15 / 45.");
   });
 });
 
 describe("cleanCue", () => {
-  it("keeps only the learner's words when they typed the whole sentence start", () => {
-    expect(cleanCue("  After I park my bike.  ")).toBe("park my bike");
-    expect(cleanCue("after i brush my teeth,")).toBe("brush my teeth");
+  it("drops a typed 'After' and the end punctuation", () => {
+    expect(cleanCue("  After my morning coffee.  ")).toBe("my morning coffee");
+    expect(cleanCue("after I brush my teeth,")).toBe("I brush my teeth");
   });
 
-  it("gives null for an empty cue", () => {
+  it("gives null for an empty cue or a lone 'After'", () => {
     expect(cleanCue("   ")).toBeNull();
+    expect(cleanCue("After")).toBeNull();
   });
 });
 
 describe("needsPlan", () => {
   it("is true on the first open, before any plan is saved", () => {
     expect(needsPlan({ ifThenPlan: null })).toBe(true);
-    expect(needsPlan({ ifThenPlan: "drink my coffee" })).toBe(false);
+    expect(needsPlan({ ifThenPlan: "my morning coffee" })).toBe(false);
   });
 });
 

@@ -21,7 +21,7 @@ export function PlanForm({
 }) {
   const [cue, setCue] = useState(profile.ifThenPlan ?? "");
   const [tired, setTired] = useState(profile.tiredDayPlan ?? DEFAULT_TIRED_PLAN);
-  const [status, setStatus] = useState<"idle" | "saving" | "failed">("idle");
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "failed">("idle");
   const cleaned = cleanCue(cue);
 
   async function save(event: FormEvent) {
@@ -31,7 +31,9 @@ export function PlanForm({
     const tiredDayPlan = tired.trim() === "" ? DEFAULT_TIRED_PLAN : tired.trim();
     try {
       await savePlans(browserClient(), userId, { ifThenPlan: cleaned, tiredDayPlan });
-      setStatus("idle");
+      setCue(cleaned);
+      setTired(tiredDayPlan);
+      setStatus("saved");
       onSaved({ ...profile, ifThenPlan: cleaned, tiredDayPlan });
     } catch {
       setStatus("failed");
@@ -41,20 +43,34 @@ export function PlanForm({
   return (
     <form className="stack" onSubmit={save}>
       <label className="field">
-        <span className="field-label">After I …</span>
+        <span className="field-label">After …</span>
         <input
           type="text"
           maxLength={200}
-          placeholder="drink my morning coffee"
+          placeholder="my morning coffee"
           value={cue}
-          onChange={(event) => setCue(event.target.value)}
+          onChange={(event) => {
+            setCue(event.target.value);
+            setStatus("idle");
+          }}
         />
       </label>
       <p className="lead">…, I open the app and tap 3 / 15 / 45.</p>
       <label className="field">
         <span className="field-label">If I am tired</span>
-        <input type="text" maxLength={200} value={tired} onChange={(event) => setTired(event.target.value)} />
+        <input
+          type="text"
+          maxLength={200}
+          value={tired}
+          onChange={(event) => {
+            setTired(event.target.value);
+            setStatus("idle");
+          }}
+        />
       </label>
+      <p role="status" className="lead">
+        {status === "saved" ? "Your plans are saved." : ""}
+      </p>
       <p role="alert" className="error">
         {status === "failed" ? "We could not save your plan. Try again." : ""}
       </p>

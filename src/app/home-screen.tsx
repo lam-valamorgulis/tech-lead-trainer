@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { currentTown } from "@/content";
 import type { ThirtyDayRate } from "@/core/day";
 import { placementProgress } from "@/core/placement";
+import { learningDay } from "@/core/day";
 import { needsPlan, planSentence } from "@/core/plan";
 import { currentLearningDay, formatRate, loadThirtyDayRate } from "@/lib/learning-log";
 import { loadPlacementRecords } from "@/lib/placement-log";
@@ -16,7 +17,7 @@ import { SessionScreen, type CommittedMinutes } from "./session-screen";
 const CHOICES: CommittedMinutes[] = [3, 15, 45];
 
 export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
-  const [planLater, setPlanLater] = usePlanLater();
+  const [planLater, setPlanLater] = usePlanLater(learningDay(new Date(), profile.homeTimeZone, profile.dayCutoffHour));
   const [session, setSession] = useState<CommittedMinutes | null>(null);
   const [rate, setRate] = useState<ThirtyDayRate | null>(null);
   const [rateFailed, setRateFailed] = useState(false);
@@ -127,14 +128,13 @@ function usePlacementTown(): PlacementOffer | null {
 const PLAN_LATER_KEY = "plan-later-until";
 
 /**
- * "Later" on the plan screen hides it for the rest of the day, on this device.
+ * "Later" on the plan screen hides it for the rest of the learning day, on this device.
  * Storage can fail (private mode); then the screen simply asks again.
  */
-function usePlanLater(): [boolean, (later: boolean) => void] {
-  const today = new Date().toLocaleDateString("en-CA");
+function usePlanLater(today: string): [boolean, (later: boolean) => void] {
   const [later, setLater] = useState(() => {
     try {
-      return typeof window !== "undefined" && window.localStorage.getItem(PLAN_LATER_KEY) === today;
+      return window.localStorage.getItem(PLAN_LATER_KEY) === today;
     } catch {
       return false;
     }

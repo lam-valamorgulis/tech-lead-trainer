@@ -9,7 +9,9 @@ export type Profile = {
   plainFont: boolean;
   reduceEffects: boolean;
   soundOn: boolean;
+  /** The learner's cue, the words after "After": "my morning coffee". See `planSentence`. */
   ifThenPlan: string | null;
+  /** The whole tired-day sentence: "If I am tired, I tap 3." */
   tiredDayPlan: string | null;
   /** Day 1 of the program, "YYYY-MM-DD". */
   programStartDate: string;
