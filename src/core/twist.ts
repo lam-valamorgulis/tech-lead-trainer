@@ -20,6 +20,14 @@ export function twistOf(town: { twist?: Twist }): TwistInfo | null {
   return town.twist ? TWISTS[town.twist.kind] : null;
 }
 
+/**
+ * The twist a battle plays with. The content checker allows a second type only in a two-types
+ * town, so a battle with a second type is a two-types battle.
+ */
+export function scenarioTwist(scenario: Pick<BundledScenario, "secondType">): TwistInfo | null {
+  return scenario.secondType ? TWISTS["two-types"] : null;
+}
+
 /** The opponent's types: its one type, or both types in a two-types town, the first type first. */
 export function opponentTypes(scenario: Pick<BundledScenario, "opponentType" | "secondType">): OpponentType[] {
   return scenario.secondType ? [scenario.opponentType, scenario.secondType] : [scenario.opponentType];

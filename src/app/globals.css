@@ -404,6 +404,16 @@ h2[tabindex="-1"]:focus {
   font-size: 24px;
 }
 
+/* A two-type opponent (#36): both types side by side, each with its own colour, icon and word. */
+.opponent-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 /* UI rule 3: "Strong hit · 2 ●●". */
 .damage {
   font-family: var(--font-heading);

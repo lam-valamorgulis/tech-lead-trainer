@@ -17,6 +17,8 @@ import {
   type BattleState,
 } from "@/core/battle";
 import { soundForDamage } from "@/core/effects";
+import { opponentTypes, scenarioTwist, threatTypeOf } from "@/core/twist";
+import type { OpponentType as OpponentTypeId } from "@/content/schema";
 import { postEvents } from "@/lib/events/post-events";
 import type { BattleEventFields, LearningEvent } from "@/lib/events/write-events";
 import { DiscussInClaude } from "./discuss-in-claude";
@@ -164,7 +166,8 @@ export function BattleFlow({
         <h2 id="battle-title" ref={heading} tabIndex={-1}>
           A battle begins: {offer.scenario.name}
         </h2>
-        <OpponentType type={offer.scenario.opponentType} />
+        <OpponentTypes scenario={offer.scenario} />
+        <TwistNote scenario={offer.scenario} />
         <p>
           <GlossaryText text={offer.scenario.problem} />
         </p>
@@ -194,6 +197,10 @@ export function BattleFlow({
           <p className="lead">
             Last turn: <GlossaryText text={resultSentence(last)} />
           </p>
+        )}
+        {/* A two-type opponent shows the type that attacks, before the threat (#36). */}
+        {scenarioTwist(battle.scenario) && (
+          <TypeChip type={threatTypeOf(battle.scenario, battle.turns.length)} label="This turn attacks with:" />
         )}
         {/* UI rule 1: the threat comes before the moves. */}
         <p className="notice">
@@ -311,14 +318,49 @@ function CheckForm({
 }
 
 /** UI rule 4: a colour, an icon and a word, so the type reads without colour too. */
-function OpponentType({ type }: { type: BattleOffer["scenario"]["opponentType"] }) {
+function TypeChip({ type, label }: { type: OpponentTypeId; label: string }) {
   const look = OPPONENT_LOOK[type];
   return (
     <p className="opponent-type" style={{ borderColor: look.color }}>
       <span aria-hidden="true" className="opponent-icon">
         {look.icon}
       </span>
-      Type: {look.word}
+      {label} {look.word}
+    </p>
+  );
+}
+
+/** The opponent's type, or both types of a two-type opponent, each with its colour, icon and word. */
+function OpponentTypes({ scenario }: { scenario: BattleOffer["scenario"] }) {
+  const types = opponentTypes(scenario);
+  if (types.length === 1) return <TypeChip type={types[0]} label="Type:" />;
+  return (
+    <div className="stack">
+      <p id="opponent-types-label">Two types:</p>
+      <ul className="opponent-types" aria-labelledby="opponent-types-label">
+        {types.map((type) => {
+          const look = OPPONENT_LOOK[type];
+          return (
+            <li key={type} className="opponent-type" style={{ borderColor: look.color }}>
+              <span aria-hidden="true" className="opponent-icon">
+                {look.icon}
+              </span>
+              {look.word}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+/** The town's twist in two short sentences, so the new rule is clear before the battle (#36). */
+function TwistNote({ scenario }: { scenario: BattleOffer["scenario"] }) {
+  const twist = scenarioTwist(scenario);
+  if (!twist) return null;
+  return (
+    <p className="notice">
+      <strong>{twist.name}.</strong> {twist.rule} {twist.damageRule}
     </p>
   );
 }

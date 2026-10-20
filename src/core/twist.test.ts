@@ -4,7 +4,7 @@ import { buildBundle } from "@/content/bundle";
 import { fixtureTown, fixtureTwistTown } from "@/content/fixture-town";
 import { townSchema } from "@/content/schema";
 import { battleProgress, creatureOf, playTurn, type BattleState } from "./battle.ts";
-import { opponentTypes, threatTypeOf, TWISTS, twistOf } from "./twist.ts";
+import { opponentTypes, scenarioTwist, threatTypeOf, TWISTS, twistOf } from "./twist.ts";
 
 // Ticket #36: a town can turn on one battle twist. Town 2's twist is "two-types".
 const [, twistTown] = buildBundle([townSchema.parse(fixtureTown()), townSchema.parse(fixtureTwistTown())]).towns;
@@ -17,8 +17,9 @@ function battleWithEveryMove(scenario: BattleState["scenario"]): BattleState {
 }
 
 describe("town 1, which has no twist", () => {
-  it("has no twist, so no new rule", () => {
+  it("has no twist, so no new rule, also in each battle", () => {
     expect(twistOf(townOne)).toBeNull();
+    for (const scenario of townOne.scenarios) expect(scenarioTwist(scenario), scenario.id).toBeNull();
   });
 
   it("plays every battle exactly as before: one type, and the move table sets every result", () => {
@@ -73,6 +74,10 @@ describe("the two-types twist", () => {
       rule: "Each opponent has two types, and each turn shows the type that attacks.",
       damageRule: "Damage still comes from the turn's move table, as in town 1.",
     });
+  });
+
+  it("shows in its battles, so the battle screen can explain the rule", () => {
+    expect(scenarioTwist(scenario)).toEqual(TWISTS["two-types"]);
   });
 
   it("gives the opponent both of its types, the first type first", () => {

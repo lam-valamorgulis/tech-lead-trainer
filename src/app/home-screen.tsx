@@ -18,7 +18,9 @@ import { SessionScreen, type CommittedMinutes } from "./session-screen";
 import { startSound } from "./sound";
 import { WeeklySummaryCard } from "./weekly-summary";
 import { badges, gymIsOpen } from "@/core/gym";
-import { currentTownNumber } from "@/core/roadmap";
+import { currentTownNumber, showsNewTown } from "@/core/roadmap";
+import type { BundledTown } from "@/content/bundle";
+import { NewTown } from "./new-town";
 import { loadGymRecords } from "@/lib/gym-log";
 
 const CHOICES: CommittedMinutes[] = [3, 15, 45];
@@ -29,6 +31,8 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
   const [status, setStatus] = useState<LearningStatus | null>(null);
   const [rateFailed, setRateFailed] = useState(false);
   const [allChoices, setAllChoices] = useState(false);
+  // The town whose "new town" screen the learner already started on this visit.
+  const [startedTown, setStartedTown] = useState<number | null>(null);
   const placementTown = usePlacementTown(profile.programStartDate);
   const gymTown = useGymTown(profile.programStartDate);
   const rate = status?.rate;
@@ -58,8 +62,13 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
     setSession(minutes);
   }
 
+  const newTown = status ? newTownToShow(profile.programStartDate, status) : null;
+
   let choices = null;
-  if (status?.restStop && !allChoices) {
+  if (newTown && newTown.number !== startedTown) {
+    // A fresh start comes first. "Start" then shows the Rest Stop or the commit buttons as usual.
+    choices = <NewTown town={newTown} onStart={() => setStartedTown(newTown.number)} />;
+  } else if (status?.restStop && !allChoices) {
     choices = <RestStop onStart={() => startSession(3)} onShowChoices={() => setAllChoices(true)} />;
   } else if (status || rateFailed) {
     // Shown only once the status is known, so the choices never jump to the Rest Stop under a finger.
@@ -162,6 +171,16 @@ function CommitChoices({ profile, onChoose }: { profile: Profile; onChoose: (min
       ))}
     </section>
   );
+}
+
+/**
+ * The town to welcome the learner to, on their first learning day there (#36). It uses the town
+ * they play today, by the same current-town rule as the session, so it never names an empty town.
+ */
+function newTownToShow(programStartDate: string, status: LearningStatus): BundledTown | null {
+  const town = currentTown(programStartDate, status.today);
+  if (!town) return null;
+  return showsNewTown({ programStartDate, townNumber: town.number, lastSessionDay: status.lastSessionDay }) ? town : null;
 }
 
 type PlacementOffer = { id: string; questions: number };
