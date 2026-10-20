@@ -42,6 +42,16 @@ function stageAfter(stage: Stage, grade: Grade, next: { step: ReviewStep; dueDay
   return result;
 }
 
+/**
+ * The new stage when this grade evolves the creature, for the evolution moment on screen.
+ * null when the stage stays the same. Uses the same rule as the Field Guide.
+ */
+export function evolvesTo(state: ReviewState, grade: Grade, gradedDay: LearningDay): Stage | null {
+  const graded = gradeReview({ step: state.step, gradedDay, grade, dueDay: state.dueDay });
+  const stage = stageAfter(state.stage, grade, graded);
+  return stage > state.stage ? stage : null;
+}
+
 const MOVE: Record<Grade, number> = { again: -1, hard: 0, good: 1, easy: 2 };
 const LAST = REVIEW_STEPS.length - 1;
 

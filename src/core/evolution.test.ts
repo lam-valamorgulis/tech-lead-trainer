@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CatchRecord } from "./catch.ts";
-import { backlogPaused, reviewStates, type Grade, type ReviewRecord } from "./review.ts";
+import { backlogPaused, evolvesTo, reviewStates, type Grade, type ReviewRecord, type ReviewState } from "./review.ts";
 
 const caught = (itemId: string, learningDay: string): CatchRecord => ({ itemId, correct: true, learningDay });
 const reviewed = (itemId: string, learningDay: string, grade: Grade): ReviewRecord => ({ itemId, learningDay, grade });
@@ -47,6 +47,49 @@ describe("evolution", () => {
 
   it("does not evolve on Hard or Again", () => {
     expect(onTime("cache", "2026-10-01", ["good", "good", "hard", "again", "hard"]).stage).toBe(1);
+  });
+});
+
+describe("evolvesTo: the evolution moment after one grade", () => {
+  const onStep = (step: ReviewState["step"], stage: ReviewState["stage"]): ReviewState => ({
+    itemId: "cache",
+    step,
+    dueDay: "2026-10-20",
+    caughtDay: "2026-10-01",
+    stage,
+  });
+
+  it("says stage 2 when Good passes the 7-day step", () => {
+    expect(evolvesTo(onStep(7, 1), "good", "2026-10-20")).toBe(2);
+  });
+
+  it("says stage 2 when Easy jumps over the 7-day step", () => {
+    expect(evolvesTo(onStep(3, 1), "easy", "2026-10-20")).toBe(2);
+  });
+
+  it("says stage 3 when Good passes the 30-day step", () => {
+    expect(evolvesTo(onStep(30, 2), "good", "2026-10-20")).toBe(3);
+  });
+
+  it("says nothing on Hard or Again", () => {
+    expect(evolvesTo(onStep(7, 1), "hard", "2026-10-20")).toBeNull();
+    expect(evolvesTo(onStep(7, 1), "again", "2026-10-20")).toBeNull();
+  });
+
+  it("says nothing when the stage does not change", () => {
+    // Back on the 7-day step after an Again, already stage 2.
+    expect(evolvesTo(onStep(7, 2), "good", "2026-10-20")).toBeNull();
+    expect(evolvesTo(onStep(3, 1), "good", "2026-10-20")).toBeNull();
+  });
+
+  it("says nothing for an early review, which keeps its step", () => {
+    expect(evolvesTo(onStep(7, 1), "good", "2026-10-18")).toBeNull();
+  });
+
+  it("agrees with the Field Guide stage replayed from the log", () => {
+    const before = onTime("cache", "2026-10-01", ["good", "good"]);
+    const after = onTime("cache", "2026-10-01", ["good", "good", "good"]);
+    expect(evolvesTo(before, "good", before.dueDay!)).toBe(after.stage);
   });
 });
 

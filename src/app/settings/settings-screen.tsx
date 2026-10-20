@@ -6,6 +6,7 @@ import { fetchMyData, saveFile, shareFile, usesShareSheet } from "@/lib/download
 import { browserClient } from "@/lib/supabase/browser";
 import { PlanForm } from "../plan-form";
 import type { SignedIn } from "../auth-gate";
+import { EffectsSection } from "./effects-section";
 import { LastBackup } from "./last-backup";
 import { RemindersSection } from "./reminders-section";
 import { formatDay } from "../format-day";
@@ -62,6 +63,7 @@ export function SettingsScreen({ userId, email, profile, setProfile }: SignedIn)
         />
       </section>
       <RemindersSection userId={userId} profile={profile} setProfile={setProfile} />
+      <EffectsSection userId={userId} profile={profile} setProfile={setProfile} />
       <DataSection homeTimeZone={profile.homeTimeZone} />
       <section className="stack" aria-labelledby="program-title">
         <h2 id="program-title">Program</h2>
