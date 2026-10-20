@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ReviewItem } from "@/content";
 import { gradeReview, type DueState, type Grade } from "@/core/review";
 import { postEvents } from "@/lib/events/post-events";
+import { ReportWrong } from "./report-wrong";
 
 export type DueReview = { state: DueState; item: ReviewItem };
 
@@ -142,6 +143,8 @@ function ReviewCard({
           </fieldset>
         </>
       )}
+      {/* Before or after Reveal: the question can be wrong too. */}
+      <ReportWrong itemId={item.id} contentHash={item.hash} screen="review" />
     </section>
   );
 }

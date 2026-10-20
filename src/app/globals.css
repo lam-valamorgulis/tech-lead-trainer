@@ -341,3 +341,16 @@ h2[tabindex="-1"]:focus {
   line-clamp: 2;
   overflow: hidden;
 }
+
+/* Empty live regions stay on the page, so a screen reader hears them when text appears. */
+.report [role="alert"]:empty {
+  margin: 0;
+}
+
+.report > .button-quiet {
+  align-self: flex-start;
+}
+
+.report [tabindex="-1"]:focus {
+  outline: none;
+}
