@@ -8,6 +8,7 @@ import { currentTownNumber, ROADMAP, townStartDay, townToPlay } from "@/core/roa
 import { loadGymRecords } from "@/lib/gym-log";
 import { currentLearningDay } from "@/lib/learning-log";
 import { browserClient } from "@/lib/supabase/browser";
+import { BadgeList } from "../badge-list";
 import { PixelSprite } from "../pixel-sprite";
 import { formatDay } from "../format-day";
 
@@ -113,22 +114,7 @@ export function MapScreen({ programStartDate }: { programStartDate: string }) {
       </section>
       <section className="stack" aria-labelledby="badges-title">
         <h2 id="badges-title">Badges</h2>
-        {earned === null ? (
-          <p className="lead">We could not load your badges. Check your connection.</p>
-        ) : earned.length === 0 ? (
-          <p className="lead">No badges yet. Win 4 of the 5 battles in a town&apos;s Gym to earn one.</p>
-        ) : (
-          <ul className="badge-list">
-            {earned.map(({ townId, earnedOn }) => {
-              const town = towns.find((t) => t.id === townId);
-              return (
-                <li key={townId}>
-                  <span aria-hidden="true">🏅</span> {town ? `Town ${town.number}: ${town.name}` : townId} · {formatDay(earnedOn)}
-                </li>
-              );
-            })}
-          </ul>
-        )}
+        {earned === null ? <p className="lead">We could not load your badges. Check your connection.</p> : <BadgeList earned={earned} />}
       </section>
     </>
   );
