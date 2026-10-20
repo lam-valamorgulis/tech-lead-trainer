@@ -4,7 +4,7 @@ All learning content lives here. Towns are JSON, with the schema in `src/content
 
 | File | What it holds |
 | --- | --- |
-| `towns/t01.json` | One town: its creatures, their moves, 10 placement questions, the confusable pairs and the battle scenarios |
+| `towns/t01.json`, `towns/t02.json` | One town per file: its creatures, their moves, 10 placement questions, the confusable pairs and the battle scenarios |
 | `glossary.json` | Hard words with a simple English definition |
 | `ledger.json` | Every id that ever shipped. Never edit it by hand |
 | `weekends/month-01/` | Markdown tasks for the month 1 weekends, used until the weekend editor exists (Sprint 4) |

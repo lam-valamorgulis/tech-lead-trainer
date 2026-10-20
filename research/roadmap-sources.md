@@ -184,11 +184,11 @@ When a source gave only a title or a name, the one-line meaning is my plain-word
 | 12 | Same-origin policy and CORS | The server must opt in before a page reads a response. | [MDN CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS) |
 | 13 | Preflight request | The browser sends OPTIONS first for non-simple requests. | [MDN CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS) |
 
-### Month 2. API design (12)
+### Month 2. API design (15)
 
 | # | Creature | One line | Source |
 |---|---|---|---|
-| 1 | Resource-oriented design | Design around things (nouns), not actions. | [Google AIP](https://google.aip.dev/) `(rule numbers not verified)` |
+| 1 | Resource-oriented design | Design around things (nouns), not actions. | [Google AIP-121](https://google.aip.dev/121) |
 | 2 | Methods and status codes in APIs | Pick the right code for each result. | [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html) |
 | 3 | Idempotency key | The client sends a unique key so a retry is safe. | [Stripe idempotent requests](https://docs.stripe.com/api/idempotent_requests) |
 | 4 | Atomic token recording | Save the token and the change in one step. | [AWS: Making retries safe](https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/) |
@@ -200,6 +200,9 @@ When a source gave only a title or a name, the one-line meaning is my plain-word
 | 10 | Conditional requests and ETags | Azure covers conditional requests with ETags. | [Azure REST guidelines](https://github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md) |
 | 11 | Request repeatability | Azure's pattern for repeating a request safely. | [Azure REST guidelines](https://github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md) |
 | 12 | Authentication basics for APIs | Who is calling, and how you check it. | [OWASP Authentication cheat sheet](https://cheatsheetseries.owasp.org/) |
+| 13 | Rate limiting | 429 Too Many Requests, Retry-After, limits per key. Added for town 2. | [RFC 6585](https://www.rfc-editor.org/rfc/rfc6585.html#section-4) |
+| 14 | Backwards compatibility | Changes that break clients. Added for town 2. | [Google AIP-180](https://google.aip.dev/180) |
+| 15 | Calling an LLM API | Errors, retries, streaming, timeouts (design 4). Added for town 2. | [Claude API: Errors](https://platform.claude.com/docs/en/api/errors) |
 
 #### Pages town 2 cites (#37)
 

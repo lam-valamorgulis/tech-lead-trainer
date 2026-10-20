@@ -5284,7 +5284,7 @@
             },
             {
               "id": "llm-api.long-request",
-              "name": "Long requests",
+              "name": "Timeouts and long requests",
               "catch": {
                 "question": "You need a very long answer with a large max_tokens. What do the Claude API docs advise?",
                 "choices": [
@@ -5297,7 +5297,7 @@
                 "explanation": "For long requests, use streaming or the Message Batches API, especially for requests over 10 minutes."
               },
               "card": {
-                "text": "Use streaming or the Message Batches API for long requests, especially those over 10 minutes. Avoid a large max_tokens without them. Some networks drop idle connections after a while, so a request can fail with no response. The Batches API lets you poll for results, so it needs no unbroken connection. The SDKs check that a non-streaming request will not exceed a 10-minute timeout.",
+                "text": "Use streaming or the Message Batches API for long requests, especially those over 10 minutes. Avoid a large max_tokens without them. Some networks drop idle connections after a while, so a request can fail with no response. The Batches API lets you poll for results, so it needs no unbroken connection. The SDKs check that a non-streaming request will not exceed a 10-minute timeout. A 504 timeout_error means the request timed out while processing.",
                 "example": "A report job asks for up to 128000 tokens. It calls messages.stream and then get_final_message, so it still gets the complete message at the end.",
                 "source": {
                   "title": "Claude API: Errors, long requests",
@@ -5308,7 +5308,7 @@
                 "question": "Why can a long non-streaming request fail with no response?",
                 "answer": "Some networks drop idle connections after a while."
               },
-              "hash": "8c49786e72488554"
+              "hash": "6d5fff4083911b03"
             }
           ],
           "hash": "a0b9d35d372891cc"
@@ -5868,6 +5868,38 @@
           "turns": [
             {
               "threatType": "traffic",
+              "threat": "The partner's nightly job sends 60 requests in the first second of each minute. It gets 429 under a limit of 60 per minute.",
+              "moves": [
+                {
+                  "moveId": "rate-limit.api-key-quota",
+                  "damage": 0,
+                  "counterattack": "You give the job its own key, but its bursts still hit the limit."
+                },
+                {
+                  "moveId": "rate-limit.retry-after",
+                  "damage": 1,
+                  "counterattack": "The job waits after each 429, but every new minute starts with a burst again."
+                },
+                {
+                  "moveId": "api-auth.https-only",
+                  "damage": 0,
+                  "counterattack": "The calls are secure, but the bursts still fail."
+                },
+                {
+                  "moveId": "rate-limit.token-bucket",
+                  "damage": 2,
+                  "counterattack": "The job spreads its calls over the minute, but each run now takes the whole minute."
+                }
+              ],
+              "modelAnswer": "With a token bucket, capacity refills all the time. A limit can also apply over shorter times, like 60 per minute as 1 per second. So spread the requests evenly. The cost: each run takes the whole minute.",
+              "keyPoints": [
+                "Capacity refills all the time, up to a maximum.",
+                "A limit can apply over shorter times.",
+                "Spread requests instead of sending bursts."
+              ]
+            },
+            {
+              "threatType": "traffic",
               "threat": "One partner key sends 300 requests per second. Calls from the other partners slow down.",
               "moves": [
                 {
@@ -5924,41 +5956,9 @@
                 "It is a number of seconds or an HTTP date.",
                 "The client waits before its next request."
               ]
-            },
-            {
-              "threatType": "traffic",
-              "threat": "A nightly job sends 60 requests in the first second of each minute. It gets 429 under a limit of 60 per minute.",
-              "moves": [
-                {
-                  "moveId": "rate-limit.api-key-quota",
-                  "damage": 0,
-                  "counterattack": "You give the job its own key, but its bursts still hit the limit."
-                },
-                {
-                  "moveId": "rate-limit.retry-after",
-                  "damage": 1,
-                  "counterattack": "The job waits after each 429, but every new minute starts with a burst again."
-                },
-                {
-                  "moveId": "api-auth.https-only",
-                  "damage": 0,
-                  "counterattack": "The calls are secure, but the bursts still fail."
-                },
-                {
-                  "moveId": "rate-limit.token-bucket",
-                  "damage": 2,
-                  "counterattack": "The job spreads its calls over the minute, but each run now takes the whole minute."
-                }
-              ],
-              "modelAnswer": "With a token bucket, capacity refills all the time. A limit can also apply over shorter times, like 60 per minute as 1 per second. So spread the requests evenly. The cost: each run takes the whole minute.",
-              "keyPoints": [
-                "Capacity refills all the time, up to a maximum.",
-                "A limit can apply over shorter times.",
-                "Spread requests instead of sending bursts."
-              ]
             }
           ],
-          "hash": "8c340d3202e5c88c"
+          "hash": "84a7d26c2442e6a6"
         },
         {
           "id": "t02-endless-list",
@@ -6000,33 +6000,6 @@
               ]
             },
             {
-              "threatType": "data",
-              "threat": "A partner decodes your base-64 page token and edits the offset in it. After you change the token, their app shows the wrong orders.",
-              "moves": [
-                {
-                  "moveId": "paging.page-token",
-                  "damage": 2,
-                  "counterattack": "Tokens become truly opaque, but this partner must rewrite its paging code."
-                },
-                {
-                  "moveId": "paging.next-link",
-                  "damage": 0,
-                  "counterattack": "You send a nextLink, but it carries the same readable token, so the partner keeps editing it."
-                },
-                {
-                  "moveId": "api-auth.key-not-in-url",
-                  "damage": 0,
-                  "counterattack": "Keys leave the URL, but the token is still easy to edit."
-                }
-              ],
-              "modelAnswer": "Page tokens must be opaque. If users can take them apart, they will, and then you cannot change your paging. Base-64 encoding alone is not enough. The cost: partners who decoded tokens must change their code.",
-              "keyPoints": [
-                "Page tokens must be opaque.",
-                "Base-64 encoding alone is not enough.",
-                "Readable tokens freeze your paging design."
-              ]
-            },
-            {
               "threatType": "speed",
               "threat": "A client sends page_size 100000 to avoid paging. Each call still takes 20 seconds.",
               "moves": [
@@ -6052,9 +6025,36 @@
                 "A missing page_size gets a documented default.",
                 "A page can be shorter than asked."
               ]
+            },
+            {
+              "threatType": "data",
+              "threat": "A partner decodes your base-64 page token and edits the offset in it. After you change the token, their app shows the wrong orders.",
+              "moves": [
+                {
+                  "moveId": "paging.page-token",
+                  "damage": 2,
+                  "counterattack": "Tokens become truly opaque, but this partner must rewrite its paging code."
+                },
+                {
+                  "moveId": "paging.next-link",
+                  "damage": 0,
+                  "counterattack": "You send a nextLink, but it carries the same readable token, so the partner keeps editing it."
+                },
+                {
+                  "moveId": "api-auth.key-not-in-url",
+                  "damage": 0,
+                  "counterattack": "Keys leave the URL, but the token is still easy to edit."
+                }
+              ],
+              "modelAnswer": "Page tokens must be opaque. If users can take them apart, they will, and then you cannot change your paging. Base-64 encoding alone is not enough. The cost: partners who decoded tokens must change their code.",
+              "keyPoints": [
+                "Page tokens must be opaque.",
+                "Base-64 encoding alone is not enough.",
+                "Readable tokens freeze your paging design."
+              ]
             }
           ],
-          "hash": "a0f2e59ea06b8704"
+          "hash": "6bb921cbdd35e827"
         },
         {
           "id": "t02-two-editors",
@@ -6166,6 +6166,33 @@
           "turns": [
             {
               "threatType": "outage",
+              "threat": "A queue replays failed payments three days later with the old keys. Some customers now pay twice.",
+              "moves": [
+                {
+                  "moveId": "idempotency-key.key-expiry",
+                  "damage": 2,
+                  "counterattack": "You know old keys are gone, but late retries now need a payment check first."
+                },
+                {
+                  "moveId": "idempotency-key.saved-response",
+                  "damage": 1,
+                  "counterattack": "Saved responses help fast retries, but these keys were removed long ago."
+                },
+                {
+                  "moveId": "rate-limit.retry-after",
+                  "damage": 0,
+                  "counterattack": "The queue waits even longer, so the keys get even older."
+                }
+              ],
+              "modelAnswer": "Stripe API v1 may remove keys that are at least 24 hours old. A reused key after that runs as a new request. So retry while the key is still saved, and check the payment state before a late retry. The cost: an extra check for old failures.",
+              "keyPoints": [
+                "Keys may be removed after 24 hours.",
+                "A removed key runs as a new request.",
+                "Check the state before a late retry."
+              ]
+            },
+            {
+              "threatType": "outage",
               "threat": "A payment call times out. The shop app makes a new key for the retry, and the customer pays twice.",
               "moves": [
                 {
@@ -6222,36 +6249,9 @@
                 "Same key and different parameters: return an error.",
                 "A key recognizes retries of the same request."
               ]
-            },
-            {
-              "threatType": "outage",
-              "threat": "A queue replays failed payments three days later with the old keys. Some customers now pay twice.",
-              "moves": [
-                {
-                  "moveId": "idempotency-key.key-expiry",
-                  "damage": 2,
-                  "counterattack": "You know old keys are gone, but late retries now need a payment check first."
-                },
-                {
-                  "moveId": "idempotency-key.saved-response",
-                  "damage": 1,
-                  "counterattack": "Saved responses help fast retries, but these keys were removed long ago."
-                },
-                {
-                  "moveId": "rate-limit.retry-after",
-                  "damage": 0,
-                  "counterattack": "The queue waits even longer, so the keys get even older."
-                }
-              ],
-              "modelAnswer": "Stripe API v1 may remove keys that are at least 24 hours old. A reused key after that runs as a new request. So retry while the key is still saved, and check the payment state before a late retry. The cost: an extra check for old failures.",
-              "keyPoints": [
-                "Keys may be removed after 24 hours.",
-                "A removed key runs as a new request.",
-                "Check the state before a late retry."
-              ]
             }
           ],
-          "hash": "5e395d451827a304"
+          "hash": "a8646d8ba9b166e0"
         },
         {
           "id": "t02-ghost-servers",
@@ -6260,33 +6260,6 @@
           "secondType": "data",
           "problem": "Your cloud service creates servers for customers. Their scripts retry every failed call.",
           "turns": [
-            {
-              "threatType": "outage",
-              "threat": "Your service saves the client token, then crashes before it creates the server. Retries now say success, but no server exists.",
-              "moves": [
-                {
-                  "moveId": "idempotency-key.saved-response",
-                  "damage": 1,
-                  "counterattack": "You save the response too, but a crash can still split the token from the server."
-                },
-                {
-                  "moveId": "idempotency-key.key-expiry",
-                  "damage": 0,
-                  "counterattack": "The broken token expires after a day, so customers wait a day for a server."
-                },
-                {
-                  "moveId": "client-token.atomic-record",
-                  "damage": 2,
-                  "counterattack": "Token and server are saved together now, but every create runs in one transaction."
-                }
-              ],
-              "modelAnswer": "Save the token and all changes in one ACID operation, all or nothing. Then a crash leaves neither a token without a server nor a server without a token. The cost: each create runs inside one transaction.",
-              "keyPoints": [
-                "The token and the changes are saved together.",
-                "All or nothing, as one ACID operation.",
-                "No token without the resource."
-              ]
-            },
             {
               "threatType": "data",
               "threat": "Retries get ResourceAlreadyExists. Customer scripts think someone else made the server, and they stop.",
@@ -6320,6 +6293,33 @@
               ]
             },
             {
+              "threatType": "outage",
+              "threat": "Your service saves the client token, then crashes before it creates the server. Retries now say success, but no server exists.",
+              "moves": [
+                {
+                  "moveId": "idempotency-key.saved-response",
+                  "damage": 1,
+                  "counterattack": "You save the response too, but a crash can still split the token from the server."
+                },
+                {
+                  "moveId": "idempotency-key.key-expiry",
+                  "damage": 0,
+                  "counterattack": "The broken token expires after a day, so customers wait a day for a server."
+                },
+                {
+                  "moveId": "client-token.atomic-record",
+                  "damage": 2,
+                  "counterattack": "Token and server are saved together now, but every create runs in one transaction."
+                }
+              ],
+              "modelAnswer": "Save the token and all changes in one ACID operation, all or nothing. Then a crash leaves neither a token without a server nor a server without a token. The cost: each create runs inside one transaction.",
+              "keyPoints": [
+                "The token and the changes are saved together.",
+                "All or nothing, as one ACID operation.",
+                "No token without the resource."
+              ]
+            },
+            {
               "threatType": "data",
               "threat": "A retry arrives a day after the customer deleted the server. Your service forgot the token and starts a new server.",
               "moves": [
@@ -6347,7 +6347,7 @@
               ]
             }
           ],
-          "hash": "b71a273c9bec06dd"
+          "hash": "933897b8e6a9c0e4"
         },
         {
           "id": "t02-twin-grants",
@@ -6491,33 +6491,6 @@
             },
             {
               "threatType": "traffic",
-              "threat": "Clients poll the status URL 50 times per second while the export runs.",
-              "moves": [
-                {
-                  "moveId": "rate-limit.api-key-quota",
-                  "damage": 1,
-                  "counterattack": "Fast pollers get 429, but they still do not know a good poll rate."
-                },
-                {
-                  "moveId": "long-running.accepted",
-                  "damage": 0,
-                  "counterattack": "Every poll gets 202 again, and clients keep asking."
-                },
-                {
-                  "moveId": "long-running.status-monitor",
-                  "damage": 2,
-                  "counterattack": "Polls follow the retry-after value, but you must estimate it well."
-                }
-              ],
-              "modelAnswer": "Return the status monitor with 200 OK and a retry-after header while the work runs. Clients wait that many seconds before the next poll. The cost: you must choose a good wait time.",
-              "keyPoints": [
-                "The status monitor shows the status, like Running or Succeeded.",
-                "retry-after says when to poll again.",
-                "Keep the monitor for at least 24 hours after the end."
-              ]
-            },
-            {
-              "threatType": "traffic",
               "threat": "A client retries the start call after a network error. Now two exports run for the same request.",
               "moves": [
                 {
@@ -6547,9 +6520,36 @@
                 "An identical retry gets the same response.",
                 "A different request with the same ID gets 409."
               ]
+            },
+            {
+              "threatType": "traffic",
+              "threat": "Clients poll the status URL 50 times per second while the export runs.",
+              "moves": [
+                {
+                  "moveId": "rate-limit.api-key-quota",
+                  "damage": 1,
+                  "counterattack": "Fast pollers get 429, but they still do not know a good poll rate."
+                },
+                {
+                  "moveId": "long-running.accepted",
+                  "damage": 0,
+                  "counterattack": "Every poll gets 202 again, and clients keep asking."
+                },
+                {
+                  "moveId": "long-running.status-monitor",
+                  "damage": 2,
+                  "counterattack": "Polls follow the retry-after value, but you must estimate it well."
+                }
+              ],
+              "modelAnswer": "Return the status monitor with 200 OK and a retry-after header while the work runs. Clients wait that many seconds before the next poll. The cost: you must choose a good wait time.",
+              "keyPoints": [
+                "The status monitor shows the status, like Running or Succeeded.",
+                "retry-after says when to poll again.",
+                "Keep the monitor for at least 24 hours after the end."
+              ]
             }
           ],
-          "hash": "3f07c6b66595d92b"
+          "hash": "3661c406f9e279f0"
         },
         {
           "id": "t02-shared-contract",
@@ -6656,6 +6656,38 @@
           "turns": [
             {
               "threatType": "outage",
+              "threat": "You will retire version 2023-01-01 next month. Partners do not know, because they never read your blog.",
+              "moves": [
+                {
+                  "moveId": "versioning.major-version",
+                  "damage": 0,
+                  "counterattack": "You plan a v2 path, but nobody hears that the old version ends."
+                },
+                {
+                  "moveId": "openapi.components",
+                  "damage": 0,
+                  "counterattack": "The description is tidy, but partners still miss the date."
+                },
+                {
+                  "moveId": "versioning.api-version",
+                  "damage": 1,
+                  "counterattack": "Old calls still need a valid api-version, but partners get no warning."
+                },
+                {
+                  "moveId": "versioning.deprecation-header",
+                  "damage": 2,
+                  "counterattack": "Responses now say what retires, when and where to read more, but only people who read logs see it."
+                }
+              ],
+              "modelAnswer": "Add the azure-deprecating header to the responses of the version that will stop. It names what retires, the date and a URL. Send it only when clients must act. The cost: it reaches only people who read responses or logs.",
+              "keyPoints": [
+                "The header says what, when and where to learn more.",
+                "It is for humans, not for code.",
+                "Send it only when clients must act."
+              ]
+            },
+            {
+              "threatType": "outage",
               "threat": "A partner app sends no api-version. Your service picks the newest version for it, and the partner app breaks.",
               "moves": [
                 {
@@ -6712,41 +6744,9 @@
                 "No minor or patch numbers.",
                 "Compatible changes ship in place."
               ]
-            },
-            {
-              "threatType": "outage",
-              "threat": "You will retire version 2023-01-01 next month. Partners do not know, because they never read your blog.",
-              "moves": [
-                {
-                  "moveId": "versioning.major-version",
-                  "damage": 0,
-                  "counterattack": "You plan a v2 path, but nobody hears that the old version ends."
-                },
-                {
-                  "moveId": "openapi.components",
-                  "damage": 0,
-                  "counterattack": "The description is tidy, but partners still miss the date."
-                },
-                {
-                  "moveId": "versioning.api-version",
-                  "damage": 1,
-                  "counterattack": "Old calls still need a valid api-version, but partners get no warning."
-                },
-                {
-                  "moveId": "versioning.deprecation-header",
-                  "damage": 2,
-                  "counterattack": "Responses now say what retires, when and where to read more, but only people who read logs see it."
-                }
-              ],
-              "modelAnswer": "Add the azure-deprecating header to the responses of the version that will stop. It names what retires, the date and a URL. Send it only when clients must act. The cost: it reaches only people who read responses or logs.",
-              "keyPoints": [
-                "The header says what, when and where to learn more.",
-                "It is for humans, not for code.",
-                "Send it only when clients must act."
-              ]
             }
           ],
-          "hash": "fd98487faae6d20f"
+          "hash": "1b59136f120db27c"
         },
         {
           "id": "t02-renamed-field",
@@ -6755,6 +6755,38 @@
           "secondType": "data",
           "problem": "A new developer cleans up the orders API. Three partner apps depend on it.",
           "turns": [
+            {
+              "threatType": "data",
+              "threat": "The developer changed the default genre from FICTION to NONFICTION. Old clients now save books with the wrong genre.",
+              "moves": [
+                {
+                  "moveId": "breaking-change.default-value",
+                  "damage": 2,
+                  "counterattack": "FICTION is the default again, but the books saved this week need a fix."
+                },
+                {
+                  "moveId": "breaking-change.rename",
+                  "damage": 0,
+                  "counterattack": "You rename the genre field, which breaks clients even more."
+                },
+                {
+                  "moveId": "versioning.api-version",
+                  "damage": 1,
+                  "counterattack": "The change hides behind a new api-version, but Azure says not to make breaking changes at all."
+                },
+                {
+                  "moveId": "problem-details.type",
+                  "damage": 0,
+                  "counterattack": "Errors are clearer, but no request fails, so nobody sees them."
+                }
+              ],
+              "modelAnswer": "Changing a default value is a breaking change, so put FICTION back as the default. The cost: the books saved with the wrong genre must be fixed.",
+              "keyPoints": [
+                "Default values decide the default behavior.",
+                "Changing a default breaks clients.",
+                "Do not change how defaults are serialized either."
+              ]
+            },
             {
               "threatType": "outage",
               "threat": "The developer renamed customer_name to buyer_name. All three partner apps crashed the same night.",
@@ -6780,38 +6812,6 @@
                 "Renaming is removing and adding.",
                 "Add the new name, and keep the old one.",
                 "Specify what happens when a client sends both."
-              ]
-            },
-            {
-              "threatType": "data",
-              "threat": "The developer changed the default genre from FICTION to NONFICTION. Old clients now save books with the wrong genre.",
-              "moves": [
-                {
-                  "moveId": "breaking-change.default-value",
-                  "damage": 2,
-                  "counterattack": "FICTION is the default again, but the books saved this week need a fix."
-                },
-                {
-                  "moveId": "breaking-change.rename",
-                  "damage": 0,
-                  "counterattack": "You rename the genre field, which breaks clients a second time."
-                },
-                {
-                  "moveId": "versioning.api-version",
-                  "damage": 1,
-                  "counterattack": "The change hides behind a new api-version, but Azure says not to make breaking changes at all."
-                },
-                {
-                  "moveId": "problem-details.type",
-                  "damage": 0,
-                  "counterattack": "Errors are clearer, but no request fails, so nobody sees them."
-                }
-              ],
-              "modelAnswer": "Changing a default value is a breaking change, so put FICTION back as the default. The cost: the books saved with the wrong genre must be fixed.",
-              "keyPoints": [
-                "Default values decide the default behavior.",
-                "Changing a default breaks clients.",
-                "Do not change how defaults are serialized either."
               ]
             },
             {
@@ -6847,7 +6847,7 @@
               ]
             }
           ],
-          "hash": "6dfcf07878e2cf5e"
+          "hash": "3e5ceb5fc5623e55"
         },
         {
           "id": "t02-busy-model",
@@ -6856,6 +6856,33 @@
           "secondType": "speed",
           "problem": "Your support app calls the Claude API to summarize long tickets for the agents.",
           "turns": [
+            {
+              "threatType": "speed",
+              "threat": "Agents stare at a spinner for 40 seconds before the whole summary appears at once.",
+              "moves": [
+                {
+                  "moveId": "llm-api.long-request",
+                  "damage": 1,
+                  "counterattack": "The SDK collects the stream into one message, so agents still see the whole text at once."
+                },
+                {
+                  "moveId": "llm-api.streaming",
+                  "damage": 2,
+                  "counterattack": "Text appears as it is written, but the app must handle events and errors in the stream."
+                },
+                {
+                  "moveId": "llm-api.retry",
+                  "damage": 0,
+                  "counterattack": "Retries add more waiting to a slow answer."
+                }
+              ],
+              "modelAnswer": "Stream the response with server-sent events, so text shows as it arrives. Handle error events in the stream, and handle unknown event types gracefully. The cost: the app processes events, not one JSON body.",
+              "keyPoints": [
+                "Streaming sends the answer step by step.",
+                "Errors can come inside the stream.",
+                "Handle unknown event types gracefully."
+              ]
+            },
             {
               "threatType": "outage",
               "threat": "On busy days, some calls fail with 529 overloaded_error. Agents see an error page and lose their work.",
@@ -6886,33 +6913,6 @@
                 "529 means a temporary overload.",
                 "Retry with exponential backoff.",
                 "The SDK retries twice by default."
-              ]
-            },
-            {
-              "threatType": "speed",
-              "threat": "Agents stare at a spinner for 40 seconds before the whole summary appears at once.",
-              "moves": [
-                {
-                  "moveId": "llm-api.long-request",
-                  "damage": 1,
-                  "counterattack": "The SDK collects the stream into one message, so agents still see the whole text at once."
-                },
-                {
-                  "moveId": "llm-api.streaming",
-                  "damage": 2,
-                  "counterattack": "Text appears as it is written, but the app must handle events and errors in the stream."
-                },
-                {
-                  "moveId": "llm-api.retry",
-                  "damage": 0,
-                  "counterattack": "Retries add more waiting to a slow answer."
-                }
-              ],
-              "modelAnswer": "Stream the response with server-sent events, so text shows as it arrives. Handle error events in the stream, and handle unknown event types gracefully. The cost: the app processes events, not one JSON body.",
-              "keyPoints": [
-                "Streaming sends the answer step by step.",
-                "Errors can come inside the stream.",
-                "Handle unknown event types gracefully."
               ]
             },
             {
@@ -6948,7 +6948,7 @@
               ]
             }
           ],
-          "hash": "8be0612b09fb9e54"
+          "hash": "4401c8c53a8ff531"
         }
       ]
     }

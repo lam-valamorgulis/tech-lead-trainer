@@ -4,7 +4,7 @@ How an agent writes and checks a content ticket: town content, battle scenarios,
 
 ## How the app uses content
 
-- The app shows every text as plain text. A backtick shows as a backtick, and a line break disappears. So write no backticks, no Markdown and no line breaks. `src/content/town-1.test.ts` checks this for town 1; give each new town the same check.
+- The app shows every text as plain text. A backtick shows as a backtick, and a line break disappears. So write no backticks, no Markdown and no line breaks. `npm run content:check` checks this for every town. Each town also has its own guard file, like `src/content/town-2.test.ts`.
 - Catch order is file order: each creature, then its moves, from the top of the file down. Put the basics first.
 - The learner gets 1 catch per day, and none on a 3-minute day. Town 1 has 55 items, more than a month of days.
 - Placement is self-graded. The learner types an answer, sees the model answer, and marks it "Yes, I knew it" or "Not yet". A "Yes" catches that creature without using the day's catch. So give each placement question a short model answer that is easy to compare.

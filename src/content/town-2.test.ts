@@ -21,9 +21,10 @@ const PRIMARY_SOURCE_HOSTS = [
   "cheatsheetseries.owasp.org",
   "platform.claude.com",
 ];
+const AZURE_GUIDELINES_PATH = "/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md";
 
 // The glossary words town 2 added (#37). Each one must be tappable somewhere in town 2.
-const TOWN_2_WORDS = [
+const TOWN_2_GLOSSARY_WORDS = [
   "ACID",
   "anti-pattern",
   "backwards compatible",
@@ -80,7 +81,10 @@ describe("town 2 content", () => {
 
   it("cites a month 2 primary source on every card", () => {
     for (const item of items) {
-      expect(PRIMARY_SOURCE_HOSTS, item.id).toContain(new URL(item.card.source.url).host);
+      const url = new URL(item.card.source.url);
+      expect(PRIMARY_SOURCE_HOSTS, item.id).toContain(url.host);
+      // On github.com, only the Azure REST API Guidelines are a month 2 source.
+      if (url.host === "github.com") expect(url.pathname, item.id).toBe(AZURE_GUIDELINES_PATH);
     }
   });
 
@@ -144,7 +148,7 @@ describe("town 2 content", () => {
   it("makes each new glossary word tappable somewhere in town 2", () => {
     const glossary = glossarySchema.parse(JSON.parse(readFileSync("content/glossary.json", "utf8"))).words;
     const townTexts = texts(town);
-    for (const word of TOWN_2_WORDS) {
+    for (const word of TOWN_2_GLOSSARY_WORDS) {
       expect(glossary.map((entry) => entry.word), word).toContain(word);
       const tapped = townTexts.some((text) => glossarySegments(text, glossary).some((s) => "word" in s && s.word === word));
       expect(tapped, word).toBe(true);
