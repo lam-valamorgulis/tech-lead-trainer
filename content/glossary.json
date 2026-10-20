@@ -1,3 +1,80 @@
 {
-  "words": []
+  "words": [
+    {
+      "word": "certificate authority",
+      "definition": "An organization that signs digital certificates, so browsers can check a website's identity."
+    },
+    {
+      "word": "cipher suite",
+      "definition": "The set of algorithms that client and server use for key agreement, authentication and encryption."
+    },
+    {
+      "word": "content negotiation",
+      "definition": "The way a server picks the best version of a resource for the client."
+    },
+    {
+      "word": "credentials",
+      "definition": "Data that proves who the user is, such as cookies or HTTP authentication."
+    },
+    {
+      "word": "handshake",
+      "definition": "The first step of a TLS connection, where client and server agree on keys and settings."
+    },
+    {
+      "word": "idempotent",
+      "definition": "Sending the same request many times has the same intended effect on the server as sending it once."
+    },
+    {
+      "word": "load balancing",
+      "definition": "Many servers share the requests, but they look like one server to the client."
+    },
+    {
+      "word": "manipulator in the middle (MITM)",
+      "definition": "An attacker who sits between the browser and the server, and reads or changes the traffic."
+    },
+    {
+      "word": "MIME sniffing",
+      "definition": "The browser guesses the MIME type by looking at the bytes of the file."
+    },
+    {
+      "word": "multiplexing",
+      "definition": "Sending many requests and responses at the same time over one connection."
+    },
+    {
+      "word": "origin",
+      "definition": "The protocol, host and port of a URL together."
+    },
+    {
+      "word": "preflight",
+      "definition": "An OPTIONS request the browser sends first, to ask if the real request is allowed."
+    },
+    {
+      "word": "reason phrase",
+      "definition": "The short, optional text after the status code, like Not Found, written for humans."
+    },
+    {
+      "word": "safe method",
+      "definition": "An HTTP method that only reads data and does not change the state of the server."
+    },
+    {
+      "word": "session",
+      "definition": "A series of requests that the server links to one user, often with a cookie."
+    },
+    {
+      "word": "stateless",
+      "definition": "A stateless protocol keeps no link between one request and the next."
+    },
+    {
+      "word": "TCP handshake",
+      "definition": "The messages a client and a server exchange to open a TCP connection."
+    },
+    {
+      "word": "top-level domain (TLD)",
+      "definition": "The rightmost part of a domain name, for example com in example.com."
+    },
+    {
+      "word": "user agent",
+      "definition": "Any tool that acts for the user, most often the web browser."
+    }
+  ]
 }
