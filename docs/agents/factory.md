@@ -19,7 +19,7 @@ On "ship":
 1. Check the sprint milestone. List any open `ready-for-agent` ticket and ask whether to ship without it.
 2. Run the production export and note its date. A production schema change always comes after a fresh export.
 3. Apply pending migrations to production.
-4. Merge `sprint-N` into `main` with a merge commit. Wait for the production deploy, then check that sign-in works.
+4. Merge `sprint-N` into `main` with a merge commit. Wait for the production deploy, then check that sign-in works: `npm run check:live-code` must pass (the live code has the length the screen accepts), and the page must open.
 5. Close the milestone and create `sprint-(N+1)` from `main`.
 6. Ask the owner to run `/mattpocock-skills:retro` in the same session.
 

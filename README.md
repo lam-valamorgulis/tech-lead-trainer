@@ -63,7 +63,9 @@ The dashboard menu names below were not checked against the live dashboard. The 
 | Public sign-ups are off | `[auth] enable_signup = false` | Authentication → Sign In / Providers → turn off **Allow new users to sign up** |
 | Email login stays on | `[auth.email] enable_signup = true` | Authentication → Sign In / Providers → **Email** stays enabled |
 | The email holds only the code | `[auth.email.template.magic_link]` uses `supabase/templates/sign-in-code.html` | Authentication → Emails → **Magic Link** template: paste the same HTML. It must use `{{ .Token }}` and no link |
-| Code length | `otp_length = 6` | Email provider → **Email OTP Length** = 6 |
+| Code length | `otp_length = 6` | Email provider → **Email OTP Length** = 6. Check it with `npm run check:live-code` |
+
+The live project once sent 8-digit codes, so nobody could sign in (#56). It was set to 6 through the Supabase Management API, with the token of the CLI login: `PATCH https://api.supabase.com/v1/projects/<ref>/config/auth` with the body `{"mailer_otp_length": 6}`. The dashboard field above does the same.
 
 How it works: the server checks `allowed_emails` first. For an allowed email it creates the account, because public sign-ups are off, and then sends the code. For any other email it shows the same neutral message and sends nothing.
 

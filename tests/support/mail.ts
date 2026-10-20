@@ -1,3 +1,5 @@
+import { SIGN_IN_CODE_LENGTH } from "../../src/lib/auth/code-length";
+
 // Reads the emails that local Supabase "sends". They land in Mailpit, never in a real inbox.
 
 type MailSummary = { ID: string };
@@ -29,8 +31,11 @@ export async function countMail(mailUrl: string, to: string): Promise<number> {
   return (await search(mailUrl, to)).length;
 }
 
+// The email may hold other numbers, such as a year, so look for exactly the code length.
+const CODE = new RegExp(`\\b(\\d{${SIGN_IN_CODE_LENGTH}})\\b`);
+
 export function codeFrom(mail: MailMessage): string {
-  const match = mail.Text.match(/\b(\d{6})\b/);
-  if (!match) throw new Error(`No 6-digit code in the email: ${mail.Text}`);
+  const match = mail.Text.match(CODE);
+  if (!match) throw new Error(`No ${SIGN_IN_CODE_LENGTH}-digit code in the email: ${mail.Text}`);
   return match[1];
 }

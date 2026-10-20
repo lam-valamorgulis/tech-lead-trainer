@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { SIGN_IN_CODE_LENGTH } from "@/lib/auth/code-length";
 import { normalizeEmail } from "@/lib/auth/email";
 import { browserClient } from "@/lib/supabase/browser";
 import { sendSignInCode } from "./sign-in-actions";
@@ -59,17 +60,17 @@ export function SignInForm() {
 
   return (
     <form className="stack" onSubmit={(event) => onVerify(event, step.email)} noValidate>
-      <p>{step.resent ? "We sent a new code. Use the newest email." : "If this email can sign in, we sent it a 6-digit code."}</p>
+      <p>{step.resent ? "We sent a new code. Use the newest email." : `If this email can sign in, we sent it a ${SIGN_IN_CODE_LENGTH}-digit code.`}</p>
       <p className="lead">{step.email}</p>
       <label className="field">
-        <span className="field-label">6-digit code</span>
+        <span className="field-label">{SIGN_IN_CODE_LENGTH}-digit code</span>
         <input
           name="code"
           type="text"
           inputMode="numeric"
           autoComplete="one-time-code"
-          pattern="[0-9]{6}"
-          maxLength={6}
+          pattern={`[0-9]{${SIGN_IN_CODE_LENGTH}}`}
+          maxLength={SIGN_IN_CODE_LENGTH}
           required
         />
       </label>
