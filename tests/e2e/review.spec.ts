@@ -33,6 +33,8 @@ test("a due review: think, Reveal, then grade Good moves it to the 3-day step", 
 
     await page.getByRole("button", { name: "Reveal" }).click();
     await expect(page.getByText("A copy of a response, so the next request can skip the download.")).toBeVisible();
+    // A glossary word in the answer can be tapped.
+    await expect(page.getByRole("button", { name: "response", exact: true })).toBeVisible();
     const accessibility = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
     expect(accessibility.violations).toEqual([]);
 

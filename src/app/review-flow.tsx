@@ -5,6 +5,7 @@ import type { ReviewItem } from "@/content";
 import { gradeReview, type DueState, type Grade } from "@/core/review";
 import { postEvents } from "@/lib/events/post-events";
 import { ReportWrong } from "./report-wrong";
+import { GlossaryText } from "./glossary-text";
 
 /** The 2 sentences the learner wrote after a battle about this item (design 10), if they still wait. */
 export type TeachBack = { scenarioName: string; sentences: [string, string] };
@@ -112,7 +113,9 @@ function ReviewCard({
       <h2 id="review-title" ref={heading} tabIndex={-1}>
         Review {position}: {item.name}
       </h2>
-      <p>{item.review.question}</p>
+      <p>
+        <GlossaryText text={item.review.question} />
+      </p>
       {!revealedAt ? (
         <>
           {canType ? (
@@ -130,7 +133,9 @@ function ReviewCard({
       ) : (
         <>
           <div className="card">
-            <p>{item.review.answer}</p>
+            <p>
+              <GlossaryText text={item.review.answer} />
+            </p>
           </div>
           {/* After Reveal only: the learner's own words hold the answer too. */}
           {teachBack && (

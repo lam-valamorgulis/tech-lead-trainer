@@ -465,3 +465,64 @@ h2[tabindex="-1"]:focus {
   margin: 0;
   padding-left: 24px;
 }
+
+/* Glossary: a hard word is a quiet button inside the text. Its definition opens in a popover. */
+/* A word inside a sentence cannot be 44 px tall (UI rule 6) without breaking the line. The
+   ::after area makes the tap target taller without moving the text. */
+.glossary-term {
+  position: relative;
+  display: inline;
+  min-height: 0;
+  min-width: 0;
+  font: inherit;
+  line-height: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-decoration: underline dotted;
+  text-underline-offset: 4px;
+  touch-action: manipulation;
+  cursor: help;
+}
+
+/* Wide enough for a short word such as "TLD". */
+.glossary-term::after {
+  content: "";
+  position: absolute;
+  inset: -10px -8px;
+}
+
+.glossary-popover {
+  max-width: min(90vw, 360px);
+  padding: var(--space);
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 2px solid var(--color-accent);
+  border-radius: 4px;
+  font-size: var(--text-body);
+}
+
+/* Hidden until opened, also on a browser that ignores the popover attribute. */
+.glossary-popover {
+  display: none;
+}
+
+.glossary-popover:popover-open {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Without popover support (before iOS 17), the definition opens under the text. Its own rule,
+   because an old browser drops a whole rule with a selector it does not know. */
+.glossary-popover[data-open] {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.glossary-popover::backdrop {
+  background: rgb(0 0 0 / 0.5);
+}

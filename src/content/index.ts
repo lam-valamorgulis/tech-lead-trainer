@@ -11,6 +11,9 @@ const bundle = (process.env.NEXT_PUBLIC_CONTENT_SET === "fixture" ? fixture : ge
 
 export const towns: BundledTown[] = bundle.towns.filter((town) => !town.retired);
 
+/** Hard words with a simple definition, shown on tap (design 2). */
+export const glossary = bundle.glossary;
+
 /** A town by its id, as used in links such as /placement/t01. */
 export function getTown(id: string): BundledTown | undefined {
   return towns.find((town) => town.id === id);
