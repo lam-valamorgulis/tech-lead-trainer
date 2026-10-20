@@ -1,3 +1,4 @@
+import { currentTownNumber, townToPlay } from "@/core/roadmap";
 import type { BundledTown, ContentBundle } from "./bundle.ts";
 import type { Card } from "./schema.ts";
 import generated from "./bundle.generated.json";
@@ -14,9 +15,12 @@ export function getTown(id: string): BundledTown | undefined {
   return towns.find((town) => town.id === id);
 }
 
-/** The town a learner is in. Every learner starts at town 1; the map ticket moves them on. */
-export function currentTown(): BundledTown | undefined {
-  return towns.find((town) => town.number === 1);
+/**
+ * The town a learner plays today: the town of their own month (design 4), or the last earlier
+ * town with content when theirs is not ready yet.
+ */
+export function currentTown(programStartDate: string, today: string): BundledTown | undefined {
+  return townToPlay(towns, currentTownNumber(programStartDate, today));
 }
 
 export type ReviewItem = {

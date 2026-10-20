@@ -23,7 +23,7 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
   const [status, setStatus] = useState<LearningStatus | null>(null);
   const [rateFailed, setRateFailed] = useState(false);
   const [allChoices, setAllChoices] = useState(false);
-  const placementTown = usePlacementTown();
+  const placementTown = usePlacementTown(profile.programStartDate);
   const rate = status?.rate;
 
   useEffect(() => {
@@ -74,7 +74,13 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
   }
 
   if (session !== null) {
-    return <SessionScreen committedMinutes={session} onDone={() => setSession(null)} />;
+    return (
+      <SessionScreen
+        committedMinutes={session}
+        programStartDate={profile.programStartDate}
+        onDone={() => setSession(null)}
+      />
+    );
   }
 
   return (
@@ -93,6 +99,9 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
           </div>
         )}
         <nav className="row" aria-label="More">
+          <Link href="/map" className="button button-quiet">
+            Map
+          </Link>
           <Link href="/field-guide" className="button button-quiet">
             Field Guide
           </Link>
@@ -132,17 +141,21 @@ type PlacementOffer = { id: string; questions: number };
  * The current town when its placement test is not done yet, so home can offer it.
  * If the answers cannot load, the offer stays hidden: the test is optional (design 13 cut list).
  */
-function usePlacementTown(): PlacementOffer | null {
+function usePlacementTown(programStartDate: string): PlacementOffer | null {
   const [town, setTown] = useState<PlacementOffer | null>(null);
   useEffect(() => {
-    const current = currentTown();
-    if (!current || current.placement.length === 0) return;
     let cancelled = false;
     const client = browserClient();
     currentLearningDay(client)
-      .then((today) => loadPlacementRecords(client, today))
-      .then((records) => {
+      .then(async (today) => {
+        const current = currentTown(programStartDate, today);
+        if (!current || current.placement.length === 0) return null;
+        return { current, records: await loadPlacementRecords(client, today) };
+      })
+      .then((loaded) => {
         if (cancelled) return;
+        if (!loaded) return setTown(null);
+        const { current, records } = loaded;
         // Next keeps this screen's state when you leave and come back, so clear an old offer too.
         setTown(placementProgress(current, records).done ? null : { id: current.id, questions: current.placement.length });
       })
@@ -150,7 +163,7 @@ function usePlacementTown(): PlacementOffer | null {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [programStartDate]);
   return town;
 }
 
