@@ -8,6 +8,7 @@ import {
   type ThirtyDayRate,
 } from "@/core/day";
 import { lastLearnedDay, showsRestStop } from "@/core/rest-stop";
+import { weekMinutes } from "@/core/week";
 import { selectAll } from "./select-all";
 
 export type SnapshotRow = { session_id: string; occurred_at: string; learning_day: string; active_seconds: number };
@@ -28,13 +29,17 @@ export async function currentLearningDay(client: SupabaseClient): Promise<Learni
   return data as LearningDay;
 }
 
-export async function loadThirtyDayRate(client: SupabaseClient): Promise<ThirtyDayRate> {
+/** The numbers the session summary shows (design 3): the 30-day rate and this week's minutes. */
+export async function loadSessionNumbers(client: SupabaseClient): Promise<{ rate: ThirtyDayRate; weekMinutes: number }> {
   const { today, recent } = await loadRecentSnapshots(client);
-  return thirtyDayRate(recent, today);
+  return { rate: thirtyDayRate(recent, today), weekMinutes: weekMinutes(recent, today) };
 }
 
-/** What home needs to know about past learning: the 30-day rate, and whether to open on the Rest Stop. */
-export type LearningStatus = { rate: ThirtyDayRate; restStop: boolean };
+/**
+ * What home needs to know about past learning: the 30-day rate, whether to open on the Rest
+ * Stop, and the minutes of this week against the weekly goal.
+ */
+export type LearningStatus = { rate: ThirtyDayRate; restStop: boolean; weekMinutes: number };
 
 export async function loadLearningStatus(client: SupabaseClient): Promise<LearningStatus> {
   const { today, from, recent } = await loadRecentSnapshots(client);
@@ -44,7 +49,8 @@ export async function loadLearningStatus(client: SupabaseClient): Promise<Learni
     const older = await loadSnapshots(client, (query) => query.lt("learning_day", from));
     last = lastLearnedDay([...older, ...recent], today);
   }
-  return { rate: thirtyDayRate(recent, today), restStop: showsRestStop(last, today) };
+  // The 30-day window always holds this week, which is at most 7 days.
+  return { rate: thirtyDayRate(recent, today), restStop: showsRestStop(last, today), weekMinutes: weekMinutes(recent, today) };
 }
 
 /** Today, and the snapshots of the 30-day window plus one day: a session counts for the day it started. */

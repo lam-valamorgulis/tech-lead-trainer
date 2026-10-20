@@ -6,6 +6,7 @@ import { currentTown } from "@/content";
 import { placementProgress } from "@/core/placement";
 import { learningDay } from "@/core/day";
 import { needsPlan, planSentence } from "@/core/plan";
+import { formatWeekMinutes } from "@/core/week";
 import { currentLearningDay, formatRate, loadLearningStatus, type LearningStatus } from "@/lib/learning-log";
 import { loadPlacementRecords } from "@/lib/placement-log";
 import type { Profile } from "@/lib/profile";
@@ -14,6 +15,7 @@ import type { SignedIn } from "./auth-gate";
 import { PlanForm } from "./plan-form";
 import { RestStop } from "./rest-stop";
 import { SessionScreen, type CommittedMinutes } from "./session-screen";
+import { WeeklySummaryCard } from "./weekly-summary";
 
 const CHOICES: CommittedMinutes[] = [3, 15, 45];
 
@@ -89,6 +91,9 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
         <p>
           Learned <strong>{rate ? formatRate(rate) : "…"}</strong>
           {rateFailed && " (could not load)"}
+          {/* One paragraph, so the commit buttons keep their room on a small phone. */}
+          <br />
+          This week: <strong>{status ? formatWeekMinutes(status.weekMinutes) : "…"}</strong>
         </p>
         {placementTown && (
           <div className="notice row">
@@ -112,6 +117,8 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
       </div>
 
       {choices}
+      {/* Below the choices: it loads late, and must never move or push down the commit buttons. */}
+      <WeeklySummaryCard />
     </>
   );
 }

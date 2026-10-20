@@ -13,7 +13,8 @@ import { loadReviewRecords } from "@/lib/review-log";
 import { deviceLabel } from "@/lib/events/device";
 import { postEvents } from "@/lib/events/post-events";
 import type { SessionEvent } from "@/lib/events/write-events";
-import { currentLearningDay, formatRate, loadThirtyDayRate } from "@/lib/learning-log";
+import { formatWeekMinutes } from "@/core/week";
+import { currentLearningDay, formatRate, loadSessionNumbers } from "@/lib/learning-log";
 import { browserClient } from "@/lib/supabase/browser";
 import { BattleFlow } from "./battle-flow";
 import { CatchFlow } from "./catch-flow";
@@ -27,7 +28,7 @@ const SAVE_EVERY_MS = 60_000;
 /** The learning number of the current town (design 7): how often the learner picked the best move. */
 type BestMoves = { townName: string; rate: BestMoveRate };
 
-type Summary = { saved: boolean; rate: ThirtyDayRate | null; bestMoves: BestMoves | null };
+type Summary = { saved: boolean; numbers: { rate: ThirtyDayRate; weekMinutes: number } | null; bestMoves: BestMoves | null };
 
 export function SessionScreen({
   committedMinutes,
@@ -51,10 +52,15 @@ export function SessionScreen({
           </p>
         )}
         <p>
-          Learned <strong>{summary.rate ? formatRate(summary.rate) : "…"}</strong>
-          {!summary.rate && " (could not load)"}
+          Learned <strong>{summary.numbers ? formatRate(summary.numbers.rate) : "…"}</strong>
+          {!summary.numbers && " (could not load)"}
         </p>
         <p className="lead">A day counts when you learn for 3 minutes or more.</p>
+        {summary.numbers && (
+          <p>
+            This week: <strong>{formatWeekMinutes(summary.numbers.weekMinutes)}</strong>
+          </p>
+        )}
         {summary.bestMoves && (
           <>
             <p>
@@ -127,11 +133,11 @@ function RunningSession({
   async function finish() {
     setFinishing(true);
     const saved = await postEvents([snapshot()]);
-    const [rate, bestMoves] = await Promise.all([
-      loadThirtyDayRate(browserClient()).catch(() => null),
+    const [numbers, bestMoves] = await Promise.all([
+      loadSessionNumbers(browserClient()).catch(() => null),
       loadBestMoves(programStartDate).catch(() => null),
     ]);
-    onFinished({ saved, rate, bestMoves });
+    onFinished({ saved, numbers, bestMoves });
   }
 
   return (

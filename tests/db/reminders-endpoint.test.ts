@@ -1,6 +1,8 @@
 import { afterAll, afterEach, beforeAll, describe, expect, inject, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import webpush from "web-push";
+import { latestSummaryWeek } from "@/core/week";
+import { writeEvents } from "@/lib/events/write-events";
 import { ensureProfile, saveReminderTimes } from "@/lib/profile";
 import { savePushSubscription } from "@/lib/reminders/push-subscriptions";
 import type { PushSender } from "@/lib/reminders/send-reminders";
@@ -98,6 +100,29 @@ describe("POST /api/reminders/notify", () => {
 
     expect((await notify(`Bearer ${CRON_SECRET}`)).status).toBe(200);
     expect(sent.filter((s) => s.endpoint === endpoint)).toHaveLength(1);
+  });
+
+  it("also makes the Sunday summary of the last finished week on the same run", async () => {
+    setUp();
+    // 5 minutes on Monday 09:00 home time of the last finished week, whenever this test runs.
+    const { weekStart } = latestSummaryWeek(new Date(), "Asia/Ho_Chi_Minh");
+    const sessionId = crypto.randomUUID();
+    const at = (minutes: number) => new Date(Date.parse(`${weekStart}T02:00:00Z`) + minutes * 60_000).toISOString();
+    const snapshot = (minutes: number) => ({
+      type: "session" as const,
+      clientEventId: crypto.randomUUID(),
+      sessionId,
+      occurredAt: at(minutes),
+      committedMinutes: 3 as const,
+      activeSeconds: minutes * 60,
+      device: "test",
+    });
+    await writeEvents(user.client, [snapshot(0), snapshot(5)]);
+
+    const response = await notify(`Bearer ${CRON_SECRET}`);
+    expect(await response.json()).toEqual(expect.objectContaining({ summariesChecked: expect.any(Number) }));
+    const { data } = await user.client.from("weekly_summaries").select("week_start, minutes");
+    expect(data).toEqual([{ week_start: weekStart, minutes: 5 }]);
   });
 });
 
