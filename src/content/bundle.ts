@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { GlossaryWord } from "./glossary.ts";
+import type { Boss } from "./weekend.ts";
 import type { Creature, Move, PlacementQuestion, Scenario, Town } from "./schema.ts";
 
 // The bundle is what the app imports: the content plus a content hash per item.
@@ -15,11 +16,14 @@ export type BundledTown = Omit<Town, "creatures" | "placement" | "scenarios"> & 
   placement: Hashed<PlacementQuestion>[];
   scenarios: BundledScenario[];
 };
-export type ContentBundle = { towns: BundledTown[]; glossary: GlossaryWord[] };
+/** The weekend boss of a town (design 3: week 1 of each month). */
+export type TownWeekend = { townId: string; boss: Boss };
+export type ContentBundle = { towns: BundledTown[]; glossary: GlossaryWord[]; weekends: TownWeekend[] };
 
-export function buildBundle(towns: Town[], glossary: GlossaryWord[] = []): ContentBundle {
+export function buildBundle(towns: Town[], glossary: GlossaryWord[] = [], weekends: TownWeekend[] = []): ContentBundle {
   return {
     glossary,
+    weekends,
     towns: towns.map((town) => ({
       ...town,
       creatures: town.creatures.map((creature) => ({

@@ -18,6 +18,8 @@ export type DataExport = {
   profile: Row | null;
   /** Every row of every event table, as stored, keyed by table name. */
   events: Record<string, Row[]>;
+  /** The learner's weekend writing, such as the boss design doc. Not events: they change as you type. */
+  weekendDocuments: Row[];
   /** The same 3-minute rule as the owner's other habit app (design 12.7). */
   daysLearnedLast30: ThirtyDayRate & { ruleSeconds: number };
 };
@@ -27,9 +29,12 @@ export type DataExport = {
  * any user, and a user's own client can never read another user's rows (row-level security).
  */
 export async function buildExport(client: SupabaseClient, userId: string, now = new Date()): Promise<DataExport> {
-  const [profile, today, ...tables] = await Promise.all([
+  const [profile, today, weekendDocuments, ...tables] = await Promise.all([
     client.from("profiles").select("*").eq("user_id", userId).maybeSingle(),
     currentLearningDay(client),
+    selectAll((from, to) =>
+      client.from("weekend_documents").select("*").eq("user_id", userId).order("id").range(from, to).returns<Row[]>(),
+    ),
     ...EVENT_TABLES.map((table) =>
       selectAll((from, to) =>
         client.from(table).select("*").eq("user_id", userId).order("id").range(from, to).returns<Row[]>(),
@@ -48,6 +53,7 @@ export async function buildExport(client: SupabaseClient, userId: string, now = 
     today,
     profile: profile.data,
     events,
+    weekendDocuments,
     daysLearnedLast30: { ...rate, ruleSeconds: LEARNED_DAY_SECONDS },
   };
 }

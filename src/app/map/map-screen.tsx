@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { towns } from "@/content";
+import { towns, weekendBoss } from "@/content";
 import { badges, gymIsOpen, type GymRecord } from "@/core/gym";
 import { currentTownNumber, ROADMAP, townStartDay, townToPlay } from "@/core/roadmap";
 import { loadGymRecords } from "@/lib/gym-log";
@@ -105,6 +105,11 @@ export function MapScreen({ programStartDate }: { programStartDate: string }) {
           <p className="lead">
             Its creatures are not ready yet. You keep playing Town {played.number}: {played.name}.
           </p>
+        )}
+        {shownTown && weekendBoss(shownTown.id) && shownTown.number <= current && (
+          <Link href={`/weekend/${shownTown.id}`} className="button button-quiet">
+            Weekend boss
+          </Link>
         )}
         {shownTown && gymIsOpen(programStartDate, shownTown.number, today) && (
           <Link href={`/gym/${shownTown.id}`} className="button button-quiet">

@@ -2,6 +2,7 @@ import type { ConfusablePair } from "@/core/review";
 import { currentTownNumber, townToPlay } from "@/core/roadmap";
 import type { Creature, CreatureOf } from "../core/week.ts";
 import type { BundledTown, ContentBundle } from "./bundle.ts";
+import type { Boss } from "./weekend.ts";
 import type { Card } from "./schema.ts";
 import generated from "./bundle.generated.json";
 import fixture from "./fixture.generated.json";
@@ -14,6 +15,11 @@ export const towns: BundledTown[] = bundle.towns.filter((town) => !town.retired)
 
 /** Pairs of creatures or moves that are easy to mix up, from every town (design 6). */
 export const confusablePairs: ConfusablePair[] = bundle.towns.flatMap((town) => town.confusablePairs);
+
+/** The weekend boss of a town (design 3: week 1 of each month), or undefined when it has none yet. */
+export function weekendBoss(townId: string): Boss | undefined {
+  return bundle.weekends.find((weekend) => weekend.townId === townId)?.boss;
+}
 
 /** Hard words with a simple definition, shown on tap (design 2). */
 export const glossary = bundle.glossary;

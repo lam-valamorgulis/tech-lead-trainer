@@ -122,6 +122,10 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
           <Link href="/map" className="button button-quiet">
             Map
           </Link>
+          {/* A computer task (design 3): on a phone it would push the commit buttons down. The map links it too. */}
+          <Link href="/weekend" className="button button-quiet wide-only">
+            Weekend
+          </Link>
           <Link href="/field-guide" className="button button-quiet">
             Field Guide
           </Link>

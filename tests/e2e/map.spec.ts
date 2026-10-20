@@ -16,6 +16,8 @@ test("the map shows 12 towns, marks the learner's town, and a tap shows a town's
     await expect(page.getByRole("button", { name: "Town 1 You are here" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Town 1: Fixture Town" })).toBeVisible();
     await expect(page.getByText("Month 1 · your town now")).toBeVisible();
+    // On a phone the weekend boss is linked here, since home shows it only on a computer.
+    await expect(page.getByRole("link", { name: "Weekend boss" })).toHaveAttribute("href", "/weekend/t99");
 
     await page.getByRole("button", { name: "Town 2 Not open yet" }).click();
     await expect(page.getByRole("heading", { name: "Town 2: API design" })).toBeVisible();

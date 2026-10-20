@@ -77,6 +77,35 @@
       "definition": "Any tool that acts for the user, most often the web browser."
     }
   ],
+  "weekends": [
+    {
+      "townId": "t01",
+      "boss": {
+        "title": "Weekend 1 boss: the new checkout page",
+        "situation": [
+          {
+            "kind": "paragraph",
+            "text": "A shop moves its checkout page to a new address, `checkout.shop.example`. The shop API stays at `api.shop.example`. On the first test day, three things go wrong:"
+          },
+          {
+            "kind": "list",
+            "items": [
+              "The browser blocks every call from the checkout page to the API.",
+              "The login cookie does not reach the API.",
+              "A slow phone network makes some customers tap \"Pay\" twice. Two orders are created."
+            ]
+          },
+          {
+            "kind": "paragraph",
+            "text": "You are the tech lead. Write a short design doc that fixes all three. A design doc is a short plan you write before you code. A Mermaid diagram is a drawing made from a few lines of text."
+          }
+        ],
+        "mermaidStarter": "sequenceDiagram\n    participant Browser\n    participant API as api.shop.example\n    Browser->>API: OPTIONS /orders (preflight)\n    API-->>Browser: ??? (which headers?)\n    Browser->>API: POST /orders\n    API-->>Browser: ???",
+        "coachPrompt": "You are my tech lead coach. Below is my design doc for a made-up checkout problem. Do not give me a model answer yet. Ask me ONE question at a time about my options and my decision. Wait for my reply. Give hints, not solutions. After three rounds, tell me which trade-off I missed. Then ask me to explain the trade-off again in my own words. Show me two English mistakes and ask me to fix them.",
+        "modelAnswer": "Read this only after the chat with the coach. Compare it with your own doc.\nYour answer can be different and still good. What matters is that you named the trade-offs.\n\n## Problem\n\nThe new checkout page and the API are on different origins. The browser blocks the calls, sends no login cookie, and a slow network creates double orders.\nWe know it is fixed when a test customer can pay once, with one tap, and see one order.\n\n## Options and decision\n\n| Problem | Options | Decision |\n|---|---|---|\n| 1. Browser blocks the calls | A: Serve the API under the checkout origin with a proxy. B: Add CORS headers on the API for `https://checkout.shop.example`. | B. The API opts in for one named origin. Source: [MDN: CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS) |\n| 2. No login cookie | A: Send the token in a header instead of a cookie. B: Keep the cookie, set `credentials: \"include\"`, and answer `Access-Control-Allow-Credentials: true`. | B. It is the smallest change. The origin stays one name, never `*`. Source: [MDN: CORS, credentials](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS#requests_with_credentials) |\n| 3. Double orders | A: Disable the Pay button after one tap. B: Send an idempotency key with each payment. | Both. The button helps most people. Only the key makes a retry safe. Sources: [RFC 9110, 9.2.2](https://www.rfc-editor.org/rfc/rfc9110.html#name-idempotent-methods), [Stripe](https://docs.stripe.com/api/idempotent_requests) |\n\n## Trade-offs\n\n- A CORS rule for one origin is safe, but every new site needs a change on the API.\n- Cookies across origins need care. A wrong origin rule could let another site use the cookie.\n- An idempotency key means the API must store keys and their results.\n\n## Risks\n\n- A typo in the allowed origin breaks checkout again. A test on the real address catches it.\n- A key that is reused for a different payment returns the old result. The client must make a new key per payment.\n\n## Diagram\n\n```mermaid\nsequenceDiagram\n    participant Browser as checkout.shop.example\n    participant API as api.shop.example\n    Browser->>API: OPTIONS /orders (preflight)\n    API-->>Browser: Allow-Origin: https://checkout.shop.example<br/>Allow-Credentials: true\n    Browser->>API: POST /orders + cookie + Idempotency-Key: k1\n    API-->>Browser: 201 order 42\n    Browser->>API: POST /orders again (slow network) + Idempotency-Key: k1\n    API-->>Browser: 201 order 42 (the same order, not a new one)\n```"
+      }
+    }
+  ],
   "towns": [
     {
       "id": "t01",

@@ -61,4 +61,10 @@ describe("buildBundle", () => {
     expect(buildBundle([town()], glossary).glossary).toEqual(glossary);
     expect(buildBundle([town()]).glossary).toEqual([]);
   });
+
+  it("carries the weekend boss of each town", () => {
+    const boss = { title: "Boss", situation: [{ kind: "paragraph" as const, text: "A shop breaks." }], mermaidStarter: "graph TD", coachPrompt: null, modelAnswer: null };
+    expect(buildBundle([town()], [], [{ townId: "t99", boss }]).weekends).toEqual([{ townId: "t99", boss }]);
+    expect(buildBundle([town()]).weekends).toEqual([]);
+  });
 });
