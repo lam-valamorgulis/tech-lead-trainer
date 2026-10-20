@@ -8,6 +8,7 @@ import { selectAll } from "./select-all";
  * real place. Reviews still waiting to be sent count as today's.
  */
 export async function loadReviewRecords(client: SupabaseClient, today: string): Promise<ReviewRecord[]> {
+  const waitingBefore = pendingEvents("review");
   const rows = await selectAll((from, to) =>
     client
       .from("review_events")
@@ -17,8 +18,9 @@ export async function loadReviewRecords(client: SupabaseClient, today: string): 
       .range(from, to)
       .returns<{ client_event_id: string; item_id: string; learning_day: string; grade: ReviewRecord["grade"] }[]>(),
   );
+  const savedIds = new Set(rows.map((row) => row.client_event_id));
   const saved = rows.map((row) => ({ itemId: row.item_id, learningDay: row.learning_day, grade: row.grade }));
-  const waiting = pendingEvents("review", new Set(rows.map((row) => row.client_event_id))).map((event) => ({
+  const waiting = waitingBefore.filter((event) => !savedIds.has(event.clientEventId)).map((event) => ({
     itemId: event.itemId,
     learningDay: today,
     grade: event.grade,

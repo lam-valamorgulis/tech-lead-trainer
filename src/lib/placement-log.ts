@@ -5,6 +5,7 @@ import { selectAll } from "./select-all";
 
 /** Every placement answer of the signed-in user, plus answers still waiting to be sent. */
 export async function loadPlacementRecords(client: SupabaseClient, today: string): Promise<PlacementRecord[]> {
+  const waitingBefore = pendingEvents("placement");
   const rows = await selectAll((from, to) =>
     client
       .from("placement_events")
@@ -14,13 +15,14 @@ export async function loadPlacementRecords(client: SupabaseClient, today: string
       .range(from, to)
       .returns<{ client_event_id: string; town_id: string; item_id: string; correct: boolean; learning_day: string }[]>(),
   );
+  const savedIds = new Set(rows.map((row) => row.client_event_id));
   const saved = rows.map((row) => ({
     townId: row.town_id,
     itemId: row.item_id,
     correct: row.correct,
     learningDay: row.learning_day,
   }));
-  const waiting = pendingEvents("placement", new Set(rows.map((row) => row.client_event_id))).map((event) => ({
+  const waiting = waitingBefore.filter((event) => !savedIds.has(event.clientEventId)).map((event) => ({
     townId: event.townId,
     itemId: event.itemId,
     correct: event.correct,
