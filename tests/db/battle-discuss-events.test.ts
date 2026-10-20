@@ -92,10 +92,12 @@ describe("Discuss in Claude and teach-back events", () => {
     ]);
   });
 
-  it("refuse an empty sentence, a sentence over 500 characters and a teach-back with no item", async () => {
+  it("refuse an empty sentence, a sentence over 500 characters, no item, and an empty or long item id", async () => {
     await expect(writeEvents(user.client, [teachBackEvent({ firstSentence: "  " })])).rejects.toThrow();
     await expect(writeEvents(user.client, [teachBackEvent({ secondSentence: "x".repeat(501) })])).rejects.toThrow();
     await expect(writeEvents(user.client, [teachBackEvent({ itemIds: [] })])).rejects.toThrow();
+    await expect(writeEvents(user.client, [teachBackEvent({ itemIds: ["cache", ""] })])).rejects.toThrow();
+    await expect(writeEvents(user.client, [teachBackEvent({ itemIds: ["x".repeat(101)] })])).rejects.toThrow();
   });
 
   it("refuse a teach-back that the endpoint schema does not accept", () => {

@@ -159,6 +159,8 @@ export type BattleTurnEvent = z.infer<typeof battleTurnEventSchema>;
 export type BattleEvent = z.infer<typeof battleEventSchema>;
 export type BattleCheckEvent = z.infer<typeof battleCheckEventSchema>;
 export type BattleDiscussEvent = z.infer<typeof battleDiscussEventSchema>;
+/** The fields every event of one battle shares. */
+export type BattleEventFields = Pick<BattleTurnEvent, "sessionId" | "occurredAt" | "battleId" | "scenarioId" | "contentHash">;
 export type BattleTeachBackEvent = z.infer<typeof battleTeachBackEventSchema>;
 export type LearningEvent = z.infer<typeof eventSchema>;
 

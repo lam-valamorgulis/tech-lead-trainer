@@ -38,7 +38,7 @@ export function creatureOf(moveId: string): string {
 }
 
 /** The move with the top damage. The content checker makes sure there is exactly one. */
-function bestRow(turn: BattleTurn) {
+export function bestRow(turn: BattleTurn) {
   return turn.moves.reduce((best, row) => (row.damage > best.damage ? row : best));
 }
 

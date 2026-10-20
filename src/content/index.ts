@@ -57,7 +57,9 @@ export function itemCard(id: string): { name: string; card: Card } | undefined {
   return cards.get(id);
 }
 
+const scenarioNames = new Map(bundle.towns.flatMap((town) => town.scenarios.map((scenario) => [scenario.id, scenario.name])));
+
 /** The display name of a battle scenario in any town, retired or not. */
 export function scenarioName(id: string): string | undefined {
-  return bundle.towns.flatMap((town) => town.scenarios).find((scenario) => scenario.id === id)?.name;
+  return scenarioNames.get(id);
 }

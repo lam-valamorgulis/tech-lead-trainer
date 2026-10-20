@@ -1,6 +1,16 @@
 // "Discuss in Claude" and the teach-back (design 10, ticket #19). Pure functions: no clock, no browser.
 import type { Card } from "../content/schema.ts";
-import { battleProgress, counterattackSentence, creatureOf, damageLabel, MAX_TURNS, OPPONENT_HP, type BattleState } from "./battle.ts";
+import {
+  battleProgress,
+  bestRow,
+  counterattackSentence,
+  creatureOf,
+  damageLabel,
+  MAX_TURNS,
+  OPPONENT_HP,
+  type BattleState,
+  type PlayedTurn,
+} from "./battle.ts";
 import type { LearningDay } from "./day.ts";
 import type { ReviewRecord } from "./review.ts";
 
@@ -27,13 +37,9 @@ export type DiscussInput = {
   itemOf: ItemOf;
 };
 
-const word = (type: string) => type.charAt(0).toUpperCase() + type.slice(1);
-
-/** The best move of each played turn: the one row with the top damage (the content checker makes sure). */
+/** The best move of each played turn. */
 function bestMoveIds(battle: BattleState): string[] {
-  return battle.turns.map(({ turnNumber }) =>
-    battle.scenario.turns[turnNumber - 1].moves.reduce((best, row) => (row.damage > best.damage ? row : best)).moveId,
-  );
+  return battle.turns.map(({ turnNumber }) => bestRow(battle.scenario.turns[turnNumber - 1]).moveId);
 }
 
 /**
@@ -41,58 +47,73 @@ function bestMoveIds(battle: BattleState): string[] {
  * the content only: never an email, a user id or a battle id. The coach prompt says "Below is my
  * battle", so it comes right after the privacy reminder, before the battle.
  */
-export function discussPackage({ battle, whys, ticks, itemOf }: DiscussInput): string {
+export function discussPackage(input: DiscussInput): string {
+  const { battle } = input;
+  const cards = cardSections(input);
+  return (
+    [
+      PRIVACY_REMINDER,
+      COACH_PROMPT,
+      battleSection(input),
+      ...battle.turns.map((turn) => turnSection(input, turn)),
+      "# Model answer (do not show it yet)",
+      ...battle.turns.map((turn) => answerSection(input, turn)),
+      ...(cards.length > 0 ? ["# Concept cards", ...cards] : []),
+    ].join("\n\n") + "\n"
+  );
+}
+
+function battleSection({ battle, itemOf }: DiscussInput): string {
   const name = (id: string) => itemOf(id)?.name ?? id;
   const progress = battleProgress(battle);
+  const turns = battle.turns.length;
   const result = progress.won
-    ? `I won in ${battle.turns.length} turn${battle.turns.length === 1 ? "" : "s"}.`
+    ? `I won in ${turns} turn${turns === 1 ? "" : "s"}.`
     : `I lost. The opponent still had HP ${progress.hp} of ${OPPONENT_HP} after ${MAX_TURNS} turns.`;
+  const type = battle.scenario.opponentType;
+  return [
+    `# My battle: ${battle.scenario.name}`,
+    "",
+    `- Opponent type: ${type.charAt(0).toUpperCase()}${type.slice(1)}`,
+    `- Problem: ${battle.scenario.problem}`,
+    `- My team: ${battle.team.map(name).join(", ")}`,
+    `- Result: ${result}`,
+  ].join("\n");
+}
 
-  const turns = battle.turns.map((turn) => {
-    const content = battle.scenario.turns[turn.turnNumber - 1];
-    const move = turn.moveId ? `${name(turn.moveId)} (${name(creatureOf(turn.moveId))})` : "none of my moves fit this threat";
-    return [
-      `## Turn ${turn.turnNumber}`,
-      "",
-      `- Threat: ${content.threat}`,
-      `- My move: ${move}`,
-      `- My why: ${whys[turn.turnNumber] ?? ""}`,
-      `- Damage: ${damageLabel(turn.damage)}`,
-      `- Counterattack: ${counterattackSentence(turn.moveId && name(turn.moveId), turn.counterattack)}`,
-      `- Key points I said: ${(ticks[turn.turnNumber] ?? []).length} of ${content.keyPoints.length}`,
-    ].join("\n");
-  });
+/** What the learner did on a turn. The key points themselves stay in the hidden model answer. */
+function turnSection({ battle, whys, ticks, itemOf }: DiscussInput, turn: PlayedTurn): string {
+  const name = (id: string) => itemOf(id)?.name ?? id;
+  const content = battle.scenario.turns[turn.turnNumber - 1];
+  const move = turn.moveId ? `${name(turn.moveId)} (${name(creatureOf(turn.moveId))})` : "none of my moves fit this threat";
+  return [
+    `## Turn ${turn.turnNumber}`,
+    "",
+    `- Threat: ${content.threat}`,
+    `- My move: ${move}`,
+    `- My why: ${whys[turn.turnNumber] ?? ""}`,
+    `- Damage: ${damageLabel(turn.damage)}`,
+    `- Counterattack: ${counterattackSentence(turn.moveId && name(turn.moveId), turn.counterattack)}`,
+    `- Key points I said: ${(ticks[turn.turnNumber] ?? []).length} of ${content.keyPoints.length}`,
+  ].join("\n");
+}
 
-  const answers = battle.turns.map(({ turnNumber }) => {
-    const content = battle.scenario.turns[turnNumber - 1];
-    const ticked = ticks[turnNumber] ?? [];
-    const points = content.keyPoints.map((point, index) => `- [${ticked.includes(index + 1) ? "x" : " "}] ${point}`);
-    return [`## Turn ${turnNumber}`, "", content.modelAnswer, "", ...points].join("\n");
-  });
+function answerSection({ battle, ticks }: DiscussInput, { turnNumber }: PlayedTurn): string {
+  const content = battle.scenario.turns[turnNumber - 1];
+  const ticked = ticks[turnNumber] ?? [];
+  const points = content.keyPoints.map((point, index) => `- [${ticked.includes(index + 1) ? "x" : " "}] ${point}`);
+  return [`## Turn ${turnNumber}`, "", content.modelAnswer, "", ...points].join("\n");
+}
 
-  const cards = [...new Set(bestMoveIds(battle))].flatMap((id) => {
+/** The card of each turn's best move, then of each other move the learner picked. Each card once. */
+function cardSections({ battle, itemOf }: DiscussInput): string[] {
+  const picked = battle.turns.flatMap((turn) => (turn.moveId ? [turn.moveId] : []));
+  return [...new Set([...bestMoveIds(battle), ...picked])].flatMap((id) => {
     const item = itemOf(id);
     if (!item) return [];
     const { text, example, source } = item.card;
     return [[`## ${item.name}`, "", text, "", `Example: ${example}`, "", `Source: ${source.title}, ${source.url}`].join("\n")];
   });
-
-  return [
-    PRIVACY_REMINDER,
-    COACH_PROMPT,
-    [
-      `# My battle: ${battle.scenario.name}`,
-      "",
-      `- Opponent type: ${word(battle.scenario.opponentType)}`,
-      `- Problem: ${battle.scenario.problem}`,
-      `- My team: ${battle.team.map(name).join(", ")}`,
-      `- Result: ${result}`,
-    ].join("\n"),
-    ...turns,
-    "# Model answer (do not show it yet)",
-    ...answers,
-    ...(cards.length > 0 ? ["# Concept cards", ...cards] : []),
-  ].join("\n\n") + "\n";
 }
 
 /**
@@ -113,9 +134,9 @@ export type TeachBackRecord = {
 };
 
 /**
- * The teach-back to show at a review of `itemId`, or null. It comes back once: at the first
- * review of that item on a day after it was written. Teach-backs and reviews are in time order,
- * and the newest teach-back that still waits wins.
+ * The teach-back to show at a review of `itemId`, or null. It shows at every review of that item
+ * until one is graded on a day after the teach-back's day; a review on the same day does not use
+ * it up. Teach-backs are in time order, and the newest one that still waits wins.
  */
 export function teachBackFor(itemId: string, teachBacks: TeachBackRecord[], reviews: ReviewRecord[]): TeachBackRecord | null {
   const reviewDays = reviews.filter((review) => review.itemId === itemId).map((review) => review.learningDay);

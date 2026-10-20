@@ -17,7 +17,7 @@ import {
   type BattleState,
 } from "@/core/battle";
 import { postEvents } from "@/lib/events/post-events";
-import type { LearningEvent } from "@/lib/events/write-events";
+import type { BattleEventFields, LearningEvent } from "@/lib/events/write-events";
 import { DiscussInClaude } from "./discuss-in-claude";
 import { keepAboveKeyboard } from "./keyboard";
 import { OPPONENT_LOOK } from "./opponent-look";
@@ -57,7 +57,7 @@ export function BattleFlow({
     heading.current?.focus();
   }, [step, battle?.turns.length]);
 
-  const battleFields = () => ({
+  const battleFields = (): BattleEventFields => ({
     sessionId,
     occurredAt: new Date().toISOString(),
     battleId,
@@ -348,7 +348,7 @@ function MoveForm({ moves, onMove }: { moves: string[]; onMove: (moveId: string 
         <label className="field">
           <span className="field-label">Why this move?</span>
           <span className="lead">1 or 2 sentences, before you see the result.</span>
-          <textarea rows={3} maxLength={1000} value={why} onFocus={() => keepAboveKeyboard(form.current)}onChange={(event) => setWhy(event.target.value)} />
+          <textarea rows={3} maxLength={1000} value={why} onFocus={() => keepAboveKeyboard(form.current)} onChange={(event) => setWhy(event.target.value)} />
         </label>
         <button type="submit" className="button-main" disabled={!ready}>
           Make the move

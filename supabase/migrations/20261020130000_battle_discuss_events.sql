@@ -36,6 +36,17 @@ create policy "Owner can delete own battle discuss events" on public.battle_disc
 
 revoke update, delete, truncate on public.battle_discuss_events from anon, authenticated;
 
+-- True when every id is between 1 and 100 characters. An empty array is true.
+create function private.ids_fit(ids text[])
+returns boolean
+language sql
+immutable
+strict
+set search_path = ''
+as $$
+  select not exists (select 1 from unnest(ids) as id where id is null or char_length(id) not between 1 and 100)
+$$;
+
 -- The 2 teach-back sentences of a battle. `item_ids` are the review items they come back at: the
 -- best move of each played turn and its creature, fixed when the sentences are saved, so a later
 -- content edit never moves them to another item.
@@ -50,17 +61,8 @@ create table public.battle_teach_back_events (
   battle_id uuid not null,
   scenario_id text not null check (scenario_id ~ '^t[0-9]{2}-[a-z0-9-]+$'),
   content_hash text not null check (content_hash ~ '^[0-9a-f]{16}$'),
-  -- At most 3 turns, each with a best move and its creature. Checking the first 6 positions
-  -- checks every id.
-  item_ids text[] not null check (
-    cardinality(item_ids) between 1 and 6
-    and coalesce(char_length(item_ids[1]), 0) <= 100
-    and coalesce(char_length(item_ids[2]), 0) <= 100
-    and coalesce(char_length(item_ids[3]), 0) <= 100
-    and coalesce(char_length(item_ids[4]), 0) <= 100
-    and coalesce(char_length(item_ids[5]), 0) <= 100
-    and coalesce(char_length(item_ids[6]), 0) <= 100
-  ),
+  -- At most 3 turns, each with a best move and its creature.
+  item_ids text[] not null check (cardinality(item_ids) between 1 and 6 and private.ids_fit(item_ids)),
   first_sentence text not null check (char_length(btrim(first_sentence)) between 1 and 500),
   second_sentence text not null check (char_length(btrim(second_sentence)) between 1 and 500),
   unique (user_id, client_event_id),

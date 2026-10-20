@@ -5,12 +5,10 @@ import { itemCard } from "@/content";
 import type { BattleState } from "@/core/battle";
 import { CLAUDE_NEW_CHAT, discussPackage, teachBackItems } from "@/core/discuss";
 import { postEvents } from "@/lib/events/post-events";
+import type { BattleEventFields } from "@/lib/events/write-events";
 import { keepAboveKeyboard } from "./keyboard";
 
-/** The fields every battle event shares. */
-type EventFields = { sessionId: string; occurredAt: string; battleId: string; scenarioId: string; contentHash: string };
-
-type Copy = "copying" | "copied" | "failed";
+type CopyState = "copying" | "copied" | "failed";
 
 /**
  * "Discuss in Claude" (design 10, UI rule 12) and the teach-back. One tap copies the battle and
@@ -27,21 +25,25 @@ export function DiscussInClaude({
   battle: BattleState;
   whys: Record<number, string>;
   ticks: Record<number, number[]>;
-  eventFields: () => EventFields;
+  eventFields: () => BattleEventFields;
   onDone: () => void;
 }) {
-  const [copy, setCopy] = useState<Copy | null>(null);
+  const [copyState, setCopyState] = useState<CopyState | null>(null);
   const [text, setText] = useState("");
   const [saved, setSaved] = useState(false);
+  // A fast double tap opens one tab and saves one tap.
+  const tapped = useRef(false);
 
   function report(copied: boolean) {
-    setCopy(copied ? "copied" : "failed");
+    setCopyState(copied ? "copied" : "failed");
     void postEvents([{ type: "battle-discuss", clientEventId: crypto.randomUUID(), ...eventFields(), copied }]);
   }
 
   // Everything up to window.open runs inside the tap: iPhone Safari allows the clipboard write
   // and the new tab only there. The write starts first, then Claude opens.
   function discuss() {
+    if (tapped.current) return;
+    tapped.current = true;
     const pkg = discussPackage({ battle, whys, ticks, itemOf: itemCard });
     setText(pkg);
     let write: Promise<void> | undefined;
@@ -55,7 +57,7 @@ export function DiscussInClaude({
       report(false);
       return;
     }
-    setCopy("copying");
+    setCopyState("copying");
     window.open(CLAUDE_NEW_CHAT, "_blank", "noopener");
     write.then(
       () => report(true),
@@ -77,7 +79,7 @@ export function DiscussInClaude({
     setSaved(true);
   }
 
-  if (copy === null) {
+  if (copyState === null) {
     return (
       <>
         <p className="lead">Keep learning in your own Claude chat. One tap copies this battle and opens claude.ai.</p>
@@ -93,15 +95,24 @@ export function DiscussInClaude({
 
   return (
     <>
-      {copy === "copied" && <p role="status">Copied. Paste it into the new Claude chat.</p>}
-      {copy === "failed" && (
+      {copyState === "copied" && <p role="status">Copied. Paste it into the new Claude chat.</p>}
+      {copyState === "failed" && (
         <>
           <p role="alert" className="error">
             The copy did not work. Copy the text below by hand, then paste it into Claude.
           </p>
           <label className="field">
             <span className="field-label">Battle package</span>
-            <textarea rows={8} readOnly value={text} onFocus={(event) => event.target.select()} />
+            {/* iPhone Safari ignores select() on a read-only box, so the range is set too. */}
+            <textarea
+              rows={8}
+              readOnly
+              value={text}
+              onFocus={(event) => {
+                event.target.select();
+                event.target.setSelectionRange(0, event.target.value.length);
+              }}
+            />
           </label>
         </>
       )}

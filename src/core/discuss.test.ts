@@ -119,8 +119,13 @@ describe("discussPackage", () => {
 
     expect(text).toContain("- My team: Cache, Cookie\n- Result: I lost. The opponent still had HP 4 of 4 after 3 turns.");
     expect(text).toContain("- My move: HttpOnly (Cookie)\n- My why: c\n- Damage: No effect · 0 ○○");
-    // The best moves of the 3 turns: TTL, No store, CDN. Each card shows once.
-    expect(text.match(/^## (TTL|No store|CDN)$/gm)).toEqual(["## TTL", "## No store", "## CDN"]);
+    // The best moves of the 3 turns first, then the other picked move. Each card shows once.
+    expect(text.slice(text.indexOf("# Concept cards")).match(/^## .+$/gm)).toEqual([
+      "## TTL",
+      "## No store",
+      "## CDN",
+      "## HttpOnly",
+    ]);
   });
 
   it("says so when the team had no move for a threat", () => {
