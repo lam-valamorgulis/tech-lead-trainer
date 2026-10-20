@@ -86,8 +86,9 @@ function usePlacementTown(): PlacementOffer | null {
     currentLearningDay(client)
       .then((today) => loadPlacementRecords(client, today))
       .then((records) => {
-        if (cancelled || placementProgress(current, records).done) return;
-        setTown({ id: current.id, questions: current.placement.length });
+        if (cancelled) return;
+        // Next keeps this screen's state when you leave and come back, so clear an old offer too.
+        setTown(placementProgress(current, records).done ? null : { id: current.id, questions: current.placement.length });
       })
       .catch(() => undefined);
     return () => {
