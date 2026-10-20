@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { catchItems } from "../support/battle";
 import { local, signInNewUser } from "../support/e2e";
 import { sql } from "../support/local-admin";
 
@@ -10,20 +11,6 @@ import { sql } from "../support/local-admin";
  * Playwright cannot open it, so the test checks that the box and its button sit above it.
  */
 const KEYBOARD_HEIGHT = 336;
-
-async function catchToday(email: string, itemIds: string[]) {
-  for (const itemId of itemIds) {
-    await sql(
-      local,
-      `with u as (select id from auth.users where email = $1)
-       insert into catch_events (user_id, client_event_id, session_id, occurred_at, item_id, item_kind, content_hash,
-                                 answer_text, correct, confidence, phase)
-       select id, gen_random_uuid(), gen_random_uuid(), now(), $2, 'creature', '0123456789abcdef', 'seed', true, 3,
-              'before-card' from u`,
-      [email, itemId],
-    );
-  }
-}
 
 async function playTurn(page: Page, move: string, why: string, isPhone: boolean) {
   await page.getByLabel(move).check();
@@ -51,7 +38,7 @@ test("a full battle: team pick, threat first, why before the result, damage and 
   const user = await signInNewUser(page, "battle");
   try {
     // Caught today, so today has no catch and no review: the battle comes first.
-    await catchToday(user.email, ["cache", "cookie", "proxy"]);
+    await catchItems(user.email, ["cache", "cookie", "proxy"]);
     await page.getByRole("button", { name: "15 minutes" }).click();
 
     await expect(page.getByRole("heading", { name: "A battle begins: Sale day" })).toBeVisible();

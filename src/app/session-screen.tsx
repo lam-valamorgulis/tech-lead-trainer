@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { currentTown, reviewItem } from "@/content";
+import { currentTown, reviewItem, scenarioName } from "@/content";
 import { battleRechecks, bestMoveRates, formatBestMoveRate, nextBattle, type BattleOffer, type BestMoveRate } from "@/core/battle";
 import { nextCatch, type CatchItem } from "@/core/catch";
+import { teachBackFor } from "@/core/discuss";
 import { backlogPaused, DAILY_REVIEW_LIMIT, dueReviews, reviewStates } from "@/core/review";
 import type { ThirtyDayRate } from "@/core/day";
 import { loadBattleHistory } from "@/lib/battle-log";
@@ -208,7 +209,18 @@ function useTodaysPlan(committedMinutes: CommittedMinutes): { plan: TodaysPlan; 
       const rechecks = battleRechecks(history);
       const isReviewable = (id: string) => reviewItem(id) !== undefined;
       const due = dueReviews({ states: reviewStates(catches, reviews, rechecks), reviews, today, isReviewable }).map(
-        (state) => ({ state, item: reviewItem(state.itemId)! }),
+        (state): DueReview => {
+          // Design 10: the teach-back of a battle comes back at the next review of its items.
+          const teachBack = teachBackFor(state.itemId, history.teachBacks, reviews);
+          return {
+            state,
+            item: reviewItem(state.itemId)!,
+            teachBack: teachBack && {
+              scenarioName: scenarioName(teachBack.scenarioId) ?? teachBack.scenarioId,
+              sentences: teachBack.sentences,
+            },
+          };
+        },
       );
       const town = currentTown();
       const paused = backlogPaused(catches, reviews, today, isReviewable, rechecks);

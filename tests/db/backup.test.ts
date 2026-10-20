@@ -76,6 +76,24 @@ const events: LearningEvent[] = [
     bestMoveId: "cache",
     tickedPoints: [1, 3],
   },
+  {
+    type: "battle-discuss",
+    ...base(daysAgo(3)),
+    battleId,
+    scenarioId: "t01-black-friday",
+    contentHash: "0123456789abcdef",
+    copied: true,
+  },
+  {
+    type: "battle-teach-back",
+    ...base(daysAgo(3)),
+    battleId,
+    scenarioId: "t01-black-friday",
+    contentHash: "0123456789abcdef",
+    itemIds: ["cache"],
+    firstSentence: "A cache keeps a copy close.",
+    secondSentence: "An old copy can show an old price.",
+  },
   ...(["good", "good", "hard"] as const).map((grade, i): LearningEvent => {
     const at = daysAgo(8 - i * 2);
     return {
@@ -144,6 +162,10 @@ describe("weekly backup and restore", () => {
     expect(backup.tables.battle_turn_events).toEqual([expect.objectContaining({ best_move: true, damage: 2 })]);
     expect(backup.tables.battle_events).toEqual([expect.objectContaining({ result: "won", team: ["cache", "dns"] })]);
     expect(backup.tables.battle_check_events).toEqual([expect.objectContaining({ best_move_id: "cache", ticked_points: [1, 3] })]);
+    expect(backup.tables.battle_discuss_events).toEqual([expect.objectContaining({ copied: true })]);
+    expect(backup.tables.battle_teach_back_events).toEqual([
+      expect.objectContaining({ item_ids: ["cache"], first_sentence: "A cache keeps a copy close." }),
+    ]);
     expect(backup.tables.review_state.length).toBeGreaterThan(0);
     expect(backup.tables.content_reports).toEqual([expect.objectContaining({ message: "Typo" })]);
   });
