@@ -77,6 +77,34 @@
       "definition": "Any tool that acts for the user, most often the web browser."
     }
   ],
+  "weekends": [
+    {
+      "townId": "t01",
+      "boss": {
+        "title": "Weekend 1 boss: the new checkout page",
+        "situation": [
+          {
+            "kind": "paragraph",
+            "text": "A shop moves its checkout page to a new address, `checkout.shop.example`. The shop API stays at `api.shop.example`. On the first test day, three things go wrong:"
+          },
+          {
+            "kind": "list",
+            "items": [
+              "The browser blocks every call from the checkout page to the API.",
+              "The login cookie does not reach the API.",
+              "A slow phone network makes some customers tap \"Pay\" twice. Two orders are created."
+            ]
+          },
+          {
+            "kind": "paragraph",
+            "text": "You are the tech lead. Write a short design doc that fixes all three. A design doc is a short plan you write before you code. A Mermaid diagram is a drawing made from a few lines of text."
+          }
+        ],
+        "mermaidStarter": "sequenceDiagram\n    participant Browser\n    participant API as api.shop.example\n    Browser->>API: OPTIONS /orders (preflight)\n    API-->>Browser: ??? (which headers?)\n    Browser->>API: POST /orders\n    API-->>Browser: ???",
+        "coachPrompt": "You are my tech lead coach. Below is my design doc for a made-up checkout problem. Do not give me a model answer yet. Ask me ONE question at a time about my options and my decision. Wait for my reply. Give hints, not solutions. After three rounds, tell me which trade-off I missed. Then ask me to explain the trade-off again in my own words. Show me two English mistakes and ask me to fix them."
+      }
+    }
+  ],
   "towns": [
     {
       "id": "t01",

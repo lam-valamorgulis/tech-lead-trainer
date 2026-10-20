@@ -659,3 +659,41 @@ h2[tabindex="-1"]:focus {
 .tracking [role="status"]:empty {
   margin: 0;
 }
+
+/* Weekend editor (design 11): on a computer, the editor on the left and the preview on the right. */
+.weekend-grid {
+  display: grid;
+  gap: var(--space);
+}
+
+@media (min-width: 900px) {
+  .weekend-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .diagram-preview {
+    position: sticky;
+    top: var(--space);
+  }
+}
+
+.code-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Shown only on a wide screen, such as the Weekend link on home. As specific as a.button, so it wins. */
+a.wide-only {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  a.wide-only {
+    display: inline-flex;
+  }
+}

@@ -240,3 +240,27 @@ export function fixtureGlossary() {
     ],
   };
 }
+
+/** A small weekend boss for the fixture town, in the same Markdown shape as content/weekends. */
+export function fixtureBossMarkdown() {
+  return [
+    "# Weekend 1 boss: the slow sale page",
+    "",
+    "## The situation (example made up)",
+    "",
+    "The sale page of `shop.example` loads slowly. Visitors leave before it shows.",
+    "Two things go wrong:",
+    "",
+    "1. Every visitor downloads the same logo again.",
+    "2. Visitors far away wait for each page.",
+    "",
+    "## Mermaid diagram starter",
+    "",
+    "```mermaid",
+    "sequenceDiagram",
+    "    participant Browser",
+    "    participant Shop",
+    "    Browser->>Shop: GET /sale",
+    "```",
+  ].join("\n");
+}

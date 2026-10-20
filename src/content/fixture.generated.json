@@ -9,6 +9,29 @@
       "definition": "The small picture that shows the name of a shop."
     }
   ],
+  "weekends": [
+    {
+      "townId": "t99",
+      "boss": {
+        "title": "Weekend 1 boss: the slow sale page",
+        "situation": [
+          {
+            "kind": "paragraph",
+            "text": "The sale page of `shop.example` loads slowly. Visitors leave before it shows. Two things go wrong:"
+          },
+          {
+            "kind": "list",
+            "items": [
+              "Every visitor downloads the same logo again.",
+              "Visitors far away wait for each page."
+            ]
+          }
+        ],
+        "mermaidStarter": "sequenceDiagram\n    participant Browser\n    participant Shop\n    Browser->>Shop: GET /sale",
+        "coachPrompt": null
+      }
+    }
+  ],
   "towns": [
     {
       "id": "t99",
