@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { ExtraTime, ReadingTask } from "@/core/extra-time";
 import { postEvents } from "@/lib/events/post-events";
 import { BattleFlow } from "./battle-flow";
+import { keepAboveKeyboard } from "./keyboard";
 
 type Choice = "pick" | "battle" | "reading";
 
@@ -66,19 +67,12 @@ export function ExtraTimeFlow({
  */
 function ReadCloseWrite({ task, sessionId, onDone }: { task: ReadingTask; sessionId: string; onDone: () => void }) {
   const [step, setStep] = useState<"read" | "write" | "saved">("read");
-  const [points, setPoints] = useState(["", "", ""]);
-  const saved = useRef(false);
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     heading.current?.focus();
   }, [step]);
-  const ready = points.every((point) => point.trim() !== "");
 
-  function save(event: FormEvent) {
-    event.preventDefault();
-    // A fast double tap saves one task.
-    if (!ready || saved.current) return;
-    saved.current = true;
+  function save(points: string[]) {
     void postEvents([
       {
         type: "reading",
@@ -87,51 +81,62 @@ function ReadCloseWrite({ task, sessionId, onDone }: { task: ReadingTask; sessio
         occurredAt: new Date().toISOString(),
         itemId: task.itemId,
         sourceUrl: task.source.url,
-        points: points.map((point) => point.trim()),
+        points,
       },
     ]);
     setStep("saved");
   }
 
-  const sourceLink = (
-    <a href={task.source.url} target="_blank" rel="noopener noreferrer">
-      {task.source.title}
-      <span className="visually-hidden"> (opens in a new tab)</span>
-    </a>
+  if (step === "write") return <WriteStep task={task} heading={heading} onSave={save} />;
+  const saved = step === "saved";
+  return (
+    <section className="stack" aria-labelledby="reading-title">
+      <h2 id="reading-title" ref={heading} tabIndex={-1}>
+        {saved ? "3 points saved" : `Read: ${task.itemName}`}
+      </h2>
+      <p>
+        {saved
+          ? "Saved. Now open the source again and compare."
+          : "Read this primary source. Take your time. Then close it here and write what you remember."}
+      </p>
+      <p>
+        <a href={task.source.url} target="_blank" rel="noopener noreferrer">
+          {task.source.title}
+          <span className="visually-hidden"> (opens in a new tab)</span>
+        </a>
+      </p>
+      <button type="button" className="button-main" onClick={saved ? onDone : () => setStep("write")}>
+        {saved ? "Done" : "I have read it: close the source"}
+      </button>
+    </section>
   );
+}
 
-  if (step === "read") {
-    return (
-      <section className="stack" aria-labelledby="read-title">
-        <h2 id="read-title" ref={heading} tabIndex={-1}>
-          Read: {task.itemName}
-        </h2>
-        <p>Read this primary source. Take your time. Then close it here and write what you remember.</p>
-        <p>{sourceLink}</p>
-        <button type="button" className="button-main" onClick={() => setStep("write")}>
-          I have read it: close the source
-        </button>
-      </section>
-    );
-  }
+/** The 3 points from memory. The source is not on this screen at all. */
+function WriteStep({
+  task,
+  heading,
+  onSave,
+}: {
+  task: ReadingTask;
+  heading: React.RefObject<HTMLHeadingElement | null>;
+  onSave: (points: string[]) => void;
+}) {
+  const [points, setPoints] = useState(["", "", ""]);
+  const saved = useRef(false);
+  const form = useRef<HTMLFormElement>(null);
+  const ready = points.every((point) => point.trim() !== "");
 
-  if (step === "saved") {
-    return (
-      <section className="stack" aria-labelledby="saved-title">
-        <h2 id="saved-title" ref={heading} tabIndex={-1}>
-          3 points saved
-        </h2>
-        <p>Saved. Now open the source again and compare.</p>
-        <p>{sourceLink}</p>
-        <button type="button" className="button-main" onClick={onDone}>
-          Done
-        </button>
-      </section>
-    );
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    // A fast double tap saves one task.
+    if (!ready || saved.current) return;
+    saved.current = true;
+    onSave(points.map((point) => point.trim()));
   }
 
   return (
-    <form className="stack" onSubmit={save} aria-labelledby="write-title">
+    <form ref={form} className="stack" onSubmit={submit} aria-labelledby="write-title">
       <h2 id="write-title" ref={heading} tabIndex={-1}>
         Write: {task.itemName}
       </h2>
@@ -143,6 +148,8 @@ function ReadCloseWrite({ task, sessionId, onDone }: { task: ReadingTask; sessio
             rows={2}
             maxLength={500}
             value={point}
+            // UI rule 7: the box stays above the iPhone keyboard.
+            onFocus={(event) => keepAboveKeyboard(event.currentTarget.closest("label"))}
             onChange={(event) => setPoints(points.map((p, i) => (i === index ? event.target.value : p)))}
           />
         </label>
@@ -150,6 +157,8 @@ function ReadCloseWrite({ task, sessionId, onDone }: { task: ReadingTask; sessio
       <button type="submit" className="button-main" disabled={!ready}>
         Save my 3 points
       </button>
+      {/* Room below the button, so a box can scroll to the top of a phone screen. */}
+      <div aria-hidden="true" className="keyboard-room" />
     </form>
   );
 }

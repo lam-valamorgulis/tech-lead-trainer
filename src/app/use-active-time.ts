@@ -46,6 +46,8 @@ export function useActiveTime(sessionId: string, committedMinutes: SessionEvent[
       clearInterval(tick);
       clearInterval(save);
       document.removeEventListener("visibilitychange", onHide);
+      // Leaving the screen inside the app, for example to the boss page, keeps the last seconds.
+      void postEvents([snapshot()], { keepalive: true });
     };
     // The session starts once, when the screen opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps

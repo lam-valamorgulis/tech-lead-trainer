@@ -55,4 +55,8 @@ describe("extraTime", () => {
     expect(empty?.reading).toBeNull();
     expect(empty?.extraBattle).toBeNull();
   });
+
+  it("is not offered when it would have no task at all", () => {
+    expect(extraTime({ ...base, catches: [], town: town(), committedMinutes: 45, hasBoss: false })).toBeNull();
+  });
 });

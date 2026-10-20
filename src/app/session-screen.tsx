@@ -20,6 +20,7 @@ import { CatchFlow } from "./catch-flow";
 import { ReviewFlow, type DueReview } from "./review-flow";
 import { useActiveTime } from "./use-active-time";
 import { extraTime, type ExtraTime } from "@/core/extra-time";
+import { sessionStep, type SessionStep } from "@/core/session-plan";
 import { loadReadingRecords } from "@/lib/reading-log";
 import { ExtraTimeFlow } from "./extra-time-flow";
 
@@ -149,12 +150,11 @@ type TodaysWork = {
   catchItem: CatchItem | null;
   battle: BattleOffer | null;
   /** Extra time on a 45-minute day, and the town it belongs to. */
-  extra: ExtraTime | null;
-  townId: string | null;
+  extra: { time: ExtraTime; townId: string } | null;
   paused: boolean;
 };
 
-type Phase = "reviews" | "catch" | "battle" | "extra" | "done";
+type Phase = SessionStep;
 
 type TodaysPlan =
   | { state: "loading" | "done" | "nothing" | "failed" }
@@ -187,45 +187,7 @@ function useTodaysPlan(
 
   useEffect(() => {
     let cancelled = false;
-    const client = browserClient();
-    (async () => {
-      const today = await currentLearningDay(client);
-      const [catches, reviews, history, readings] = await Promise.all([
-        loadCatchRecords(client, today),
-        loadReviewRecords(client, today),
-        loadBattleHistory(client, today),
-        loadReadingRecords(client, today),
-      ]);
-      const battles = history.battles;
-      // A lost battle and a model answer with missing key points bring moves back tomorrow.
-      const rechecks = battleRechecks(history);
-      const isReviewable = (id: string) => reviewItem(id) !== undefined;
-      const states = reviewStates(catches, reviews, rechecks);
-      const due = dueReviews({ states, reviews, today, isReviewable, pairs: confusablePairs }).map(
-        (state): DueReview => {
-          // Design 10: the teach-back of a battle comes back at the next review of its items.
-          const teachBack = teachBackFor(state.itemId, history.teachBacks, reviews);
-          return {
-            state,
-            item: reviewItem(state.itemId)!,
-            mixedWith: state.mixedWith && reviewItem(state.mixedWith)?.name,
-            teachBack: teachBack && {
-              scenarioName: scenarioName(teachBack.scenarioId) ?? teachBack.scenarioId,
-              sentences: teachBack.sentences,
-            },
-          };
-        },
-      );
-      const town = currentTown(programStartDate, today);
-      const paused = backlogPaused(catches, reviews, today, isReviewable, rechecks);
-      const catchItem = town ? nextCatch({ town, records: catches, today, committedMinutes, paused }) : null;
-      // The battle uses the creatures caught before today's session.
-      const battle = town ? nextBattle({ town, catches, battles, today, committedMinutes }) : null;
-      const extra = town
-        ? extraTime({ town, catches, battles, readings, today, committedMinutes, hasBoss: weekendBoss(town.id) !== undefined })
-        : null;
-      return { today, reviews: due, catchItem, battle, extra, townId: town?.id ?? null, paused };
-    })()
+    loadTodaysWork(committedMinutes, programStartDate)
       .then((value) => !cancelled && setWork(value))
       .catch(() => !cancelled && setFailed(true));
     return () => {
@@ -236,7 +198,48 @@ function useTodaysPlan(
   return { plan: planStep(work, phase, failed, setPhase), paused: work?.paused ?? false };
 }
 
-/** Where today's work is: reviews first, then the catch, the battle, extra time on a 45-minute day, then done. */
+/** Today's work, loaded once when the session starts. */
+async function loadTodaysWork(committedMinutes: CommittedMinutes, programStartDate: string): Promise<TodaysWork> {
+  const client = browserClient();
+  const today = await currentLearningDay(client);
+  const [catches, reviews, history, readings] = await Promise.all([
+    loadCatchRecords(client, today),
+    loadReviewRecords(client, today),
+    loadBattleHistory(client, today),
+    loadReadingRecords(client, today),
+  ]);
+  const battles = history.battles;
+  // A lost battle and a model answer with missing key points bring moves back tomorrow.
+  const rechecks = battleRechecks(history);
+  const isReviewable = (id: string) => reviewItem(id) !== undefined;
+  const states = reviewStates(catches, reviews, rechecks);
+  const due = dueReviews({ states, reviews, today, isReviewable, pairs: confusablePairs }).map(
+    (state): DueReview => {
+      // Design 10: the teach-back of a battle comes back at the next review of its items.
+      const teachBack = teachBackFor(state.itemId, history.teachBacks, reviews);
+      return {
+        state,
+        item: reviewItem(state.itemId)!,
+        mixedWith: state.mixedWith && reviewItem(state.mixedWith)?.name,
+        teachBack: teachBack && {
+          scenarioName: scenarioName(teachBack.scenarioId) ?? teachBack.scenarioId,
+          sentences: teachBack.sentences,
+        },
+      };
+    },
+  );
+  const town = currentTown(programStartDate, today);
+  const paused = backlogPaused(catches, reviews, today, isReviewable, rechecks);
+  const catchItem = town ? nextCatch({ town, records: catches, today, committedMinutes, paused }) : null;
+  // The battle uses the creatures caught before today's session.
+  const battle = town ? nextBattle({ town, catches, battles, today, committedMinutes }) : null;
+  const time = town
+    ? extraTime({ town, catches, battles, readings, today, committedMinutes, hasBoss: weekendBoss(town.id) !== undefined })
+    : null;
+  return { today, reviews: due, catchItem, battle, extra: time && town ? { time, townId: town.id } : null, paused };
+}
+
+/** Where today's work is: the first step with work, in the order of `sessionStep` (design 3). */
 function planStep(
   work: TodaysWork | null,
   phase: Phase,
@@ -245,20 +248,15 @@ function planStep(
 ): TodaysPlan {
   if (failed) return { state: "failed" };
   if (!work) return { state: "loading" };
-  if (phase === "reviews" && work.reviews.length > 0) {
-    return { state: "reviews", today: work.today, reviews: work.reviews, next: () => setPhase("catch") };
-  }
-  if ((phase === "reviews" || phase === "catch") && work.catchItem) {
-    return { state: "catch", item: work.catchItem, next: () => setPhase("battle") };
-  }
-  if (phase !== "done" && phase !== "extra" && work.battle) {
-    return { state: "battle", offer: work.battle, next: () => setPhase("extra") };
-  }
-  if (phase !== "done" && work.extra && work.townId) {
-    return { state: "extra", extra: work.extra, townId: work.townId, next: () => setPhase("done") };
-  }
-  if (work.reviews.length === 0 && !work.catchItem && !work.battle && !work.extra) return { state: "nothing" };
-  return { state: "done" };
+  const step = sessionStep(
+    { reviews: work.reviews.length > 0, catch: work.catchItem !== null, battle: work.battle !== null, extra: work.extra !== null },
+    phase,
+  );
+  if (step === "reviews") return { state: "reviews", today: work.today, reviews: work.reviews, next: () => setPhase("catch") };
+  if (step === "catch") return { state: "catch", item: work.catchItem!, next: () => setPhase("battle") };
+  if (step === "battle") return { state: "battle", offer: work.battle!, next: () => setPhase("extra") };
+  if (step === "extra") return { state: "extra", extra: work.extra!.time, townId: work.extra!.townId, next: () => setPhase("done") };
+  return { state: step };
 }
 
 /** The best-move rate of the current town, from every turn the learner played there. */

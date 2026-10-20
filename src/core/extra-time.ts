@@ -45,7 +45,10 @@ export function extraTime({
     readyOffers({ town, catches, battles }).find(
       (offer) => offer.scenario.id !== main?.scenario.id && !playedToday.has(offer.scenario.id),
     ) ?? null;
-  return { extraBattle, boss: hasBoss, reading: readingFor(town, catches, readings) };
+  const reading = readingFor(town, catches, readings);
+  // A menu with no task would only be in the way.
+  if (!extraBattle && !hasBoss && !reading) return null;
+  return { extraBattle, boss: hasBoss, reading };
 }
 
 /**

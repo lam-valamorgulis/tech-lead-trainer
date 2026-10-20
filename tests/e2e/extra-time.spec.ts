@@ -74,6 +74,34 @@ test("a 45-minute day adds extra time; read-close-write hides the source while t
   }
 });
 
+test("leaving for the boss keeps the seconds learned in the session", async ({ page }) => {
+  const user = await signInNewUser(page, "extra-time-boss");
+  try {
+    await setUpExtraTime(user.email);
+    await page.reload();
+    await page.getByRole("button", { name: "45 minutes" }).click();
+    await expect(page.getByRole("heading", { name: "Extra time" })).toBeVisible();
+    // The timer saves every 60 seconds. Leave after 3, before any timed save.
+    await expect(page.getByText("Active time: 0:03")).toBeVisible();
+    await page.getByRole("link", { name: "Work on the boss" }).click();
+    await expect(page).toHaveURL(/\/weekend\/t99$/);
+
+    await expect
+      .poll(async () => {
+        const [row] = await sql<{ seconds: number }>(
+          local,
+          `select coalesce(max(active_seconds), 0) as seconds from session_events s join auth.users u on u.id = s.user_id
+            where u.email = $1 and committed_minutes = 45`,
+          [user.email],
+        );
+        return row.seconds;
+      })
+      .toBeGreaterThanOrEqual(2);
+  } finally {
+    await user.forget();
+  }
+});
+
 test("a 15-minute day has no extra time", async ({ page }) => {
   const user = await signInNewUser(page, "extra-time-15");
   try {
