@@ -106,8 +106,9 @@ check_vercel_names() {
     MISSING_VERCEL_NAMES=("$@")
     return 1
   fi
+  # A name counts only on a row whose environments column says Production.
   for name in "$@"; do
-    grep -Eq "^[[:space:]]*${name}[[:space:]]" <<<"$list" || MISSING_VERCEL_NAMES+=("$name")
+    grep -Eq "^[[:space:]]*${name}[[:space:]].*Production" <<<"$list" || MISSING_VERCEL_NAMES+=("$name")
   done
   (( ${#MISSING_VERCEL_NAMES[@]} == 0 )) && return 0
   warn "Vercel Production does not have: ${MISSING_VERCEL_NAMES[*]}"
@@ -151,7 +152,7 @@ check_notify() {
   case "$with" in
     200) ;;
     503) note "503: the live deploy has no reminder settings. Add them in Vercel, then redeploy." ;;
-    401) note "401: Vercel has an older REMINDER_CRON_SECRET. Run this wizard again." ;;
+    401) note "401: Vercel has a REMINDER_CRON_SECRET from an older run. Type skip, then run this wizard again." ;;
     404) note "404: this is not the live app address." ;;
     *) note "Open the newest deployment's logs in Vercel to see the error." ;;
   esac

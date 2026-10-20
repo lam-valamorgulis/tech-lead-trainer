@@ -137,6 +137,12 @@ expect_status "Vercel settings added after one check: the wizard goes on and exi
 expect_out "Vercel settings added after one check: the first check named them" "Vercel Production does not have"
 
 new_repo
+enter_only 300
+run_wizard setup-reminders.sh "${READY[@]}" FAKE_VERCEL_ENV=Preview
+expect_out "Settings saved for Preview only do not count" "Vercel Production does not have: $ALL_VERCEL"
+expect_failed "Settings saved for Preview only: exits non-zero"
+
+new_repo
 # banner, address, stage 1, email, stage 2, the 4 values, then skip at the check.
 type_lines "" "" "" "" "" "" "" "" "" skip
 run_wizard setup-reminders.sh

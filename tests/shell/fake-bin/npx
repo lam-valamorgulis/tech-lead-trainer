@@ -2,6 +2,7 @@
 # Fake npx for tests/shell/wizards.test.sh: the Supabase, Vercel and web-push CLIs.
 #   FAKE_VERCEL_NAMES          names that `vercel env ls` shows for Production
 #   FAKE_VERCEL_READY_ON_CALL  from this call on, all 4 reminder names show (a human added them)
+#   FAKE_VERCEL_ENV            the environments column (default Production)
 #   FAKE_VAULT_WRITE           ok (default) or fail
 # FAKE_STATE is a folder where the fakes remember things between calls.
 all_names="VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT REMINDER_CRON_SECRET"
@@ -16,7 +17,7 @@ case "$*" in
       names="$all_names"
     fi
     echo " name                 value      type      environments   created"
-    for name in $names; do echo " $name   Hidden     Secret    Production     1m ago"; done ;;
+    for name in $names; do echo " $name   Hidden     Secret    ${FAKE_VERCEL_ENV:-Production}     1m ago"; done ;;
   *"supabase unlink"*) ;;
   *"supabase db query"*"--file"*)
     if [[ "${FAKE_VAULT_WRITE:-ok}" != "ok" ]]; then echo "error: permission denied" >&2; exit 1; fi
