@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Fake gh for tests/shell/wizards.test.sh.
+#   FAKE_GH_SECRET_SET  ok (default) or fail
+#   FAKE_GH_RUN_ID      the run id `gh run list` finds (default 4242; empty means none yet)
+#   FAKE_GH_RUN_WATCH   ok (default) or fail
+case "$1 $2" in
+  "auth token") echo "fake-token" ;;
+  "auth status" | "repo view") ;;
+  "secret set")
+    cat > /dev/null
+    if [[ "${FAKE_GH_SECRET_SET:-ok}" != "ok" ]]; then exit 1; fi
+    echo "$3" >> "$FAKE_STATE/gh-secrets" ;;
+  "secret list")
+    if [[ -f "$FAKE_STATE/gh-secrets" ]]; then sed 's/$/	2026-10-20/' "$FAKE_STATE/gh-secrets"; fi ;;
+  "workflow run") echo "run" >> "$FAKE_STATE/gh-workflow-runs" ;;
+  "run list") echo "${FAKE_GH_RUN_ID-4242}" ;;
+  "run watch") [[ "${FAKE_GH_RUN_WATCH:-ok}" == "ok" ]] ;;
+  *) echo "fake gh: unexpected call: $*" >&2; exit 2 ;;
+esac

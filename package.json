@@ -11,6 +11,7 @@
     "content:check": "node scripts/content.mjs check",
     "test": "vitest run --project core",
     "test:db": "vitest run --project db",
+    "test:shell": "bash tests/shell/wizards.test.sh",
     "test:e2e": "playwright test",
     "db:start": "supabase start -x studio,imgproxy,vector,logflare,supavisor,edge-runtime,realtime,storage-api,postgres-meta",
     "db:stop": "supabase stop",

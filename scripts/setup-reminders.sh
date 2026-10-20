@@ -184,17 +184,78 @@ finish() {
 # Reminder setup for ticket #20: push keys, the cron secret, and the 5-minute timer on the live
 # project. Run it AFTER Sprint 2 ships: the live database needs the reminders migration first.
 # Run it from anywhere: it moves to the repo root first.
+# Each required stage stays until its check passes, or you type skip (#76).
 cd "$(dirname "$0")/.."
 
 # Public values only (your email, the app address). Secrets live only in Vercel and Supabase Vault.
 ENV_FILE=".env.wizard"
 SUPABASE_PROJECT_REF="hvavvhzxbifqnufmrucl"
+# shellcheck source=lib/wizard-checks.sh
+source scripts/lib/wizard-checks.sh
 
-# live_sql "<sql>" runs SQL on the live project through your Supabase CLI login.
-live_sql() { npx supabase db query --linked --project-ref "$SUPABASE_PROJECT_REF" "$1"; }
+# ask_app_url sets APP_URL. Enter means the production address, never an older saved one.
+# It fails when you type skip or the input ends.
+ask_app_url() {
+  local input=""
+  printf '  %sThe live app address%s %s[Enter = %s, or type skip]%s ' \
+    "$BOLD" "$RESET" "$DIM" "$PRODUCTION_APP_URL" "$RESET"
+  read -r input || return 1
+  input="${input// /}"
+  [[ "$input" == "skip" ]] && return 1
+  input="${input:-$PRODUCTION_APP_URL}"
+  APP_URL="${input%/}"
+}
 
-# live_sql_file <file> runs a SQL file, so a secret never shows in the process list.
-live_sql_file() { npx supabase db query --linked --project-ref "$SUPABASE_PROJECT_REF" --file "$1"; }
+# copy_vercel_values NAME... puts each value on the clipboard, one at a time.
+copy_vercel_values() {
+  local name kind
+  for name in "$@"; do
+    case "$name" in
+      VAPID_PRIVATE_KEY | REMINDER_CRON_SECRET) kind="SECRET" ;;
+      *) kind="public" ;;
+    esac
+    printf '%s' "${!name}" | pbcopy
+    step "Name: $name ($kind)   Value: on your clipboard now. Paste it and save."
+    pause "Press Enter for the next one"
+  done
+}
+
+# store_vault_values writes both values to the live Vault, through a file only this user can
+# read, then checks that both names are there.
+store_vault_values() {
+  SQL_FILE=$(mktemp)
+  chmod 600 "$SQL_FILE"
+  # Both values are checked: the URL has no quotes, and the secret is hex.
+  cat > "$SQL_FILE" <<SQL
+do \$\$
+declare
+  existing uuid;
+begin
+  select id into existing from vault.secrets where name = 'reminders_notify_url';
+  if existing is null then
+    perform vault.create_secret('$NOTIFY_URL', 'reminders_notify_url');
+  else
+    perform vault.update_secret(existing, '$NOTIFY_URL');
+  end if;
+  select id into existing from vault.secrets where name = 'reminders_cron_secret';
+  if existing is null then
+    perform vault.create_secret('$REMINDER_CRON_SECRET', 'reminders_cron_secret');
+  else
+    perform vault.update_secret(existing, '$REMINDER_CRON_SECRET');
+  end if;
+end
+\$\$;
+SQL
+  if ! live_sql_file "$SQL_FILE" >/dev/null 2>&1; then
+    rm -f "$SQL_FILE"
+    warn "The live database did not take the Vault values. Not signed in? Run: npx supabase login"
+    return 1
+  fi
+  rm -f "$SQL_FILE"
+  check_vault_names reminders_notify_url reminders_cron_secret
+}
+SQL_FILE=""
+trap 'rm -f "$SQL_FILE"' EXIT
 
 TOTAL_STAGES=7
 
@@ -215,6 +276,17 @@ else
   exit 1
 fi
 npx supabase unlink >/dev/null 2>&1 || true
+say "Every check below calls the live app, so its address comes first."
+while true; do
+  if ! ask_app_url; then
+    SKIPPED+=("Give the live app address (its /api/reminders/key must answer 200)")
+    warn "Every later stage needs this address, so the wizard stops here."
+    finish_or_fail
+  fi
+  check_app_url "$APP_URL" && break
+done
+write_env APP_URL "$APP_URL"
+printf '  %s✓%s %s/api/reminders/key answers 200\n' "$GREEN" "$RESET" "$APP_URL"
 pause
 
 # ── 2 ──────────────────────────────────────────────────────────────────────
@@ -231,7 +303,13 @@ printf '  %s✓%s cron secret made (64 characters, not shown)\n' "$GREEN" "$RESE
 say "The push services need a contact address for the sender."
 ask OWNER_EMAIL "Your email:"
 OWNER_EMAIL=$(printf '%s' "$OWNER_EMAIL" | tr '[:upper:]' '[:lower:]' | xargs)
+tries=0
 until [[ "$OWNER_EMAIL" =~ ^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]+$ ]]; do
+  tries=$((tries + 1))
+  if (( tries > 3 )); then
+    SKIPPED+=("Give your email as the push sender contact")
+    finish_or_fail
+  fi
   ask OWNER_EMAIL "That does not look like an email. Type it again:"
   OWNER_EMAIL=$(printf '%s' "$OWNER_EMAIL" | tr '[:upper:]' '[:lower:]' | xargs)
 done
@@ -244,20 +322,23 @@ stage "Vercel: add 4 settings"
 open_url "https://vercel.com/dashboard"
 step "Open the project tech-lead-trainer → Settings → Environment Variables."
 step "Add each value below for Production AND Preview. Mark the two secret ones as Sensitive."
+step "A name is there already? Edit it and paste the new value."
 note "The menu names were not checked against the live dashboard."
-for name in VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT REMINDER_CRON_SECRET; do
-  case "$name" in
-    VAPID_PUBLIC_KEY) value="$VAPID_PUBLIC_KEY"; kind="public" ;;
-    VAPID_PRIVATE_KEY) value="$VAPID_PRIVATE_KEY"; kind="SECRET" ;;
-    VAPID_SUBJECT) value="$VAPID_SUBJECT"; kind="public" ;;
-    REMINDER_CRON_SECRET) value="$REMINDER_CRON_SECRET"; kind="SECRET" ;;
-  esac
-  printf '%s' "$value" | pbcopy
-  step "Name: $name ($kind)   Value: on your clipboard now. Paste it and save."
-  pause "Press Enter for the next one"
+VERCEL_NAMES=(VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT REMINDER_CRON_SECRET)
+copy_vercel_values "${VERCEL_NAMES[@]}"
+say "Checking Vercel Production with the Vercel CLI…"
+until check_vercel_names "${VERCEL_NAMES[@]}"; do
+  if ! retry_or_skip "Press Enter to copy the missing ones again, or type skip:"; then
+    SKIPPED+=("Add the 4 reminder settings in Vercel for Production: ${VERCEL_NAMES[*]}")
+    warn "Not done: the Vercel settings"
+    break
+  fi
+  copy_vercel_values "${MISSING_VERCEL_NAMES[@]}"
+  say "Checking again…"
 done
 pbcopy < /dev/null
 note "Clipboard cleared."
+pause
 
 # ── 4 ──────────────────────────────────────────────────────────────────────
 stage "Vercel: redeploy production"
@@ -265,84 +346,31 @@ say "New settings reach the app only after a new deploy."
 open_url "https://vercel.com/dashboard"
 step "Open the project → Deployments. Open the newest Production deployment."
 step "Open its menu (the three dots) → Redeploy. Wait until it is Ready."
-ask APP_URL "The live app address [usually https://tech-lead-trainer.vercel.app]:"
-APP_URL="${APP_URL:-https://tech-lead-trainer.vercel.app}"
-APP_URL="${APP_URL%/}"
-until [[ "$APP_URL" =~ ^https://[a-z0-9.-]+$ ]]; do
-  ask APP_URL "It must look like https://name.vercel.app. Type it again:"
-  APP_URL="${APP_URL%/}"
-done
-write_env APP_URL "$APP_URL"
-until curl -fsS "$APP_URL/api/reminders/key" 2>/dev/null | grep -q "$VAPID_PUBLIC_KEY"; do
-  warn "The app does not show the new public key yet."
-  if ! confirm "Wait for the redeploy and check again?"; then
-    SKIPPED+=("Redeploy production on Vercel, then open $APP_URL/api/reminders/key")
-    break
-  fi
-done
-printf '  %s✓%s checked %s/api/reminders/key\n' "$GREEN" "$RESET" "$APP_URL"
+pause "Press Enter when it is Ready"
+say "Checking $APP_URL/api/reminders/key for the new public key…"
+if require "Redeploy production. $APP_URL/api/reminders/key must show the new public key" \
+  check_public_key "$APP_URL" "$VAPID_PUBLIC_KEY"; then
+  printf '  %s✓%s the app shows the new public key\n' "$GREEN" "$RESET"
+fi
 pause
 
 # ── 5 ──────────────────────────────────────────────────────────────────────
 stage "Supabase: give the timer the address and the secret"
 say "The timer reads both from Supabase Vault. Nothing is written to git."
-SQL_FILE=$(mktemp)
-chmod 600 "$SQL_FILE"
-trap 'rm -f "$SQL_FILE"' EXIT
 NOTIFY_URL="$APP_URL/api/reminders/notify"
-# Both values are checked above: the URL has no quotes, and the secret is hex.
-cat > "$SQL_FILE" <<SQL
-do \$\$
-declare
-  existing uuid;
-begin
-  select id into existing from vault.secrets where name = 'reminders_notify_url';
-  if existing is null then
-    perform vault.create_secret('$NOTIFY_URL', 'reminders_notify_url');
-  else
-    perform vault.update_secret(existing, '$NOTIFY_URL');
-  end if;
-  select id into existing from vault.secrets where name = 'reminders_cron_secret';
-  if existing is null then
-    perform vault.create_secret('$REMINDER_CRON_SECRET', 'reminders_cron_secret');
-  else
-    perform vault.update_secret(existing, '$REMINDER_CRON_SECRET');
-  end if;
-end
-\$\$;
-SQL
-if confirm "Store the notify address and the cron secret in the live Supabase Vault?"; then
-  live_sql_file "$SQL_FILE" >/dev/null
-  rm -f "$SQL_FILE"
-  if live_sql "select count(*) as stored from vault.secrets where name in ('reminders_notify_url', 'reminders_cron_secret')" | grep -Eq '"stored": *"?2"?'; then
-    printf '  %s✓%s both are stored\n' "$GREEN" "$RESET"
-  else
-    warn "Could not confirm both values in the Vault. Check Supabase → Project Settings → Vault."
-  fi
-else
-  SKIPPED+=("Store reminders_notify_url and reminders_cron_secret in Supabase Vault")
+say "Storing them in the live Supabase Vault…"
+if require "Store reminders_notify_url and reminders_cron_secret in the live Supabase Vault" \
+  store_vault_values; then
+  printf '  %s✓%s both are stored\n' "$GREEN" "$RESET"
 fi
-rm -f "$SQL_FILE"
 npx supabase unlink >/dev/null 2>&1 || true
 pause
 
 # ── 6 ──────────────────────────────────────────────────────────────────────
 stage "Check the notify endpoint"
 say "A call without the secret must be refused. A call with it must work."
-without=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$APP_URL/api/reminders/notify")
-with=$(printf 'authorization: Bearer %s\n' "$REMINDER_CRON_SECRET" \
-  | curl -s -o /dev/null -w '%{http_code}' -X POST -H @- "$APP_URL/api/reminders/notify")
-if [[ "$without" == "401" ]]; then
-  printf '  %s✓%s without the secret: 401 (refused)\n' "$GREEN" "$RESET"
-else
-  warn "Without the secret the endpoint answered $without. It must be 401."
-fi
-if [[ "$with" == "200" ]]; then
-  printf '  %s✓%s with the secret: 200\n' "$GREEN" "$RESET"
-else
-  warn "With the secret the endpoint answered $with. 503 means the Vercel settings are missing."
-  SKIPPED+=("The notify endpoint answered $with with the secret. It must be 200.")
-fi
+require "The notify endpoint must answer 401 without the secret and 200 with it" \
+  check_notify "$APP_URL" "$REMINDER_CRON_SECRET" || true
 unset REMINDER_CRON_SECRET VAPID_PRIVATE_KEY
 pause
 
@@ -361,6 +389,6 @@ say "The last 3 answers from the app:"
 live_sql "select status_code, created from net._http_response order by created desc limit 3" || true
 npx supabase unlink >/dev/null 2>&1 || true
 
-finish
+finish_or_fail
 say "Next: tell Claude 'reminder arrived' (or what you saw), so ticket #20 is checked end to end."
 printf '\n'

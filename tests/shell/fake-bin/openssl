@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Fake openssl for tests/shell/wizards.test.sh: fixed values, so the fake app knows the secret.
+case "$*" in
+  "rand -hex 32") echo "5ec7e75ec7e75ec7e75ec7e75ec7e75ec7e75ec7e75ec7e75ec7e75ec7e75ec7" ;;
+  "rand -base64 32") echo "RmFrZUJhY2t1cEtleUZvclRlc3RzMDAwMDAwMDAwMDA=" ;;
+  *) echo "fake openssl: unexpected call: $*" >&2; exit 2 ;;
+esac

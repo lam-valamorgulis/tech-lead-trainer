@@ -32,6 +32,8 @@ jobs:
         run: npm run lint
       - name: Seam A (game rules core)
         run: npm test
+      - name: Setup wizards (shell tests)
+        run: npm run test:shell
 
       # The build bakes the public Supabase URL and key into the app, so local Supabase starts first.
       - name: Start local Supabase

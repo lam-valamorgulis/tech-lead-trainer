@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Fake git for tests/shell/wizards.test.sh: the backup wizard only fetches the backups branch.
+if [[ "$*" != *"fetch origin backups"* ]]; then
+  echo "fake git: unexpected call: $*" >&2
+  exit 2
+fi

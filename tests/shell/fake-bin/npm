@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Fake npm for tests/shell/wizards.test.sh.   FAKE_RESTORE_CHECK: ok (default) or fail
+if [[ "$*" != "run backup:restore-check" ]]; then
+  echo "fake npm: unexpected call: $*" >&2
+  exit 2
+fi
+[[ "${FAKE_RESTORE_CHECK:-ok}" == "ok" ]]
