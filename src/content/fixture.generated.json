@@ -30,7 +30,8 @@
         "mermaidStarter": "sequenceDiagram\n    participant Browser\n    participant Shop\n    Browser->>Shop: GET /sale",
         "coachPrompt": null,
         "modelAnswer": null
-      }
+      },
+      "adrCoachPrompt": null
     }
   ],
   "towns": [

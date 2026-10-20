@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { ensureProfile, saveReminderTimes } from "@/lib/profile";
 import { removePushSubscription, savePushSubscription } from "@/lib/reminders/push-subscriptions";
 import { sendDueReminders, type PushResult, type PushSender } from "@/lib/reminders/send-reminders";
+import { saveAdr } from "@/lib/weekend-doc";
 import { adminClient, forgetEmail, signedInUser, sql } from "./helpers";
 
 type User = { id: string; email: string; client: SupabaseClient };
@@ -323,5 +324,54 @@ describe("the 5-minute timer", () => {
       "select has_function_privilege('authenticated', 'private.request_reminders()', 'execute') as allowed",
     );
     expect(rows).toEqual([{ allowed: false }]);
+  });
+});
+
+describe("sendDueReminders for an ADR outcome check", () => {
+  let user: User;
+  let phone: ReturnType<typeof subscriptionFor>;
+  const adr = (outcome: string) => ({
+    sections: { title: "Prices in the browser", context: "", decision: "", consequences: "", prediction: "Faster pages.", outcome },
+    status: "accepted" as const,
+    outcomeCheckDate: "2030-02-04",
+  });
+
+  beforeAll(async () => {
+    user = await signedInUser("remind-adr");
+    await ensureProfile(user.client);
+    phone = subscriptionFor("remind-adr-phone");
+    await savePushSubscription(user.client, phone, "iPhone");
+    await saveAdr(user.client, "t01-adr", adr(""));
+  });
+
+  afterAll(async () => {
+    await forgetEmail(user.email);
+  });
+
+  it("sends the ADR reminder on its check date at the morning time, next to the daily reminder, once", async () => {
+    const push = fakePushService();
+    // 07:30 in Ho Chi Minh City on 4 Feb 2030.
+    await sendDueReminders(adminClient(), new Date("2030-02-04T00:30:00Z"), push.send);
+    await sendDueReminders(adminClient(), new Date("2030-02-04T00:35:00Z"), push.send);
+    const bodies = push.callsTo([phone.endpoint]).map((call) => call.payload);
+    expect(bodies).toContainEqual({
+      title: "Tech Lead Trainer",
+      body: "Today is the day to check your ADR. What really happened after your decision?",
+      url: "/weekend/t01/adr",
+    });
+    expect(bodies).toHaveLength(2);
+    const { data } = await user.client.from("reminders").select("kind").eq("learning_day", "2030-02-04").order("kind");
+    expect(data).toEqual([{ kind: "adr-outcome" }, { kind: "morning" }]);
+  });
+
+  it("sends no ADR reminder on another day, or once the real outcome is written", async () => {
+    const before = fakePushService();
+    await sendDueReminders(adminClient(), new Date("2030-02-03T00:30:00Z"), before.send);
+    expect(before.callsTo([phone.endpoint]).map((call) => (call.payload as { url: string }).url)).toEqual(["/"]);
+
+    await saveAdr(user.client, "t01-adr", { ...adr("Pages got faster, but the cache broke twice."), outcomeCheckDate: "2030-02-05" });
+    const written = fakePushService();
+    await sendDueReminders(adminClient(), new Date("2030-02-05T00:30:00Z"), written.send);
+    expect(written.callsTo([phone.endpoint]).map((call) => (call.payload as { url: string }).url)).toEqual(["/"]);
   });
 });

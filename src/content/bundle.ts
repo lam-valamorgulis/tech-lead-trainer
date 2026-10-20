@@ -17,7 +17,12 @@ export type BundledTown = Omit<Town, "creatures" | "placement" | "scenarios"> & 
   scenarios: BundledScenario[];
 };
 /** The weekend boss of a town (design 3: week 1 of each month). */
-export type TownWeekend = { townId: string; boss: Boss };
+export type TownWeekend = {
+  townId: string;
+  boss: Boss;
+  /** The coach prompt of the town's week-2 ADR file, or null to use the default. */
+  adrCoachPrompt: string | null;
+};
 export type ContentBundle = { towns: BundledTown[]; glossary: GlossaryWord[]; weekends: TownWeekend[] };
 
 export function buildBundle(towns: Town[], glossary: GlossaryWord[] = [], weekends: TownWeekend[] = []): ContentBundle {

@@ -22,6 +22,8 @@ import { NewTown } from "./new-town";
 import { badges, gymIsOpen } from "@/core/gym";
 import { currentTownNumber, showsNewTown } from "@/core/roadmap";
 import { loadGymRecords } from "@/lib/gym-log";
+import { adrOutcomeDue } from "@/core/adr";
+import { loadAdrChecks } from "@/lib/weekend-doc";
 
 const CHOICES: CommittedMinutes[] = [3, 15, 45];
 
@@ -35,6 +37,7 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
   const [startedTown, setStartedTown] = useState<number | null>(null);
   const placementTown = usePlacementTown(profile.programStartDate);
   const gymTown = useGymTown(profile.programStartDate);
+  const adrTown = useAdrToCheck();
   const rate = status?.rate;
 
   useEffect(() => {
@@ -111,14 +114,6 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
           <br />
           This week: <strong>{status ? formatWeekMinutes(status.weekMinutes) : "…"}</strong>
         </p>
-        {gymTown && (
-          <div className="notice row">
-            <Link href={`/gym/${gymTown.id}`} className="button button-quiet">
-              Enter the Gym
-            </Link>
-            <span className="lead">The Gym of {gymTown.name} is open: win 4 of 5 for the badge</span>
-          </div>
-        )}
         {placementTown && (
           <div className="notice row">
             <Link href={`/placement/${placementTown.id}`} className="button button-quiet">
@@ -148,7 +143,23 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
       </div>
 
       {choices}
-      {/* Below the choices: it loads late, and must never move or push down the commit buttons. */}
+      {/* Below the choices: these load late, and must never move or push down the commit buttons. */}
+      {adrTown && (
+        <div className="notice row">
+          <Link href={`/weekend/${adrTown}/adr`} className="button button-quiet">
+            Check your ADR
+          </Link>
+          <span className="lead">Your check date has come: what really happened after your decision?</span>
+        </div>
+      )}
+      {gymTown && (
+        <div className="notice row">
+          <Link href={`/gym/${gymTown.id}`} className="button button-quiet">
+            Enter the Gym
+          </Link>
+          <span className="lead">The Gym of {gymTown.name} is open: win 4 of 5 for the badge</span>
+        </div>
+      )}
       <WeeklySummaryCard />
     </>
   );
@@ -213,6 +224,25 @@ function usePlacementTown(programStartDate: string): PlacementOffer | null {
     };
   }, [programStartDate]);
   return town;
+}
+
+/**
+ * The town of an ADR whose outcome check date has come and that has no outcome yet (design 3).
+ * If the ADRs cannot load, home shows nothing: the push reminder still comes on the date.
+ */
+function useAdrToCheck(): string | null {
+  const [townId, setTownId] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const client = browserClient();
+    Promise.all([currentLearningDay(client), loadAdrChecks(client)])
+      .then(([today, adrs]) => !cancelled && setTownId(adrs.find((adr) => adrOutcomeDue(adr, today))?.townId ?? null))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return townId;
 }
 
 type GymOffer = { id: string; name: string };
