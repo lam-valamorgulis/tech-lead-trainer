@@ -78,6 +78,18 @@ The app needs these environment variables. Set them in Vercel for the live proje
 | `NEXT_PUBLIC_SUPABASE_URL` | Browser and server |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Browser and server |
 | `SUPABASE_SECRET_KEY` | Server only. Never add the `NEXT_PUBLIC_` prefix |
+| `VAPID_PUBLIC_KEY` | Server. The app reads it from `/api/reminders/key` |
+| `VAPID_PRIVATE_KEY` | Server only. Signs each push |
+| `VAPID_SUBJECT` | Server. `mailto:` plus the owner's email |
+| `REMINDER_CRON_SECRET` | Server only. The notify endpoint accepts only this secret |
+
+## Reminders
+
+`pg_cron` calls `POST /api/reminders/notify` every 5 minutes. The app decides for each user, in the home time zone, whether the morning reminder is due. It sends at most one per user, learning day and kind.
+
+Until the four reminder variables above are set, reminders stay off. Settings shows "Reminders are not set up yet." and nothing fails.
+
+Run `scripts/setup-reminders.sh` once, after Sprint 2 ships. It makes the push keys and the cron secret, puts them in Vercel and Supabase Vault, and checks the endpoint. No secret is written to a file.
 
 ## Tests
 

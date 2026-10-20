@@ -35,7 +35,7 @@ test("Settings can change both plans and suggests one reminder time for 12 weeks
   try {
     await page.getByRole("link", { name: "Settings" }).click();
     await expect(page.getByText(/same reminder time for your first 12 weeks/)).toBeVisible();
-    await expect(page.getByText("Reminders: 07:30 and 20:00")).toBeVisible();
+    await expect(page.getByLabel("Morning reminder")).toHaveValue("07:30");
 
     await page.getByLabel("After …").fill("I park my bike");
     await page.getByLabel("If I am tired").fill("If I am tired, I tap 3 and go to bed.");
