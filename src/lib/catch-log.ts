@@ -1,11 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CatchRecord } from "@/core/catch";
+import { placementCatches } from "@/core/placement";
 import { pendingEvents } from "./events/post-events";
+import { loadPlacementRecords } from "./placement-log";
 import { selectAll } from "./select-all";
 
 /**
- * Every catch answer of the signed-in user, in time order. Answers still waiting to reach the
- * server count as today's, so a new session cannot offer a second catch on the same day.
+ * Every catch answer of the signed-in user, in day order, plus the creatures a placement test
+ * caught. Answers still waiting to reach the server count as today's, so a new session cannot
+ * offer a second catch on the same day.
  */
 export async function loadCatchRecords(client: SupabaseClient, today: string): Promise<CatchRecord[]> {
   const rows = await selectAll((from, to) =>
@@ -23,5 +26,7 @@ export async function loadCatchRecords(client: SupabaseClient, today: string): P
     correct: event.correct,
     learningDay: today,
   }));
-  return [...saved, ...waiting];
+  const placed = placementCatches(await loadPlacementRecords(client, today));
+  // A stable sort keeps the time order inside each day.
+  return [...saved, ...waiting, ...placed].sort((a, b) => a.learningDay.localeCompare(b.learningDay));
 }

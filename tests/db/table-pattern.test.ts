@@ -25,7 +25,7 @@ describe("every table in the public schema", () => {
   });
 
   it("includes the tables built so far", () => {
-    expect(tables.map((t) => t.name)).toEqual(expect.arrayContaining(["allowed_emails", "profiles", "session_events", "catch_events", "review_events", "review_state"]));
+    expect(tables.map((t) => t.name)).toEqual(expect.arrayContaining(["allowed_emails", "profiles", "session_events", "catch_events", "review_events", "review_state", "placement_events"]));
   });
 
   it("has row-level security on", () => {

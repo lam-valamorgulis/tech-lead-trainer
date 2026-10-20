@@ -1,11 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { placementCatches } from "../core/placement.ts";
 import { reviewStates, type Grade } from "../core/review.ts";
 import { selectAll } from "./select-all.ts";
 
 // The review_state table is a cache of `reviewStates` over the event log (design 12.2).
 // Relative imports with .ts let `scripts/rebuild-review-state.mjs` run this file in Node.
 
-type CatchRow = { item_id: string; correct: boolean; learning_day: string };
+type CatchRow = { item_id: string; correct: boolean; learning_day: string; occurred_at: string };
+type PlacementRow = CatchRow & { town_id: string };
 type ReviewRow = { item_id: string; learning_day: string; grade: Grade };
 type StateRow = {
   user_id: string;
@@ -19,8 +21,16 @@ type StateRow = {
 };
 
 async function loadLog(client: SupabaseClient, userId: string, itemIds?: string[]) {
+  const placements = await selectAll((from, to) => {
+    let query = client
+      .from("placement_events")
+      .select("town_id, item_id, correct, learning_day, occurred_at")
+      .eq("user_id", userId);
+    if (itemIds) query = query.in("item_id", itemIds);
+    return query.order("occurred_at").order("id").range(from, to).returns<PlacementRow[]>();
+  });
   const catches = await selectAll((from, to) => {
-    let query = client.from("catch_events").select("item_id, correct, learning_day").eq("user_id", userId);
+    let query = client.from("catch_events").select("item_id, correct, learning_day, occurred_at").eq("user_id", userId);
     if (itemIds) query = query.in("item_id", itemIds);
     return query.order("occurred_at").order("id").range(from, to).returns<CatchRow[]>();
   });
@@ -29,16 +39,23 @@ async function loadLog(client: SupabaseClient, userId: string, itemIds?: string[
     if (itemIds) query = query.in("item_id", itemIds);
     return query.order("occurred_at").order("id").range(from, to).returns<ReviewRow[]>();
   });
-  return { catches, reviews };
+  return { catches, placements, reviews };
 }
 
-function toRows(userId: string, log: { catches: CatchRow[]; reviews: ReviewRow[] }): StateRow[] {
+function toRows(userId: string, log: { catches: CatchRow[]; placements: PlacementRow[]; reviews: ReviewRow[] }): StateRow[] {
+  // A right placement answer catches the creature too. Both lists go in time order.
+  const caughtBy = [
+    ...log.catches.map((row) => ({ at: row.occurred_at, record: { itemId: row.item_id, correct: row.correct, learningDay: row.learning_day } })),
+    ...placementCatches(
+      log.placements.map((row) => ({ townId: row.town_id, itemId: row.item_id, correct: row.correct, learningDay: row.learning_day })),
+    ).map((record, i) => ({ at: log.placements.filter((row) => row.correct)[i].occurred_at, record })),
+  ].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
   const states = reviewStates(
-    log.catches.map((row) => ({ itemId: row.item_id, correct: row.correct, learningDay: row.learning_day })),
+    caughtBy.map(({ record }) => record),
     log.reviews.map((row) => ({ itemId: row.item_id, learningDay: row.learning_day, grade: row.grade })),
   );
   const eventCount = new Map<string, number>();
-  for (const row of [...log.catches, ...log.reviews]) eventCount.set(row.item_id, (eventCount.get(row.item_id) ?? 0) + 1);
+  for (const row of [...log.catches, ...log.placements, ...log.reviews]) eventCount.set(row.item_id, (eventCount.get(row.item_id) ?? 0) + 1);
   const now = new Date().toISOString();
   return [...states.values()].map((state) => ({
     user_id: userId,
