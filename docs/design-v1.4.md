@@ -19,6 +19,8 @@
 | 3 | Tên trong app: **Field Guide** (thay "Pokédex"), **Rest Stop** (thay Trung tâm hồi phục), **Interview Tower** (thay "Elite Four"). Đây là tên tạm, đổi được | Spec #1 |
 | 4 | Mức chấm **Hard** = ôn lại đúng mốc hiện tại. **Good** = lên mốc tiếp theo | Spec #1 |
 
+Cập nhật 2026-10-20 (#57): bạn chỉ kiểm tra kết quả cuối trên iPhone. Agent không chờ bạn duyệt PR, nội dung hay "ship". Không còn giới hạn số ticket mỗi ngày (mục 16, 17).
+
 ## 1. App này là gì
 
 Một game kiểu Pokémon, phong cách pixel art giống Codédex. Bạn học mỗi ngày trong 12 tháng để trở thành tech lead.
@@ -406,20 +408,20 @@ Lý do dừng thật trước đây (Q27): đổi mục tiêu, bận việc côn
 
 | Phần | Quyết định | Câu |
 |---|---|---|
-| Mức tự động | Agent tự viết code, test, review, sửa, mở PR, merge vào nhánh sprint, deploy bản thử. Bạn nói **"ship"** 1 lần mỗi sprint. Trước khi đổi database thật: luôn backup trước | Q53 |
-| Ngân sách | **1–2 ticket mỗi ngày**, trừ khi bạn bảo làm thêm | Q55 |
+| Mức tự động | Agent tự viết code, test, review, sửa, mở PR, merge vào nhánh sprint, deploy bản thử, và tự ship khi sprint hết ticket. Bạn vẫn có thể nói **"ship"** sớm hơn. Trước khi đổi database thật: luôn backup trước | Q53, 2026-10-20 |
+| Ngân sách | Không giới hạn số ticket mỗi ngày. Ticket này merge xong thì làm ticket tiếp | Q55, 2026-10-20 |
 | Ai bấm chạy | 7 skill chính của Matt chỉ người dùng mới bấm chạy được. Mỗi ngày bạn gõ `/mattpocock-skills:implement #<số ticket>`. Chỉ cần nhắc tới skill là chưa đủ | — |
 | Tài khoản | Claude Code: tài khoản bạn đang dùng. GitHub: `lam-valamorgulis`, repo private | Q55 |
 | Tài liệu | Mọi tài liệu của project được commit lên GitHub | Q54 |
 | Tracker | GitHub Issues, 5 nhãn mặc định. Spec là issue #1. Mỗi ticket là sub-issue của #1, có liên kết "blocked by" thật | Setup |
 | Sprint | Milestone Sprint 1–4 (2026-10-20 → 2026-11-16) + bảng Kanban (project #2): Todo → In progress → In review → Done | Q56 |
 | Nhánh | Mỗi ticket 1 nhánh, 1 PR vào nhánh `sprint-N`. "ship" = merge `sprint-N` vào `main` | Q53 |
-| Thay đổi khó sửa | Dữ liệu, ID, luật game, luật bảo vệ ở mục 14 → agent mở issue `ready-for-human` và **chờ bạn** | Q53 |
+| Thay đổi khó sửa | Dữ liệu, ID, luật game, luật bảo vệ ở mục 14 → agent chọn cách an toàn hơn, build luôn, và ghi lựa chọn cùng lý do trong PR (phần "Choices made"). Không chờ bạn | Q53, 2026-10-20 |
 | Thay đổi dễ sửa | Chi tiết UI, câu chữ, khoảng cách → agent làm luôn trong PR và ghi chú trong PR | Q53 |
-| Việc chỉ bạn làm | Chạy wizard và thêm secret (#12), duyệt nội dung (#10, #18, #37), thử trên iPhone rồi nói "ship" hoặc "fix" | — |
+| Việc chỉ bạn làm | Chạy wizard và thêm secret (#12). Dùng app thật trên iPhone và báo lỗi. Đọc nội dung nếu muốn học, nhưng agent không chờ: nội dung merge sau khi agent fact-check | 2026-10-20 |
 | Luật cho agent | Nằm trong `CLAUDE.md` và `docs/agents/factory.md` | — |
 
-Mỗi sprint, bạn làm khoảng 15–20 phút: mở link bản thử trên iPhone, chạy checklist trong các PR, rồi nói "ship" hoặc "fix".
+Bạn chỉ dùng app thật trên iPhone và báo lỗi bạn thấy. Lỗi trên app thật được sửa trước mọi ticket khác.
 
 ## 17. Lịch nội dung và các mốc sau Sprint 4
 
@@ -427,12 +429,12 @@ Sau Sprint 4, app chuyển sang chế độ **"mỗi tháng thêm nội dung"**.
 
 | Khi nào | Việc | Ai bấm chạy |
 |---|---|---|
-| **Tuần 1 của mỗi tháng N** (tính theo ngày bắt đầu của bạn) | Tạo 2–3 ticket cho thành phố N+1: nội dung, trận đấu, và cơ chế chơi mới. Bạn duyệt trước tuần 4. Thành phố N+1 sẵn sàng trước ngày đầu tháng N+1 | Bạn gõ `/mattpocock-skills:to-tickets` cho thành phố N+1 |
+| **Tuần 1 của mỗi tháng N** (tính theo ngày bắt đầu của bạn) | Tạo 2–3 ticket cho thành phố N+1: nội dung, trận đấu, và cơ chế chơi mới. Agent fact-check rồi merge. Thành phố N+1 sẵn sàng trước ngày đầu tháng N+1 | Bạn gõ `/mattpocock-skills:to-tickets` cho thành phố N+1 |
 | Tháng 1 | Thành phố 2 đã có trong Sprint 4 (#36, #37) | — |
 | Tháng 2–3 | Mời bạn bè: thêm email vào `allowed_emails`, chuyển Supabase sang gói Pro. Checklist Champion | Bạn quyết định ngày mời |
 | Tháng 3 | Kiểm tra có cần đổi sang FSRS không (mục 15) | Factory, khi bạn yêu cầu |
 | Sau Sprint 4 | Chạy khi không có mạng (Ôn và Bắt) | Factory, khi bạn yêu cầu |
 | Tháng 10 | Interview Tower: chốt cách làm (giọng nói hay chữ), rồi build | Bạn |
-| Bất kỳ lúc nào | Sửa lỗi từ "Report wrong" (danh sách in ra trước buổi duyệt mỗi tháng). Các issue `ready-for-human` mà agent mở | Bạn duyệt, factory sửa |
+| Bất kỳ lúc nào | Sửa lỗi từ "Report wrong" (danh sách in ra trước buổi duyệt mỗi tháng) | Bạn báo, factory sửa |
 
 Luật 4 ở mục 14 vẫn giữ: lúc nào cũng chỉ có nội dung của thành phố hiện tại và thành phố kế tiếp.

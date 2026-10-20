@@ -6,7 +6,7 @@
 
 ## Factory rules
 
-The owner does not hand-code. Each `/implement` run builds exactly one ticket, at most 2 tickets per day unless the owner asks for more. The owner verifies the end result only: they use the live app on an iPhone and report problems. No step waits for an owner verdict, except secrets and human-only setup (step 7). Every ticket follows these steps:
+The owner does not hand-code. Each `/implement` run builds exactly one ticket. There is no daily ticket limit: when a ticket is merged, the next one can start. The owner verifies the end result only: they use the live app on an iPhone and report problems. No step waits for an owner verdict, except secrets and human-only setup (step 7). Every ticket follows these steps:
 
 1. **Branch:** work on a ticket branch cut from `sprint-N`, where N is the ticket's milestone. Create `sprint-N` from `main` when it does not exist yet.
 2. **Card:** move the ticket's board card Todo → In progress → In review → Done (commands in `docs/agents/issue-tracker.md`).
