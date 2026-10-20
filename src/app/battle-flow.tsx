@@ -18,7 +18,7 @@ import {
 } from "@/core/battle";
 import { soundForDamage } from "@/core/effects";
 import { opponentTypes, scenarioTwist, threatTypeOf } from "@/core/twist";
-import type { OpponentType as OpponentTypeId } from "@/content/schema";
+import type { OpponentType } from "@/content/schema";
 import { postEvents } from "@/lib/events/post-events";
 import type { BattleEventFields, LearningEvent } from "@/lib/events/write-events";
 import { DiscussInClaude } from "./discuss-in-claude";
@@ -166,7 +166,7 @@ export function BattleFlow({
         <h2 id="battle-title" ref={heading} tabIndex={-1}>
           A battle begins: {offer.scenario.name}
         </h2>
-        <OpponentTypes scenario={offer.scenario} />
+        <OpponentTypeList scenario={offer.scenario} />
         <TwistNote scenario={offer.scenario} />
         <p>
           <GlossaryText text={offer.scenario.problem} />
@@ -318,37 +318,30 @@ function CheckForm({
 }
 
 /** UI rule 4: a colour, an icon and a word, so the type reads without colour too. */
-function TypeChip({ type, label }: { type: OpponentTypeId; label: string }) {
+function TypeChip({ type, label, as: Tag = "p" }: { type: OpponentType; label?: string; as?: "p" | "li" }) {
   const look = OPPONENT_LOOK[type];
   return (
-    <p className="opponent-type" style={{ borderColor: look.color }}>
+    <Tag className="opponent-type" style={{ borderColor: look.color }}>
       <span aria-hidden="true" className="opponent-icon">
         {look.icon}
       </span>
-      {label} {look.word}
-    </p>
+      {label && `${label} `}
+      {look.word}
+    </Tag>
   );
 }
 
 /** The opponent's type, or both types of a two-type opponent, each with its colour, icon and word. */
-function OpponentTypes({ scenario }: { scenario: BattleOffer["scenario"] }) {
+function OpponentTypeList({ scenario }: { scenario: BattleOffer["scenario"] }) {
   const types = opponentTypes(scenario);
   if (types.length === 1) return <TypeChip type={types[0]} label="Type:" />;
   return (
     <div className="stack">
       <p id="opponent-types-label">Two types:</p>
       <ul className="opponent-types" aria-labelledby="opponent-types-label">
-        {types.map((type) => {
-          const look = OPPONENT_LOOK[type];
-          return (
-            <li key={type} className="opponent-type" style={{ borderColor: look.color }}>
-              <span aria-hidden="true" className="opponent-icon">
-                {look.icon}
-              </span>
-              {look.word}
-            </li>
-          );
-        })}
+        {types.map((type) => (
+          <TypeChip key={type} type={type} as="li" />
+        ))}
       </ul>
     </div>
   );

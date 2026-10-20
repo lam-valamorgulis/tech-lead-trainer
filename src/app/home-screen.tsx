@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { currentTown, towns } from "@/content";
+import type { BundledTown } from "@/content/bundle";
 import { placementProgress } from "@/core/placement";
 import { learningDay } from "@/core/day";
 import { needsPlan, planSentence } from "@/core/plan";
@@ -17,10 +18,9 @@ import { RestStop } from "./rest-stop";
 import { SessionScreen, type CommittedMinutes } from "./session-screen";
 import { startSound } from "./sound";
 import { WeeklySummaryCard } from "./weekly-summary";
+import { NewTown } from "./new-town";
 import { badges, gymIsOpen } from "@/core/gym";
 import { currentTownNumber, showsNewTown } from "@/core/roadmap";
-import type { BundledTown } from "@/content/bundle";
-import { NewTown } from "./new-town";
 import { loadGymRecords } from "@/lib/gym-log";
 
 const CHOICES: CommittedMinutes[] = [3, 15, 45];
