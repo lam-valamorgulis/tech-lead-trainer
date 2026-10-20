@@ -175,7 +175,7 @@ When a source gave only a title or a name, the one-line meaning is my plain-word
 | 3 | Stateless HTTP | Each request stands alone. | [MDN Overview of HTTP](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Overview) |
 | 4 | Cookies and sessions | Cookies add state on top of a stateless protocol. | [MDN Overview of HTTP](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Overview) |
 | 5 | Safe and idempotent methods | Some methods can repeat with the same result. | [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html) |
-| 6 | Status codes | Codes run from 100 to 511. | [MDN HTTP](https://developer.mozilla.org/en-US/docs/Web/HTTP) |
+| 6 | Status codes | Defined codes run from 100 to 511. The allowed range is 100 to 599 ([RFC 9110, section 15](https://www.rfc-editor.org/rfc/rfc9110.html#name-status-codes)). | [MDN HTTP](https://developer.mozilla.org/en-US/docs/Web/HTTP) |
 | 7 | Proxies | Middle servers cache, filter and balance load. | [MDN Overview of HTTP](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Overview) |
 | 8 | Connections: HTTP/1.1 to HTTP/2 | Persistent connections, then multiplexing. | [MDN Overview of HTTP](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Overview) |
 | 9 | TLS handshake and certificates | Encryption, integrity and server identity. | [MDN TLS](https://developer.mozilla.org/en-US/docs/Web/Security/Transport_Layer_Security) |
