@@ -324,6 +324,6 @@ h2[tabindex="-1"]:focus {
   border-left: 4px solid var(--color-accent);
 }
 
-.notice a {
-  color: var(--color-accent);
+.notice.row {
+  align-items: center;
 }

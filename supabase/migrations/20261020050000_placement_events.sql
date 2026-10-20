@@ -17,7 +17,9 @@ create table public.placement_events (
   correct boolean not null,
   -- 1 = guess, 2 = think so, 3 = sure.
   confidence smallint not null check (confidence between 1 and 3),
-  unique (user_id, client_event_id)
+  unique (user_id, client_event_id),
+  -- Each question is answered once. A second device that answers it later is refused.
+  unique (user_id, town_id, item_id)
 );
 
 create index placement_events_user_town on public.placement_events (user_id, town_id);

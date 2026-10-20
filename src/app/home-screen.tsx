@@ -41,10 +41,12 @@ export function HomeScreen() {
           {rateFailed && " (could not load)"}
         </p>
         {placementTown && (
-          <p className="notice">
-            <Link href={`/placement/${placementTown.id}`}>Take the placement test</Link> ({placementTown.questions}{" "}
-            questions) before {placementTown.name}.
-          </p>
+          <div className="notice row">
+            <Link href={`/placement/${placementTown.id}`} className="button button-quiet">
+              Take the placement test
+            </Link>
+            <span className="lead">{placementTown.questions} questions</span>
+          </div>
         )}
         <nav className="row" aria-label="More">
           <Link href="/field-guide" className="button button-quiet">
@@ -68,9 +70,14 @@ export function HomeScreen() {
   );
 }
 
-/** The current town when its placement test is not done yet, so home can offer it. */
-function usePlacementTown(): { id: string; name: string; questions: number } | null {
-  const [town, setTown] = useState<{ id: string; name: string; questions: number } | null>(null);
+type PlacementOffer = { id: string; questions: number };
+
+/**
+ * The current town when its placement test is not done yet, so home can offer it.
+ * If the answers cannot load, the offer stays hidden: the test is optional (design 13 cut list).
+ */
+function usePlacementTown(): PlacementOffer | null {
+  const [town, setTown] = useState<PlacementOffer | null>(null);
   useEffect(() => {
     const current = currentTown();
     if (!current || current.placement.length === 0) return;
@@ -80,7 +87,7 @@ function usePlacementTown(): { id: string; name: string; questions: number } | n
       .then((today) => loadPlacementRecords(client, today))
       .then((records) => {
         if (cancelled || placementProgress(current, records).done) return;
-        setTown({ id: current.id, name: current.name, questions: current.placement.length });
+        setTown({ id: current.id, questions: current.placement.length });
       })
       .catch(() => undefined);
     return () => {

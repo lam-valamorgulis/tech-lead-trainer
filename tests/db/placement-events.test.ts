@@ -58,6 +58,15 @@ describe("placement events", () => {
     ]);
   });
 
+
+  it("keeps the first answer when a second device answers the same question", async () => {
+    const first = placementEvent({ itemId: "proxy", correct: true });
+    const second = placementEvent({ itemId: "proxy", correct: false });
+    await writeEvents(user.client, [first]);
+    await expect(writeEvents(user.client, [second])).rejects.toThrow();
+    const { data } = await user.client.from("placement_events").select("correct").eq("item_id", "proxy");
+    expect(data).toEqual([{ correct: true }]);
+  });
 });
 
 describe("a right placement answer", () => {

@@ -145,7 +145,7 @@ function toRow(event: LearningEvent) {
 }
 
 /** Postgres errors that mean the event itself is wrong, so sending it again cannot help. */
-const REFUSED_CODES = new Set(["22023", "23514", "23502", "22P02", "23503", "42501"]);
+const REFUSED_CODES = new Set(["22023", "23514", "23502", "22P02", "23503", "23505", "42501"]);
 
 export class EventWriteError extends Error {
   constructor(

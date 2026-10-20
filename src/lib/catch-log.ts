@@ -11,6 +11,7 @@ import { selectAll } from "./select-all";
  * offer a second catch on the same day.
  */
 export async function loadCatchRecords(client: SupabaseClient, today: string): Promise<CatchRecord[]> {
+  const placements = loadPlacementRecords(client, today);
   const rows = await selectAll((from, to) =>
     client
       .from("catch_events")
@@ -26,7 +27,7 @@ export async function loadCatchRecords(client: SupabaseClient, today: string): P
     correct: event.correct,
     learningDay: today,
   }));
-  const placed = placementCatches(await loadPlacementRecords(client, today));
+  const placed = placementCatches(await placements);
   // A stable sort keeps the time order inside each day.
   return [...saved, ...waiting, ...placed].sort((a, b) => a.learningDay.localeCompare(b.learningDay));
 }

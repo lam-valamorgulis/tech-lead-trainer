@@ -44,11 +44,18 @@ async function loadLog(client: SupabaseClient, userId: string, itemIds?: string[
 
 function toRows(userId: string, log: { catches: CatchRow[]; placements: PlacementRow[]; reviews: ReviewRow[] }): StateRow[] {
   // A right placement answer catches the creature too. Both lists go in time order.
+  const placed = log.placements.filter((row) => row.correct);
   const caughtBy = [
-    ...log.catches.map((row) => ({ at: row.occurred_at, record: { itemId: row.item_id, correct: row.correct, learningDay: row.learning_day } })),
-    ...placementCatches(
-      log.placements.map((row) => ({ townId: row.town_id, itemId: row.item_id, correct: row.correct, learningDay: row.learning_day })),
-    ).map((record, i) => ({ at: log.placements.filter((row) => row.correct)[i].occurred_at, record })),
+    ...log.catches.map((row) => ({
+      at: row.occurred_at,
+      record: { itemId: row.item_id, correct: row.correct, learningDay: row.learning_day },
+    })),
+    ...placed.map((row) => ({
+      at: row.occurred_at,
+      record: placementCatches([
+        { townId: row.town_id, itemId: row.item_id, correct: true, learningDay: row.learning_day },
+      ])[0],
+    })),
   ].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
   const states = reviewStates(
     caughtBy.map(({ record }) => record),

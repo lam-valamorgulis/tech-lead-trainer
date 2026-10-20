@@ -5,18 +5,12 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { getTown } from "@/content";
 import { placementProgress, type PlacementRecord } from "@/core/placement";
 import { postEvents } from "@/lib/events/post-events";
-import type { PlacementEvent } from "@/lib/events/write-events";
 import { currentLearningDay } from "@/lib/learning-log";
 import { loadPlacementRecords } from "@/lib/placement-log";
 import { browserClient } from "@/lib/supabase/browser";
+import { CONFIDENCE, type Confidence } from "../../confidence";
 
-type Confidence = PlacementEvent["confidence"];
 
-const CONFIDENCE: { value: Confidence; label: string }[] = [
-  { value: 1, label: "Guess" },
-  { value: 2, label: "Think so" },
-  { value: 3, label: "Sure" },
-];
 
 /**
  * Placement test (design 4): short answers before a town starts. The learner checks each
@@ -118,9 +112,11 @@ function PlacementQuestion({
     heading.current?.focus();
   }, [checked, marked]);
 
+  const ready = text.trim() !== "" && confidence !== null;
+
   function check(event: FormEvent) {
     event.preventDefault();
-    if (confidence !== null) setChecked(true);
+    if (ready) setChecked(true);
   }
 
   function mark(correct: boolean) {
@@ -157,8 +153,8 @@ function PlacementQuestion({
               </label>
             ))}
           </fieldset>
-          {confidence === null && <p className="lead">Pick how sure you are. A guess is fine.</p>}
-          <button type="submit" className="button-main" disabled={confidence === null}>
+          {!ready && <p className="lead">Write a short answer and pick how sure you are. A guess is fine.</p>}
+          <button type="submit" className="button-main" disabled={!ready}>
             Check
           </button>
         </form>
