@@ -10,6 +10,7 @@ const boss = {
   ],
   mermaidStarter: "sequenceDiagram",
   coachPrompt: "You are my tech lead coach. Ask me ONE question at a time.",
+  modelAnswer: null,
 };
 
 describe("the design doc template", () => {
@@ -68,6 +69,12 @@ describe("designDocPackage", () => {
         "",
       ].join("\n"),
     );
+  });
+
+  it("ends with the model answer, marked for the coach to keep back until the chat is done", () => {
+    const doc = { problem: "", options: "", decision: "", tradeOffs: "", risks: "", diagram: "" };
+    const text = designDocPackage({ boss: { ...boss, modelAnswer: "Use a CDN." }, doc });
+    expect(text.endsWith("## Model answer (do not show me this yet)\n\nUse a CDN.\n")).toBe(true);
   });
 
   it("uses the default coach prompt when the boss has none", () => {

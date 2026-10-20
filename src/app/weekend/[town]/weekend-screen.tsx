@@ -1,21 +1,16 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { getTown, weekendBoss } from "@/content";
-import type { SituationBlock } from "@/content/weekend";
+import type { Boss, SituationBlock } from "@/content/weekend";
 import { DESIGN_DOC_SECTIONS, designDocPackage, type DesignDoc } from "@/core/design-doc";
 import { PRIVACY_REMINDER } from "@/core/discuss";
 import { mermaidProblem } from "@/lib/mermaid-problem";
-import { browserClient } from "@/lib/supabase/browser";
-import { loadDesignDoc, saveDesignDoc } from "@/lib/weekend-doc";
 import { copyAndOpenClaude } from "../../claude-copy";
+import { useAutosavedDoc, type SaveState } from "./use-autosaved-doc";
 
-/** Saves this long after the last key press, so a fast typist sends one save, not one per key. */
-const SAVE_AFTER_MS = 800;
 /** Draws the diagram this long after the last change. */
 const DRAW_AFTER_MS = 400;
-
-type SaveState = "saved" | "saving" | "failed" | null;
 
 /**
  * The weekend boss (design 3, week 1): the situation, then a design doc template next to a live
@@ -24,56 +19,14 @@ type SaveState = "saved" | "saving" | "failed" | null;
 export function WeekendScreen({ townId }: { townId: string }) {
   const town = getTown(townId);
   const boss = weekendBoss(townId);
-  const documentKey = `${townId}-boss`;
-  const [doc, setDoc] = useState<DesignDoc | null>(null);
-  const [failed, setFailed] = useState(false);
-  const [saveState, setSaveState] = useState<SaveState>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  // The doc of a save that is still waiting, so leaving the page can send it at once.
-  const pending = useRef<DesignDoc | null>(null);
-
-  useEffect(() => {
-    if (!boss) return;
-    let cancelled = false;
-    loadDesignDoc(browserClient(), documentKey)
-      .then((saved) => {
-        if (cancelled) return;
-        // A new doc starts from the boss's diagram starter.
-        setDoc(saved ?? { problem: "", options: "", decision: "", tradeOffs: "", risks: "", diagram: boss.mermaidStarter });
-      })
-      .catch(() => !cancelled && setFailed(true));
-    return () => {
-      cancelled = true;
-    };
-  }, [boss, documentKey]);
-
-  // A save still waiting when the page closes goes out at once.
-  useEffect(
-    () => () => {
-      clearTimeout(timer.current);
-      if (pending.current) void saveDesignDoc(browserClient(), documentKey, pending.current).catch(() => undefined);
-    },
-    [documentKey],
-  );
-
   if (!town || !boss) return <p className="lead">This town has no weekend boss yet.</p>;
+  return <BossDoc documentKey={`${townId}-boss`} boss={boss} />;
+}
+
+function BossDoc({ documentKey, boss }: { documentKey: string; boss: Boss }) {
+  const { doc, failed, saveState, change } = useAutosavedDoc(documentKey, boss.mermaidStarter);
   if (failed) return <p role="alert" className="error">We could not load your design doc. Check your connection.</p>;
   if (!doc) return <p className="lead">Loading…</p>;
-
-  function change(next: DesignDoc) {
-    setDoc(next);
-    setSaveState("saving");
-    clearTimeout(timer.current);
-    pending.current = next;
-    timer.current = setTimeout(() => {
-      pending.current = null;
-      saveDesignDoc(browserClient(), documentKey, next).then(
-        () => setSaveState("saved"),
-        () => setSaveState("failed"),
-      );
-    }, SAVE_AFTER_MS);
-  }
-
   return (
     <div className="stack">
       <section className="card stack" aria-labelledby="boss-title">
@@ -83,40 +36,52 @@ export function WeekendScreen({ townId }: { townId: string }) {
         ))}
       </section>
       <div className="weekend-grid">
-        <section className="stack" aria-label="Design doc">
-          {DESIGN_DOC_SECTIONS.map(({ key, title, hint }) => (
-            <DocField key={key} id={`doc-${key}`} title={title} hint={hint}>
-              {(props) => (
-                <textarea {...props} rows={4} maxLength={20000} value={doc[key]} onChange={(event) => change({ ...doc, [key]: event.target.value })} />
-              )}
-            </DocField>
-          ))}
-          <DocField id="doc-diagram" title="Mermaid diagram" hint="A drawing made from a few lines of text. The preview draws it.">
-            {(props) => (
-              <textarea
-                {...props}
-                className="code-input"
-                rows={8}
-                maxLength={20000}
-                spellCheck={false}
-                value={doc.diagram}
-                onChange={(event) => change({ ...doc, diagram: event.target.value })}
-              />
-            )}
-          </DocField>
-          <p className="lead" role="status">
-            {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : ""}
-          </p>
-          {saveState === "failed" && (
-            <p role="alert" className="error">
-              Not saved. Check your connection. Your text stays here.
-            </p>
-          )}
-        </section>
+        <DocEditor doc={doc} saveState={saveState} onChange={change} />
         <MermaidPreview source={doc.diagram} />
       </div>
       <DiscussDoc text={() => designDocPackage({ boss, doc })} />
+      {boss.modelAnswer && (
+        <details className="card">
+          <summary>Model answer: open it after your chat with the coach</summary>
+          <pre className="model-answer">{boss.modelAnswer}</pre>
+        </details>
+      )}
     </div>
+  );
+}
+
+function DocEditor({ doc, saveState, onChange }: { doc: DesignDoc; saveState: SaveState; onChange: (doc: DesignDoc) => void }) {
+  return (
+    <section className="stack" aria-label="Design doc">
+      {DESIGN_DOC_SECTIONS.map(({ key, title, hint }) => (
+        <DocField key={key} id={`doc-${key}`} title={title} hint={hint}>
+          {(props) => (
+            <textarea {...props} rows={4} maxLength={20000} value={doc[key]} onChange={(event) => onChange({ ...doc, [key]: event.target.value })} />
+          )}
+        </DocField>
+      ))}
+      <DocField id="doc-diagram" title="Mermaid diagram" hint="A drawing made from a few lines of text. The preview draws it.">
+        {(props) => (
+          <textarea
+            {...props}
+            className="code-input"
+            rows={8}
+            maxLength={20000}
+            spellCheck={false}
+            value={doc.diagram}
+            onChange={(event) => onChange({ ...doc, diagram: event.target.value })}
+          />
+        )}
+      </DocField>
+      <p className="lead" role="status">
+        {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : ""}
+      </p>
+      {saveState === "failed" && (
+        <p role="alert" className="error">
+          Not saved. Check your connection. Your text stays here, and the app tries again when you type or leave.
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -169,7 +134,20 @@ function InlineCode({ text }: { text: string }) {
   return text.split("`").map((part, index) => (index % 2 === 1 ? <code key={index}>{part}</code> : part));
 }
 
-/** The live preview. Mermaid is large, so it loads only here, on first use. */
+let mermaidReady: Promise<typeof import("mermaid").default> | null = null;
+
+/** Mermaid is large, so it loads only on this page, on first use, and is set up once. */
+function loadMermaid() {
+  mermaidReady ??= import("mermaid").then(({ default: mermaid }) => {
+    // Strict: the learner's text can never run a script in the drawing. A failed drawing adds
+    // no error box to the page; the preview says what is wrong in plain words.
+    mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "dark", suppressErrorRendering: true });
+    return mermaid;
+  });
+  return mermaidReady;
+}
+
+/** The live preview. */
 function MermaidPreview({ source }: { source: string }) {
   const id = useId().replace(/[^a-zA-Z0-9]/g, "");
   const [svg, setSvg] = useState<string | null>(null);
@@ -179,9 +157,7 @@ function MermaidPreview({ source }: { source: string }) {
     let cancelled = false;
     const wait = setTimeout(async () => {
       try {
-        const { default: mermaid } = await import("mermaid");
-        // Strict: the learner's text can never run a script or load a page in the drawing.
-        mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "dark" });
+        const mermaid = await loadMermaid();
         await mermaid.parse(source);
         const { svg: drawn } = await mermaid.render(`diagram-${id}`, source);
         if (!cancelled) {

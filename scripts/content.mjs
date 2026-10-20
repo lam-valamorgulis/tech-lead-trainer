@@ -33,10 +33,20 @@ let ledger = readJson(LEDGER).ids;
 const weekends = readdirSync(join(CONTENT, "weekends"))
   .filter((name) => /^month-\d{2}$/.test(name) && existsSync(join(CONTENT, "weekends", name, "week-1-boss.md")))
   .sort()
-  .map((name) => ({
-    townId: `t${name.slice(-2)}`,
-    boss: parseBoss(readFileSync(join(CONTENT, "weekends", name, "week-1-boss.md"), "utf8")),
-  }));
+  .map((name) => {
+    const folder = join(CONTENT, "weekends", name);
+    const answer = join(folder, "week-1-boss-model-answer.md");
+    try {
+      const boss = parseBoss(
+        readFileSync(join(folder, "week-1-boss.md"), "utf8"),
+        existsSync(answer) ? readFileSync(answer, "utf8") : undefined,
+      );
+      return { townId: `t${name.slice(-2)}`, boss };
+    } catch (error) {
+      console.error(`content: ${join(folder, "week-1-boss.md")}: ${error.message}`);
+      process.exit(1);
+    }
+  });
 
 if (mode === "build") {
   // Only well-formed towns can add ids. A broken town is reported by the check below.

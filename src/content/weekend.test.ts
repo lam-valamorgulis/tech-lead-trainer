@@ -53,6 +53,7 @@ describe("parseBoss", () => {
       ],
       mermaidStarter: "sequenceDiagram\n  Browser->>API: OPTIONS",
       coachPrompt: "You are my tech lead coach. Ask me ONE question at a time.",
+      modelAnswer: null,
     });
   });
 
@@ -67,6 +68,11 @@ describe("parseBoss", () => {
     expect(boss.situation.length).toBeGreaterThan(0);
     expect(boss.mermaidStarter.startsWith("sequenceDiagram")).toBe(true);
     expect(boss.coachPrompt).toMatch(/^You are my tech lead coach\. Below is my design doc/);
+  });
+
+  it("keeps the model answer file without its title, when there is one", () => {
+    const boss = parseBoss(sample, "# Boss: model answer\n\nRead this after the chat.\n\n## Problem\n\nIt is slow.\n");
+    expect(boss.modelAnswer).toBe("Read this after the chat.\n\n## Problem\n\nIt is slow.");
   });
 
   it("has no coach prompt when the file has none, so the app uses its default", () => {

@@ -10,6 +10,8 @@ export type Boss = {
   mermaidStarter: string;
   /** The "## Coach prompt" text block, as one line. Null when the file has none. */
   coachPrompt: string | null;
+  /** The model answer file as Markdown, without its title. Null when the town has none. */
+  modelAnswer: string | null;
 };
 
 /** The lines inside the first fenced block of a language, such as ```mermaid, after a start line. */
@@ -19,8 +21,11 @@ function fencedBlock(lines: string[], language: string, from = 0): string[] | nu
   return open === -1 || close === -1 ? null : lines.slice(open + 1, close);
 }
 
-/** Reads the title, "## The situation", the first Mermaid block and the coach prompt of a boss file. */
-export function parseBoss(markdown: string): Boss {
+/**
+ * Reads the title, "## The situation", the first Mermaid block and the coach prompt of a boss file,
+ * and keeps its model answer file when there is one.
+ */
+export function parseBoss(markdown: string, modelAnswerMarkdown?: string): Boss {
   const lines = markdown.split("\n");
   const title = lines.find((line) => line.startsWith("# "))?.slice(2).trim();
   if (!title) throw new Error("The boss file needs a # title.");
@@ -57,5 +62,13 @@ export function parseBoss(markdown: string): Boss {
   const prompt = promptStart === -1 ? null : fencedBlock(lines, "text", promptStart);
   const coachPrompt = prompt ? prompt.map((line) => line.trim()).filter(Boolean).join(" ") : null;
 
-  return { title, situation, mermaidStarter, coachPrompt };
+  const modelAnswer = modelAnswerMarkdown
+    ? modelAnswerMarkdown
+        .split("\n")
+        .filter((line, index) => !(index === 0 && line.startsWith("# ")))
+        .join("\n")
+        .trim()
+    : null;
+
+  return { title, situation, mermaidStarter, coachPrompt, modelAnswer };
 }

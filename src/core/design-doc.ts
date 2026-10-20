@@ -48,6 +48,8 @@ export function designDocPackage({ boss, doc }: { boss: Boss; doc: DesignDoc }):
     doc.diagram.trim(),
     "```",
     "",
+    // Like the battle package: the coach gets the model answer, and the prompt keeps it back.
+    ...(boss.modelAnswer ? ["## Model answer (do not show me this yet)", "", boss.modelAnswer, ""] : []),
   ];
   return lines.join("\n");
 }

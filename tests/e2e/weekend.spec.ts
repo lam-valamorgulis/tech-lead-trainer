@@ -4,8 +4,6 @@ import { signInNewUser } from "../support/e2e";
 
 // Seam C uses the fixture boss of town t99: "Weekend 1 boss: the slow sale page".
 
-test.skip(({ isMobile }) => isMobile, "The weekend editor is a desktop task (design 3).");
-
 async function keepCopies(page: Page) {
   await page.context().route("https://claude.ai/**", (route) =>
     route.fulfill({ status: 200, contentType: "text/html", body: "<title>Claude</title>" }),
@@ -20,7 +18,11 @@ async function keepCopies(page: Page) {
   });
 }
 
-test("the boss design doc: the situation on top, the template beside a live Mermaid preview, saved as you type", async ({ page }) => {
+test("the boss design doc: the situation on top, the template beside a live Mermaid preview, saved as you type", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "A computer task (design 3). The phone test is below.");
   await keepCopies(page);
   const user = await signInNewUser(page, "weekend");
   try {
@@ -59,6 +61,24 @@ test("the boss design doc: the situation on top, the template beside a live Merm
     expect(copied[0]).toContain("# Design doc: Weekend 1 boss: the slow sale page");
     expect(copied[0]).toContain("Far visitors wait three seconds for each page.");
     expect(copied[0].startsWith("Privacy reminder:")).toBe(true);
+  } finally {
+    await user.forget();
+  }
+});
+
+test("on a phone, the map opens the weekend boss, and the preview sits under the editor", async ({ page, isMobile }) => {
+  test.skip(!isMobile, "The phone layout.");
+  const user = await signInNewUser(page, "weekend-phone");
+  try {
+    // Home keeps its commit buttons on screen: no Weekend button on a phone.
+    await expect(page.getByRole("link", { name: "Weekend" })).toBeHidden();
+    await page.getByRole("link", { name: "Map" }).click();
+    await page.getByRole("link", { name: "Weekend boss" }).click();
+    await expect(page.getByRole("heading", { name: "Weekend 1 boss: the slow sale page" })).toBeVisible();
+
+    const problem = await page.getByLabel("Problem").boundingBox();
+    const preview = await page.getByRole("region", { name: "Diagram preview" }).boundingBox();
+    expect(preview!.y).toBeGreaterThan(problem!.y + problem!.height);
   } finally {
     await user.forget();
   }

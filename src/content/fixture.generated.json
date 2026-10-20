@@ -28,7 +28,8 @@
           }
         ],
         "mermaidStarter": "sequenceDiagram\n    participant Browser\n    participant Shop\n    Browser->>Shop: GET /sale",
-        "coachPrompt": null
+        "coachPrompt": null,
+        "modelAnswer": null
       }
     }
   ],

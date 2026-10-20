@@ -687,7 +687,8 @@ h2[tabindex="-1"]:focus {
   height: auto;
 }
 
-/* Shown only on a wide screen, such as the Weekend link on home. As specific as a.button, so it wins. */
+/* Shown only on a wide screen, such as the Weekend link on home. As specific as a.button, so it wins
+   because it comes later in this file. Keep it after a.button. */
 a.wide-only {
   display: none;
 }
@@ -696,4 +697,11 @@ a.wide-only {
   a.wide-only {
     display: inline-flex;
   }
+}
+
+/* The model answer file, shown as written. */
+.model-answer {
+  margin: var(--space) 0 0;
+  white-space: pre-wrap;
+  font: inherit;
 }
