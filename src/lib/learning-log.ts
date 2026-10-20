@@ -22,39 +22,53 @@ export function toSnapshot(row: SnapshotRow): SessionSnapshot {
 }
 
 /** Today in the home time zone, from the database clock (design 12.4). */
-export async function currentLearningDay(client: SupabaseClient): Promise<string> {
+export async function currentLearningDay(client: SupabaseClient): Promise<LearningDay> {
   const { data, error } = await client.rpc("current_learning_day");
   if (error) throw error;
-  return data as string;
+  return data as LearningDay;
 }
 
 export async function loadThirtyDayRate(client: SupabaseClient): Promise<ThirtyDayRate> {
-  return (await loadLearningStatus(client)).rate;
+  const { today, recent } = await loadRecentSnapshots(client);
+  return thirtyDayRate(recent, today);
 }
 
 /** What home needs to know about past learning: the 30-day rate, and whether to open on the Rest Stop. */
 export type LearningStatus = { rate: ThirtyDayRate; restStop: boolean };
 
 export async function loadLearningStatus(client: SupabaseClient): Promise<LearningStatus> {
-  const today = await currentLearningDay(client);
-  // One day more than the window: a session counts for the day it started.
-  const from = addDays(today, -RATE_WINDOW_DAYS);
-  const recent = (await loadSnapshots(client, { from })).map(toSnapshot);
+  const { today, from, recent } = await loadRecentSnapshots(client);
   let last = lastLearnedDay(recent, today);
   if (last === null) {
     // Nothing learned in the window: look further back, so a long break also opens the Rest Stop.
-    const older = (await loadSnapshots(client, { before: from })).map(toSnapshot);
+    const older = await loadSnapshots(client, (query) => query.lt("learning_day", from));
     last = lastLearnedDay([...older, ...recent], today);
   }
   return { rate: thirtyDayRate(recent, today), restStop: showsRestStop(last, today) };
 }
 
-function loadSnapshots(client: SupabaseClient, days: { from: LearningDay } | { before: LearningDay }) {
-  return selectAll((start, end) => {
-    const query = client.from("session_events").select("session_id, occurred_at, learning_day, active_seconds");
-    const inDays = "from" in days ? query.gte("learning_day", days.from) : query.lt("learning_day", days.before);
-    return inDays.order("id").range(start, end).returns<SnapshotRow[]>();
-  });
+/** Today, and the snapshots of the 30-day window plus one day: a session counts for the day it started. */
+async function loadRecentSnapshots(client: SupabaseClient) {
+  const today = await currentLearningDay(client);
+  const from = addDays(today, -RATE_WINDOW_DAYS);
+  const recent = await loadSnapshots(client, (query) => query.gte("learning_day", from));
+  return { today, from, recent };
+}
+
+type SnapshotQuery = ReturnType<ReturnType<SupabaseClient["from"]>["select"]>;
+
+/** Every session snapshot that `filter` keeps, in the order they were saved. */
+async function loadSnapshots(
+  client: SupabaseClient,
+  filter: (query: SnapshotQuery) => SnapshotQuery,
+): Promise<SessionSnapshot[]> {
+  const rows = await selectAll((start, end) =>
+    filter(client.from("session_events").select("session_id, occurred_at, learning_day, active_seconds"))
+      .order("id")
+      .range(start, end)
+      .returns<SnapshotRow[]>(),
+  );
+  return rows.map(toSnapshot);
 }
 
 export function formatRate(rate: ThirtyDayRate): string {

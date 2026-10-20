@@ -8,6 +8,7 @@ import { learningDay } from "@/core/day";
 import { needsPlan, planSentence } from "@/core/plan";
 import { currentLearningDay, formatRate, loadLearningStatus, type LearningStatus } from "@/lib/learning-log";
 import { loadPlacementRecords } from "@/lib/placement-log";
+import type { Profile } from "@/lib/profile";
 import { browserClient } from "@/lib/supabase/browser";
 import type { SignedIn } from "./auth-gate";
 import { PlanForm } from "./plan-form";
@@ -29,7 +30,11 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
     if (session !== null) return;
     let cancelled = false;
     loadLearningStatus(browserClient())
-      .then((value) => !cancelled && setStatus(value))
+      .then((value) => {
+        if (cancelled) return;
+        setStatus(value);
+        setRateFailed(false);
+      })
       .catch(() => !cancelled && setRateFailed(true));
     return () => {
       cancelled = true;
@@ -37,9 +42,19 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
   }, [session]);
 
   function startSession(minutes: CommittedMinutes) {
-    // The status changes once the session counts, so load it again afterwards.
+    // The status changes once the session counts, so home loads it again afterwards.
     setStatus(null);
+    setRateFailed(false);
+    setAllChoices(false);
     setSession(minutes);
+  }
+
+  let choices = null;
+  if (status?.restStop && !allChoices) {
+    choices = <RestStop onStart={() => startSession(3)} onShowChoices={() => setAllChoices(true)} />;
+  } else if (status || rateFailed) {
+    // Shown only once the status is known, so the choices never jump to the Rest Stop under a finger.
+    choices = <CommitChoices profile={profile} onChoose={startSession} />;
   }
 
   if (needsPlan(profile) && !planLater) {
@@ -87,28 +102,27 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
         </nav>
       </div>
 
-      {status?.restStop && !allChoices ? (
-        <RestStop onStart={() => startSession(3)} onShowChoices={() => setAllChoices(true)} />
-      ) : (
-        // Wait for the status, so a returning learner does not see the choices jump to the Rest Stop.
-        (status || rateFailed) && (
-          <section className="commit" aria-labelledby="commit-title">
-            {profile.ifThenPlan && (
-              <div className="plan-lines">
-                <p className="lead">{planSentence(profile.ifThenPlan)}</p>
-                <p className="lead">{profile.tiredDayPlan}</p>
-              </div>
-            )}
-            <h2 id="commit-title">Today I commit to:</h2>
-            {CHOICES.map((minutes) => (
-              <button key={minutes} type="button" className="button-main" onClick={() => startSession(minutes)}>
-                {minutes} minutes
-              </button>
-            ))}
-          </section>
-        )
-      )}
+      {choices}
     </>
+  );
+}
+
+function CommitChoices({ profile, onChoose }: { profile: Profile; onChoose: (minutes: CommittedMinutes) => void }) {
+  return (
+    <section className="commit" aria-labelledby="commit-title">
+      {profile.ifThenPlan && (
+        <div className="plan-lines">
+          <p className="lead">{planSentence(profile.ifThenPlan)}</p>
+          <p className="lead">{profile.tiredDayPlan}</p>
+        </div>
+      )}
+      <h2 id="commit-title">Today I commit to:</h2>
+      {CHOICES.map((minutes) => (
+        <button key={minutes} type="button" className="button-main" onClick={() => onChoose(minutes)}>
+          {minutes} minutes
+        </button>
+      ))}
+    </section>
   );
 }
 
