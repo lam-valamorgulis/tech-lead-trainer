@@ -146,6 +146,63 @@ describe("checkContent", () => {
     expect(check(town)).toEqual([]);
   });
 
+  // The app shows content as plain text: a backtick shows as a backtick.
+  it("fails when a text has a backtick", () => {
+    const town = fixtureTown();
+    town.creatures[0].moves[0].card.example = "Send `max-age=3600` to keep the logo for one hour.";
+    expect(check(town)).toEqual([
+      {
+        where: "t99.creatures.0.moves.0.card.example",
+        message: "The text has a backtick. The app shows plain text, so write the word without code marks.",
+      },
+    ]);
+  });
+
+  // A line break collapses into a space on screen, so the text reads wrong.
+  it("fails when a text has a line break", () => {
+    const town = fixtureTown();
+    town.placement[1].answer = "Small data.\nThe browser sends it back.";
+    expect(check(town)).toEqual([
+      {
+        where: "t99.placement.1.answer",
+        message: "The text has a line break. The app shows plain text, so keep it on one line.",
+      },
+    ]);
+  });
+
+  it("checks the glossary for plain text too", () => {
+    const glossary = { words: [{ word: "header", definition: "A line like `Cache-Control` at the top of a message." }] };
+    expect(check(fixtureTown(), fixtureLedger, glossary)).toEqual([
+      {
+        where: "glossary.words.0.definition",
+        message: "The text has a backtick. The app shows plain text, so write the word without code marks.",
+      },
+    ]);
+  });
+
+  // The catch screen checks the answer by its text, so two equal choices would both count as right.
+  it("fails when two choices of a catch question are the same", () => {
+    const town = fixtureTown();
+    town.creatures[0].moves[0].catch.choices = ["A time to live", "A cookie", "A time to live"];
+    expect(check(town)).toEqual([
+      {
+        where: "t99.cache.ttl.catch.choices",
+        message: 'Two choices are the same: "A time to live". Every choice must be different.',
+      },
+    ]);
+  });
+
+  it("counts choices as the same when only capital letters or spaces differ", () => {
+    const town = fixtureTown();
+    town.creatures[1].catch.choices = ["It sends a cookie", "It reads your screen", "it sends  a Cookie"];
+    expect(check(town)).toEqual([
+      {
+        where: "t99.cookie.catch.choices",
+        message: 'Two choices are the same: "it sends  a Cookie". Every choice must be different.',
+      },
+    ]);
+  });
+
   it("does not end a sentence at e.g. or i.e.", () => {
     const town = fixtureTown();
     town.creatures[0].review.answer = `Use a cache, e.g. ${words(12)} i.e. ${words(10)}.`;

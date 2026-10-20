@@ -31,6 +31,7 @@ export function checkContent(input: ContentInput): Problem[] {
     for (const { word, definition } of glossary.data.words) {
       problems.push(...sentenceProblems(`glossary.${word}`, definition));
     }
+    problems.push(...plainTextProblems("glossary", glossary.data));
   } else {
     problems.push(...schemaProblems("glossary", glossary.error.issues));
   }
@@ -41,8 +42,34 @@ export function checkContent(input: ContentInput): Problem[] {
   problems.push(...idProblems(towns, input.ledger));
   for (const town of towns) {
     problems.push(...townProblems(town, towns));
+    problems.push(...plainTextProblems(town.id, town));
   }
   return problems;
+}
+
+/** Every string in a value, with its path, for example ["creatures.0.card.text", "…"]. */
+function strings(value: unknown, path: string[] = []): [string, string][] {
+  if (typeof value === "string") return [[path.join("."), value]];
+  if (Array.isArray(value)) return value.flatMap((child, i) => strings(child, [...path, String(i)]));
+  if (value !== null && typeof value === "object") {
+    return Object.entries(value).flatMap(([key, child]) => strings(child, [...path, key]));
+  }
+  return [];
+}
+
+// The app shows content as plain text: a backtick shows as a backtick, and a line break collapses.
+const PLAIN_TEXT_RULES: { mark: RegExp; message: string }[] = [
+  { mark: /`/, message: "The text has a backtick. The app shows plain text, so write the word without code marks." },
+  { mark: /\r|\n/, message: "The text has a line break. The app shows plain text, so keep it on one line." },
+];
+
+function plainTextProblems(prefix: string, value: unknown): Problem[] {
+  return strings(value).flatMap(([path, text]) =>
+    PLAIN_TEXT_RULES.filter(({ mark }) => mark.test(text)).map(({ message }) => ({
+      where: [prefix, path].filter(Boolean).join("."),
+      message,
+    })),
+  );
 }
 
 /** Every id in the content, in file order: towns, creatures and moves. */
@@ -108,6 +135,7 @@ function townProblems(town: Town, allTowns: Town[]): Problem[] {
     for (const [field, value] of proseFields(item)) {
       problems.push(...sentenceProblems(`${at}.${field}`, value));
     }
+    problems.push(...catchChoiceProblems(`${at}.catch.choices`, item.catch.choices));
   }
 
   const placementNeeded = Math.min(PLACEMENT_QUESTIONS, town.creatures.filter((c) => !c.retired).length);
@@ -140,6 +168,21 @@ function townProblems(town: Town, allTowns: Town[]): Problem[] {
     }
   });
 
+  return problems;
+}
+
+// The catch screen checks the answer by its text, so two equal choices would both count as right.
+// Choices that differ only in capital letters or spaces look the same to a learner, so they count as equal.
+function catchChoiceProblems(where: string, choices: string[]): Problem[] {
+  const seen = new Set<string>();
+  const problems: Problem[] = [];
+  for (const choice of choices) {
+    const key = choice.toLowerCase().split(/\s+/).join(" ");
+    if (seen.has(key)) {
+      problems.push({ where, message: `Two choices are the same: "${choice}". Every choice must be different.` });
+    }
+    seen.add(key);
+  }
   return problems;
 }
 

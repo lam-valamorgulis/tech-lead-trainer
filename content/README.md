@@ -16,6 +16,8 @@ All learning content lives here. Towns are JSON, with the schema in `src/content
 - Never delete an item. Set `"retired": true` and leave it in the file.
 - Every card has one real example and one `https` primary source.
 - A card is at most 150 words, with its example. A sentence is at most 20 words.
+- All text is plain text: no backticks and no line breaks. The app shows a backtick as a backtick, and a line break collapses.
+- The choices of a catch question are all different, also when you ignore capital letters and spaces.
 
 ## Commands
 
