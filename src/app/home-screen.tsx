@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { currentTown } from "@/content";
+import { currentTown, towns } from "@/content";
 import { placementProgress } from "@/core/placement";
 import { learningDay } from "@/core/day";
 import { needsPlan, planSentence } from "@/core/plan";
@@ -16,7 +16,9 @@ import { PlanForm } from "./plan-form";
 import { RestStop } from "./rest-stop";
 import { SessionScreen, type CommittedMinutes } from "./session-screen";
 import { WeeklySummaryCard } from "./weekly-summary";
-import { gymIsOpen } from "@/core/gym";
+import { badges, gymIsOpen } from "@/core/gym";
+import { currentTownNumber } from "@/core/roadmap";
+import { loadGymRecords } from "@/lib/gym-log";
 
 const CHOICES: CommittedMinutes[] = [3, 15, 45];
 
@@ -102,7 +104,7 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
             <Link href={`/gym/${gymTown.id}`} className="button button-quiet">
               Enter the Gym
             </Link>
-            <span className="lead">Last week of {gymTown.name}: win 4 of 5 for the badge</span>
+            <span className="lead">The Gym of {gymTown.name} is open: win 4 of 5 for the badge</span>
           </div>
         )}
         {placementTown && (
@@ -184,17 +186,25 @@ function usePlacementTown(programStartDate: string): PlacementOffer | null {
   return town;
 }
 
-/** The town whose Gym is open now (its last week, and after), so home can offer it. */
-function useGymTown(programStartDate: string): { id: string; name: string } | null {
-  const [town, setTown] = useState<{ id: string; name: string } | null>(null);
+type GymOffer = { id: string; name: string };
+
+/**
+ * The learner's own town when its Gym is open and its badge is not earned yet, so home can
+ * offer it. A town with no content yet has no Gym. If the Gyms cannot load, home offers none.
+ */
+function useGymTown(programStartDate: string): GymOffer | null {
+  const [town, setTown] = useState<GymOffer | null>(null);
   useEffect(() => {
     let cancelled = false;
-    currentLearningDay(browserClient())
-      .then((today) => {
-        if (cancelled) return;
-        const current = currentTown(programStartDate, today);
-        setTown(current && gymIsOpen(programStartDate, current.number, today) ? { id: current.id, name: current.name } : null);
+    const client = browserClient();
+    currentLearningDay(client)
+      .then(async (today) => {
+        const own = towns.find((t) => t.number === currentTownNumber(programStartDate, today));
+        if (!own || !gymIsOpen(programStartDate, own.number, today)) return null;
+        const earned = badges(await loadGymRecords(client, today)).some((badge) => badge.townId === own.id);
+        return earned ? null : { id: own.id, name: own.name };
       })
+      .then((offer) => !cancelled && setTown(offer))
       .catch(() => undefined);
     return () => {
       cancelled = true;

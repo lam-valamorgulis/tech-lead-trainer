@@ -11,6 +11,7 @@ import { currentLearningDay } from "@/lib/learning-log";
 import { browserClient } from "@/lib/supabase/browser";
 import { BattleFlow } from "../../battle-flow";
 import { formatDay } from "../../format-day";
+import { useActiveTime } from "../../use-active-time";
 
 type Loaded = { today: string; battles: BattleOffer[] | null };
 
@@ -26,8 +27,6 @@ export function GymScreen({ townId, programStartDate }: { townId: string; progra
   const [results, setResults] = useState<boolean[]>([]);
   const [gymId] = useState(() => crypto.randomUUID());
   const [sessionId] = useState(() => crypto.randomUUID());
-  // One id per Gym battle, so the end of the Gym can list the battles it holds.
-  const [battleIds] = useState(() => Array.from({ length: GYM_BATTLES }, () => crypto.randomUUID()));
 
   useEffect(() => {
     if (!town) return;
@@ -67,27 +66,6 @@ export function GymScreen({ townId, programStartDate }: { townId: string; progra
 
   const progress = gymProgress(results);
 
-  function finishBattle(won: boolean) {
-    const next = [...results, won];
-    const end = gymProgress(next);
-    if (end.finished) {
-      void postEvents([
-        {
-          type: "gym",
-          clientEventId: crypto.randomUUID(),
-          sessionId,
-          occurredAt: new Date().toISOString(),
-          gymId,
-          townId: town!.id,
-          battleIds: battleIds.slice(0, end.played),
-          wins: end.wins,
-          passed: end.passed,
-        },
-      ]);
-    }
-    setResults(next);
-  }
-
   if (progress.finished) {
     return (
       <section className="stack" aria-labelledby="gym-end-title">
@@ -117,13 +95,71 @@ export function GymScreen({ townId, programStartDate }: { townId: string; progra
   }
 
   return (
+    <GymRun
+      townId={town.id}
+      offers={loaded.battles}
+      gymId={gymId}
+      sessionId={sessionId}
+      results={results}
+      onResults={setResults}
+    />
+  );
+}
+
+/**
+ * A Gym in progress. Its time counts as learning time, like a daily session: it is saved as
+ * a 45-minute session, the day for extra battles (design 3).
+ */
+function GymRun({
+  townId,
+  offers,
+  gymId,
+  sessionId,
+  results,
+  onResults,
+}: {
+  townId: string;
+  offers: BattleOffer[];
+  gymId: string;
+  sessionId: string;
+  results: boolean[];
+  onResults: (results: boolean[]) => void;
+}) {
+  const { snapshot } = useActiveTime(sessionId, 45);
+  // One id per Gym battle, so the end of the Gym can list the battles it holds.
+  const [battleIds] = useState(() => Array.from({ length: GYM_BATTLES }, () => crypto.randomUUID()));
+  const progress = gymProgress(results);
+
+  function finishBattle(won: boolean) {
+    const next = [...results, won];
+    const end = gymProgress(next);
+    if (end.finished) {
+      void postEvents([
+        snapshot(),
+        {
+          type: "gym",
+          clientEventId: crypto.randomUUID(),
+          sessionId,
+          occurredAt: new Date().toISOString(),
+          gymId,
+          townId,
+          battleIds: battleIds.slice(0, end.played),
+          wins: end.wins,
+          passed: end.passed,
+        },
+      ]);
+    }
+    onResults(next);
+  }
+
+  return (
     <>
       <p className="lead" role="status">
         Gym battle {results.length + 1} of {GYM_BATTLES} · wins {progress.wins}
       </p>
       <BattleFlow
         key={results.length}
-        offer={loaded.battles[results.length]}
+        offer={offers[results.length]}
         sessionId={sessionId}
         battleId={battleIds[results.length]}
         onDone={finishBattle}

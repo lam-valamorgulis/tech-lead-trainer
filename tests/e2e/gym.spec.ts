@@ -75,8 +75,22 @@ test("the Gym: 5 battles in a row, 4 wins give the badge, and the badge shows on
         ),
       )
       .toEqual([{ wins: 4, passed: true, battles: 5 }]);
+    // The Gym's time counts as learning time: its session is saved like a 45-minute day.
+    await expect
+      .poll(() =>
+        sql<{ committed_minutes: number }>(
+          local,
+          `select distinct s.committed_minutes from session_events s join gym_events g on g.session_id = s.session_id
+             join auth.users u on u.id = g.user_id where u.email = $1`,
+          [user.email],
+        ),
+      )
+      .toEqual([{ committed_minutes: 45 }]);
 
     await page.getByRole("link", { name: "Back home" }).click();
+    // The badge is earned, so home stops offering the Gym.
+    await expect(page.getByText("Today I commit to:")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Enter the Gym" })).toHaveCount(0);
     await page.getByRole("link", { name: "Map" }).click();
     await expect(page.getByRole("heading", { name: "Badges" })).toBeVisible();
     await expect(page.getByRole("listitem").filter({ hasText: "Town 1: Fixture Town" })).toBeVisible();

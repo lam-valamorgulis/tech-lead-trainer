@@ -43,7 +43,7 @@ const SPRITE_SCALE = 4;
 
 /** The 12 towns of the year (design 4). The learner's town comes from their own day 1. */
 export function MapScreen({ programStartDate }: { programStartDate: string }) {
-  const [loaded, setLoaded] = useState<{ today: string; gyms: GymRecord[] } | null>(null);
+  const [loaded, setLoaded] = useState<{ today: string; gyms: GymRecord[] | null } | null>(null);
   const [failed, setFailed] = useState(false);
   const [picked, setPicked] = useState<number | null>(null);
 
@@ -51,7 +51,8 @@ export function MapScreen({ programStartDate }: { programStartDate: string }) {
     let cancelled = false;
     const client = browserClient();
     currentLearningDay(client)
-      .then(async (today) => ({ today, gyms: await loadGymRecords(client, today) }))
+      // The map works without the badges, so a failed Gym read only hides them.
+      .then(async (today) => ({ today, gyms: await loadGymRecords(client, today).catch(() => null) }))
       .then((value) => !cancelled && setLoaded(value))
       .catch(() => !cancelled && setFailed(true));
     return () => {
@@ -70,7 +71,7 @@ export function MapScreen({ programStartDate }: { programStartDate: string }) {
   const nameOf = (number: number) => towns.find((town) => town.number === number)?.name ?? ROADMAP[number - 1].name;
   const played = townToPlay(towns, current);
   const shownTown = towns.find((town) => town.number === shown.number);
-  const earned = badges(loaded.gyms);
+  const earned = loaded.gyms ? badges(loaded.gyms) : null;
 
   return (
     <>
@@ -112,7 +113,9 @@ export function MapScreen({ programStartDate }: { programStartDate: string }) {
       </section>
       <section className="stack" aria-labelledby="badges-title">
         <h2 id="badges-title">Badges</h2>
-        {earned.length === 0 ? (
+        {earned === null ? (
+          <p className="lead">We could not load your badges. Check your connection.</p>
+        ) : earned.length === 0 ? (
           <p className="lead">No badges yet. Win 4 of the 5 battles in a town&apos;s Gym to earn one.</p>
         ) : (
           <ul className="badge-list">
@@ -120,7 +123,7 @@ export function MapScreen({ programStartDate }: { programStartDate: string }) {
               const town = towns.find((t) => t.id === townId);
               return (
                 <li key={townId}>
-                  <span aria-hidden="true">🏅</span> Town {town?.number}: {town?.name ?? townId} · {formatDay(earnedOn)}
+                  <span aria-hidden="true">🏅</span> {town ? `Town ${town.number}: ${town.name}` : townId} · {formatDay(earnedOn)}
                 </li>
               );
             })}
