@@ -1,18 +1,19 @@
 // Content checker and bundler (design 12.3). Runs in CI before the build.
 //   node scripts/content.mjs check   fails on broken content or an out-of-date bundle
 //   node scripts/content.mjs build   adds new ids to the ledger and writes the bundle
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildBundle } from "../src/content/bundle.ts";
 import { checkContent, contentIds } from "../src/content/check.ts";
-import { fixtureGlossary, fixtureTown } from "../src/content/fixture-town.ts";
+import { fixtureBossMarkdown, fixtureGlossary, fixtureTown, fixtureTwistTown } from "../src/content/fixture-town.ts";
+import { parseBoss, parseCoachPrompt } from "../src/content/weekend.ts";
 import { addNewIds } from "../src/content/ledger.ts";
 import { glossarySchema, townSchema } from "../src/content/schema.ts";
 
 const CONTENT = "content";
 const LEDGER = join(CONTENT, "ledger.json");
 const BUNDLE = join("src", "content", "bundle.generated.json");
-// The fixture town as a bundle, for seam C only (NEXT_PUBLIC_CONTENT_SET=fixture).
+// The fixture towns as a bundle, for seam C only (NEXT_PUBLIC_CONTENT_SET=fixture). Town 2 has the twist.
 const FIXTURE_BUNDLE = join("src", "content", "fixture.generated.json");
 
 const mode = process.argv[2];
@@ -28,6 +29,26 @@ const townFiles = readdirSync(join(CONTENT, "towns"))
 const towns = townFiles.map((name) => readJson(join(CONTENT, "towns", name)));
 const glossary = readJson(join(CONTENT, "glossary.json"));
 let ledger = readJson(LEDGER).ids;
+// The week 1 boss of each month, for the weekend editor: month-01 belongs to town t01.
+const weekends = readdirSync(join(CONTENT, "weekends"))
+  .filter((name) => /^month-\d{2}$/.test(name) && existsSync(join(CONTENT, "weekends", name, "week-1-boss.md")))
+  .sort()
+  .map((name) => {
+    const folder = join(CONTENT, "weekends", name);
+    const answer = join(folder, "week-1-boss-model-answer.md");
+    try {
+      const boss = parseBoss(
+        readFileSync(join(folder, "week-1-boss.md"), "utf8"),
+        existsSync(answer) ? readFileSync(answer, "utf8") : undefined,
+      );
+      const adr = join(folder, "week-2-adr.md");
+      const adrCoachPrompt = existsSync(adr) ? parseCoachPrompt(readFileSync(adr, "utf8")) : null;
+      return { townId: `t${name.slice(-2)}`, boss, adrCoachPrompt };
+    } catch (error) {
+      console.error(`content: ${join(folder, "week-1-boss.md")}: ${error.message}`);
+      process.exit(1);
+    }
+  });
 
 if (mode === "build") {
   // Only well-formed towns can add ids. A broken town is reported by the check below.
@@ -43,8 +64,13 @@ if (problems.length > 0) {
 }
 
 const toJson = (value) => `${JSON.stringify(value, null, 2)}\n`;
-const bundle = toJson(buildBundle(towns.map((town) => townSchema.parse(town)), glossarySchema.parse(glossary).words));
-const fixtureBundle = toJson(buildBundle([townSchema.parse(fixtureTown())], glossarySchema.parse(fixtureGlossary()).words));
+const bundle = toJson(buildBundle(towns.map((town) => townSchema.parse(town)), glossarySchema.parse(glossary).words, weekends));
+const fixtureTowns = [fixtureTown(), fixtureTwistTown()].map((town) => townSchema.parse(town));
+const fixtureBundle = toJson(
+  buildBundle(fixtureTowns, glossarySchema.parse(fixtureGlossary()).words, [
+    { townId: "t99", boss: parseBoss(fixtureBossMarkdown()), adrCoachPrompt: null },
+  ]),
+);
 
 if (mode === "build") {
   writeFileSync(LEDGER, `${JSON.stringify({ ids: ledger }, null, 2)}\n`);

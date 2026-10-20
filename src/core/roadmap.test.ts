@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { currentTownNumber, ROADMAP, townStartDay, townToPlay } from "./roadmap.ts";
+import { currentTownNumber, ROADMAP, showsNewTown, townStartDay, townToPlay } from "./roadmap.ts";
 
 describe("ROADMAP", () => {
   it("has 12 towns, one per month, starting with Web and HTTP", () => {
@@ -65,5 +65,32 @@ describe("townToPlay", () => {
 
   it("never jumps ahead to a later town", () => {
     expect(townToPlay([{ number: 2 }], 1)).toBeUndefined();
+  });
+});
+
+// Ticket #36: the "new town" screen, a fresh start on the first learning day in a new town.
+describe("showsNewTown", () => {
+  // Day 1 is 2026-10-20, so town 2 starts on 2026-11-20.
+  const start = "2026-10-20";
+
+  it("shows on the first day of town 2, when the last session was in town 1", () => {
+    expect(showsNewTown({ programStartDate: start, townNumber: 2, lastSessionDay: "2026-11-19" })).toBe(true);
+  });
+
+  it("shows on a later day too, when the learner has not learned since town 2 started", () => {
+    expect(showsNewTown({ programStartDate: start, townNumber: 2, lastSessionDay: "2026-11-15" })).toBe(true);
+  });
+
+  it("hides for good once a session started in the new town, also on the same day", () => {
+    expect(showsNewTown({ programStartDate: start, townNumber: 2, lastSessionDay: "2026-11-20" })).toBe(false);
+    expect(showsNewTown({ programStartDate: start, townNumber: 2, lastSessionDay: "2026-11-21" })).toBe(false);
+  });
+
+  it("shows for a learner with no session yet whose town is already town 2", () => {
+    expect(showsNewTown({ programStartDate: start, townNumber: 2, lastSessionDay: null })).toBe(true);
+  });
+
+  it("never shows in town 1, which is the start of the year, not a new town", () => {
+    expect(showsNewTown({ programStartDate: start, townNumber: 1, lastSessionDay: null })).toBe(false);
   });
 });

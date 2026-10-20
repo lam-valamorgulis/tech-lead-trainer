@@ -16,9 +16,13 @@ import {
   type BattleOffer,
   type BattleState,
 } from "@/core/battle";
+import { soundForDamage } from "@/core/effects";
+import { opponentTypes, scenarioTwist, threatTypeOf } from "@/core/twist";
+import type { OpponentType } from "@/content/schema";
 import { postEvents } from "@/lib/events/post-events";
 import type { BattleEventFields, LearningEvent } from "@/lib/events/write-events";
 import { DiscussInClaude } from "./discuss-in-claude";
+import { Fx } from "./effects";
 import { keepAboveKeyboard } from "./keyboard";
 import { OPPONENT_LOOK } from "./opponent-look";
 import { GlossaryText } from "./glossary-text";
@@ -162,7 +166,8 @@ export function BattleFlow({
         <h2 id="battle-title" ref={heading} tabIndex={-1}>
           A battle begins: {offer.scenario.name}
         </h2>
-        <OpponentType type={offer.scenario.opponentType} />
+        <OpponentTypeList scenario={offer.scenario} />
+        <TwistNote scenario={offer.scenario} />
         <p>
           <GlossaryText text={offer.scenario.problem} />
         </p>
@@ -193,6 +198,10 @@ export function BattleFlow({
             Last turn: <GlossaryText text={resultSentence(last)} />
           </p>
         )}
+        {/* A two-type opponent shows the type that attacks, before the threat (#36). */}
+        {scenarioTwist(battle.scenario) && (
+          <TypeChip type={threatTypeOf(battle.scenario, battle.turns.length)} label="This turn attacks with:" />
+        )}
         {/* UI rule 1: the threat comes before the moves. */}
         <p className="notice">
           <strong>Threat:</strong> <GlossaryText text={turn.threat} />
@@ -208,11 +217,16 @@ export function BattleFlow({
         <h2 id="result-title" ref={heading} tabIndex={-1}>
           Turn {last.turnNumber} result
         </h2>
-        <p className="damage">{damageLabel(last.damage)}</p>
+        {/* UI rule 10: the damage words are the twin of the hit sound. */}
+        <p className="damage">
+          <Fx effect="pop" sound={soundForDamage(last.damage)}>
+            {damageLabel(last.damage)}
+          </Fx>
+        </p>
         <p>
           <GlossaryText text={resultSentence(last)} />
         </p>
-        <HitPoints hp={progress!.hp} />
+        <HitPoints hp={progress!.hp} flash={last.damage > 0} />
         <button type="button" className="button-main" onClick={() => setStep("check")}>
           See the model answer
         </button>
@@ -244,7 +258,14 @@ export function BattleFlow({
   return (
     <section className="stack" aria-labelledby="end-title">
       <h2 id="end-title" ref={heading} tabIndex={-1}>
-        {progress!.won ? "You won!" : "You lost this time"}
+        {/* A loss gets a soft sound and no movement. */}
+        {progress!.won ? (
+          <Fx effect="pop" sound="win">
+            You won!
+          </Fx>
+        ) : (
+          <Fx sound="lose">You lost this time</Fx>
+        )}
       </h2>
       <p>
         {progress!.won
@@ -297,23 +318,52 @@ function CheckForm({
 }
 
 /** UI rule 4: a colour, an icon and a word, so the type reads without colour too. */
-function OpponentType({ type }: { type: BattleOffer["scenario"]["opponentType"] }) {
+function TypeChip({ type, label, as: Tag = "p" }: { type: OpponentType; label?: string; as?: "p" | "li" }) {
   const look = OPPONENT_LOOK[type];
   return (
-    <p className="opponent-type" style={{ borderColor: look.color }}>
+    <Tag className="opponent-type" style={{ borderColor: look.color }}>
       <span aria-hidden="true" className="opponent-icon">
         {look.icon}
       </span>
-      Type: {look.word}
+      {label && `${label} `}
+      {look.word}
+    </Tag>
+  );
+}
+
+/** The opponent's type, or both types of a two-type opponent, each with its colour, icon and word. */
+function OpponentTypeList({ scenario }: { scenario: BattleOffer["scenario"] }) {
+  const types = opponentTypes(scenario);
+  if (types.length === 1) return <TypeChip type={types[0]} label="Type:" />;
+  return (
+    <div className="stack">
+      <p id="opponent-types-label">Two types:</p>
+      <ul className="opponent-types" aria-labelledby="opponent-types-label">
+        {types.map((type) => (
+          <TypeChip key={type} type={type} as="li" />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** The town's twist in two short sentences, so the new rule is clear before the battle (#36). */
+function TwistNote({ scenario }: { scenario: BattleOffer["scenario"] }) {
+  const twist = scenarioTwist(scenario);
+  if (!twist) return null;
+  return (
+    <p className="notice">
+      <strong>{twist.name}.</strong> {twist.rule} {twist.damageRule}
     </p>
   );
 }
 
-function HitPoints({ hp }: { hp: number }) {
+/** `flash` lights the hearts up once, right after a move hit (UI rule 9). */
+function HitPoints({ hp, flash = false }: { hp: number; flash?: boolean }) {
+  const hearts = <span aria-hidden="true">{"♥".repeat(hp) + "♡".repeat(OPPONENT_HP - hp)}</span>;
   return (
     <p>
-      Opponent HP {hp} of {OPPONENT_HP}{" "}
-      <span aria-hidden="true">{"♥".repeat(hp) + "♡".repeat(OPPONENT_HP - hp)}</span>
+      Opponent HP {hp} of {OPPONENT_HP} {flash ? <Fx effect="flash">{hearts}</Fx> : hearts}
     </p>
   );
 }

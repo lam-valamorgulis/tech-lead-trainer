@@ -89,6 +89,8 @@ export const moveTableRowSchema = z.object({
 export const KEY_POINTS = 3;
 
 export const battleTurnSchema = z.object({
+  /** Only in a "two-types" town: which of the opponent's two types attacks this turn (#36). */
+  threatType: z.enum(OPPONENT_TYPES).optional(),
   threat: text,
   moves: z.array(moveTableRowSchema).min(3).max(4),
   /** The answer a senior engineer gives to this threat, shown after the turn's result (design 7.7). */
@@ -103,16 +105,28 @@ export const scenarioSchema = z.object({
   name: text,
   retired: z.boolean().optional(),
   opponentType: z.enum(OPPONENT_TYPES),
+  /** Only in a "two-types" town, where it is required: the opponent's second type (#36). */
+  secondType: z.enum(OPPONENT_TYPES).optional(),
   problem: text,
   /** A battle lasts at most 3 turns, so every scenario has 3. */
   turns: z.array(battleTurnSchema).length(3),
 });
+
+/**
+ * The battle twists a town can turn on (design 4, ticket #36): one small new rule per town.
+ * "two-types": every opponent has two types, and each turn names the type that attacks.
+ */
+export const TWIST_KINDS = ["two-types"] as const;
+
+export const twistSchema = z.object({ kind: z.enum(TWIST_KINDS) });
 
 export const townSchema = z.object({
   id: townIdSchema,
   number: z.int().min(1).max(12),
   name: text,
   retired: z.boolean().optional(),
+  /** The town's battle twist. Town 1 has none, so its battles keep the rules of design 7. */
+  twist: twistSchema.optional(),
   creatures: z.array(creatureSchema),
   placement: z.array(placementQuestionSchema),
   /** Pairs of creature or move ids that are easy to mix up. They can come from different towns. */
@@ -133,4 +147,6 @@ export type PlacementQuestion = z.infer<typeof placementQuestionSchema>;
 export type Scenario = z.infer<typeof scenarioSchema>;
 export type BattleTurn = z.infer<typeof battleTurnSchema>;
 export type OpponentType = (typeof OPPONENT_TYPES)[number];
+export type Twist = z.infer<typeof twistSchema>;
+export type TwistKind = (typeof TWIST_KINDS)[number];
 export type Glossary = z.infer<typeof glossarySchema>;

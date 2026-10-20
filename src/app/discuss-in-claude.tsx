@@ -6,6 +6,7 @@ import type { BattleState } from "@/core/battle";
 import { CLAUDE_NEW_CHAT, discussPackage, teachBackItems } from "@/core/discuss";
 import { postEvents } from "@/lib/events/post-events";
 import type { BattleEventFields } from "@/lib/events/write-events";
+import { copyAndOpenClaude } from "./claude-copy";
 import { keepAboveKeyboard } from "./keyboard";
 
 type CopyState = "copying" | "copied" | "failed";
@@ -46,23 +47,14 @@ export function DiscussInClaude({
     tapped.current = true;
     const pkg = discussPackage({ battle, whys, ticks, itemOf: itemCard });
     setText(pkg);
-    let write: Promise<void> | undefined;
-    try {
-      write = navigator.clipboard?.writeText(pkg);
-    } catch {
-      write = undefined;
-    }
-    if (!write) {
+    const copy = copyAndOpenClaude(pkg);
+    if (!copy) {
       // No clipboard at all: stay here, so the learner can copy the text box first.
       report(false);
       return;
     }
     setCopyState("copying");
-    window.open(CLAUDE_NEW_CHAT, "_blank", "noopener");
-    write.then(
-      () => report(true),
-      () => report(false),
-    );
+    void copy.then(report);
   }
 
   function saveTeachBack(firstSentence: string, secondSentence: string) {

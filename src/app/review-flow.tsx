@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReviewItem } from "@/content";
 import { dayNumber } from "@/core/day";
-import { gradeReview, type DueState, type Grade } from "@/core/review";
+import { evolvesTo, gradeReview, type DueState, type Grade, type Stage } from "@/core/review";
 import { postEvents } from "@/lib/events/post-events";
+import { Fx } from "./effects";
 import { ReportWrong } from "./report-wrong";
 import { GlossaryText } from "./glossary-text";
 
@@ -79,12 +80,14 @@ function ReviewCard({
   const [shownAt] = useState(() => new Date().toISOString());
   const [revealedAt, setRevealedAt] = useState<string | null>(null);
   const [typed, setTyped] = useState("");
+  // The new stage, when this grade evolved the creature (design 5).
+  const [evolved, setEvolved] = useState<Stage | null>(null);
   const graded = useRef(false);
   const heading = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
     heading.current?.focus();
-  }, [revealedAt]);
+  }, [revealedAt, evolved]);
 
   /** The schedule after a grade. The due day makes an early (mixed-in) review keep its schedule. */
   function nextReview(choice: Grade) {
@@ -117,7 +120,30 @@ function ReviewCard({
         confidence: null,
       },
     ]);
-    onGraded();
+    const stage = item.kind === "creature" ? evolvesTo(state, choice, today) : null;
+    if (stage) setEvolved(stage);
+    else onGraded();
+  }
+
+  if (evolved) {
+    return (
+      <section className="stack" aria-labelledby="evolved-title">
+        <h2 id="evolved-title" ref={heading} tabIndex={-1}>
+          <Fx effect="pop" sound="evolve">
+            {item.name} evolved!
+          </Fx>
+        </h2>
+        <p>
+          <span className="creature-sprite" aria-hidden="true">
+            {"★".repeat(evolved)}
+          </span>
+          Stage {evolved} of 3. The Field Guide shows it too.
+        </p>
+        <button type="button" className="button-main" onClick={onGraded}>
+          Continue
+        </button>
+      </section>
+    );
   }
 
   return (

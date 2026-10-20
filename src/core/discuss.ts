@@ -13,6 +13,10 @@ import {
 } from "./battle.ts";
 import type { LearningDay } from "./day.ts";
 import type { ReviewRecord } from "./review.ts";
+import { opponentTypes, scenarioTwist, threatTypeOf } from "./twist.ts";
+
+/** "traffic" becomes "Traffic", the word the battle screen shows. */
+const typeWord = (type: string) => `${type.charAt(0).toUpperCase()}${type.slice(1)}`;
 
 /** Where the package goes. The app copies first, then opens this page (design 10). */
 export const CLAUDE_NEW_CHAT = "https://claude.ai/new";
@@ -70,11 +74,11 @@ function battleSection({ battle, itemOf }: DiscussInput): string {
   const result = progress.won
     ? `I won in ${turns} turn${turns === 1 ? "" : "s"}.`
     : `I lost. The opponent still had HP ${progress.hp} of ${OPPONENT_HP} after ${MAX_TURNS} turns.`;
-  const type = battle.scenario.opponentType;
+  const types = opponentTypes(battle.scenario).map(typeWord);
   return [
     `# My battle: ${battle.scenario.name}`,
     "",
-    `- Opponent type: ${type.charAt(0).toUpperCase()}${type.slice(1)}`,
+    types.length === 1 ? `- Opponent type: ${types[0]}` : `- Opponent types: ${types.join(" and ")}`,
     `- Problem: ${battle.scenario.problem}`,
     `- My team: ${battle.team.map(name).join(", ")}`,
     `- Result: ${result}`,
@@ -89,6 +93,8 @@ function turnSection({ battle, whys, ticks, itemOf }: DiscussInput, turn: Played
   return [
     `## Turn ${turn.turnNumber}`,
     "",
+    // A two-type opponent names the type that attacked; a one-type battle reads as before (#36).
+    ...(scenarioTwist(battle.scenario) ? [`- Threat type: ${typeWord(threatTypeOf(battle.scenario, turn.turnNumber - 1))}`] : []),
     `- Threat: ${content.threat}`,
     `- My move: ${move}`,
     `- My why: ${whys[turn.turnNumber] ?? ""}`,

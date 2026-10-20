@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { currentTown, towns } from "@/content";
+import type { BundledTown } from "@/content/bundle";
 import { placementProgress } from "@/core/placement";
 import { learningDay } from "@/core/day";
 import { needsPlan, planSentence } from "@/core/plan";
@@ -15,10 +16,14 @@ import type { SignedIn } from "./auth-gate";
 import { PlanForm } from "./plan-form";
 import { RestStop } from "./rest-stop";
 import { SessionScreen, type CommittedMinutes } from "./session-screen";
+import { startSound } from "./sound";
 import { WeeklySummaryCard } from "./weekly-summary";
+import { NewTown } from "./new-town";
 import { badges, gymIsOpen } from "@/core/gym";
-import { currentTownNumber } from "@/core/roadmap";
+import { currentTownNumber, showsNewTown } from "@/core/roadmap";
 import { loadGymRecords } from "@/lib/gym-log";
+import { adrOutcomeDue } from "@/core/adr";
+import { loadAdrChecks } from "@/lib/weekend-doc";
 
 const CHOICES: CommittedMinutes[] = [3, 15, 45];
 
@@ -28,8 +33,11 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
   const [status, setStatus] = useState<LearningStatus | null>(null);
   const [rateFailed, setRateFailed] = useState(false);
   const [allChoices, setAllChoices] = useState(false);
+  // The town whose "new town" screen the learner already started on this visit.
+  const [startedTown, setStartedTown] = useState<number | null>(null);
   const placementTown = usePlacementTown(profile.programStartDate);
   const gymTown = useGymTown(profile.programStartDate);
+  const adrTown = useAdrToCheck();
   const rate = status?.rate;
 
   useEffect(() => {
@@ -47,7 +55,9 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
     };
   }, [session]);
 
+  /** Runs inside the commit tap, the only place where iPhone Safari lets audio start. */
   function startSession(minutes: CommittedMinutes) {
+    startSound();
     // The status changes once the session counts, so home loads it again afterwards.
     setStatus(null);
     setRateFailed(false);
@@ -55,8 +65,13 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
     setSession(minutes);
   }
 
+  const newTown = status ? newTownToShow(profile.programStartDate, status) : null;
+
   let choices = null;
-  if (status?.restStop && !allChoices) {
+  if (newTown && newTown.number !== startedTown) {
+    // A fresh start comes first. "Start" then shows the Rest Stop or the commit buttons as usual.
+    choices = <NewTown town={newTown} onStart={() => setStartedTown(newTown.number)} />;
+  } else if (status?.restStop && !allChoices) {
     choices = <RestStop onStart={() => startSession(3)} onShowChoices={() => setAllChoices(true)} />;
   } else if (status || rateFailed) {
     // Shown only once the status is known, so the choices never jump to the Rest Stop under a finger.
@@ -99,14 +114,6 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
           <br />
           This week: <strong>{status ? formatWeekMinutes(status.weekMinutes) : "…"}</strong>
         </p>
-        {gymTown && (
-          <div className="notice row">
-            <Link href={`/gym/${gymTown.id}`} className="button button-quiet">
-              Enter the Gym
-            </Link>
-            <span className="lead">The Gym of {gymTown.name} is open: win 4 of 5 for the badge</span>
-          </div>
-        )}
         {placementTown && (
           <div className="notice row">
             <Link href={`/placement/${placementTown.id}`} className="button button-quiet">
@@ -118,6 +125,10 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
         <nav className="home-nav" aria-label="More">
           <Link href="/map" className="button button-quiet">
             Map
+          </Link>
+          {/* A computer task (design 3): on a phone it would push the commit buttons down. The map links it too. */}
+          <Link href="/weekend" className="button button-quiet wide-only">
+            Weekend
           </Link>
           <Link href="/field-guide" className="button button-quiet">
             Field Guide
@@ -132,7 +143,23 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
       </div>
 
       {choices}
-      {/* Below the choices: it loads late, and must never move or push down the commit buttons. */}
+      {/* Below the choices: these load late, and must never move or push down the commit buttons. */}
+      {adrTown && (
+        <div className="notice row">
+          <Link href={`/weekend/${adrTown}/adr`} className="button button-quiet">
+            Check your ADR
+          </Link>
+          <span className="lead">Your check date has come: what really happened after your decision?</span>
+        </div>
+      )}
+      {gymTown && (
+        <div className="notice row">
+          <Link href={`/gym/${gymTown.id}`} className="button button-quiet">
+            Enter the Gym
+          </Link>
+          <span className="lead">The Gym of {gymTown.name} is open: win 4 of 5 for the badge</span>
+        </div>
+      )}
       <WeeklySummaryCard />
     </>
   );
@@ -155,6 +182,16 @@ function CommitChoices({ profile, onChoose }: { profile: Profile; onChoose: (min
       ))}
     </section>
   );
+}
+
+/**
+ * The town to welcome the learner to, on their first learning day there (#36). It uses the town
+ * they play today, by the same current-town rule as the session, so it never names an empty town.
+ */
+function newTownToShow(programStartDate: string, status: LearningStatus): BundledTown | null {
+  const town = currentTown(programStartDate, status.today);
+  if (!town) return null;
+  return showsNewTown({ programStartDate, townNumber: town.number, lastSessionDay: status.lastSessionDay }) ? town : null;
 }
 
 type PlacementOffer = { id: string; questions: number };
@@ -187,6 +224,25 @@ function usePlacementTown(programStartDate: string): PlacementOffer | null {
     };
   }, [programStartDate]);
   return town;
+}
+
+/**
+ * The town of an ADR whose outcome check date has come and that has no outcome yet (design 3).
+ * If the ADRs cannot load, home shows nothing: the push reminder still comes on the date.
+ */
+function useAdrToCheck(): string | null {
+  const [townId, setTownId] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const client = browserClient();
+    Promise.all([currentLearningDay(client), loadAdrChecks(client)])
+      .then(([today, adrs]) => !cancelled && setTownId(adrs.find((adr) => adrOutcomeDue(adr, today))?.townId ?? null))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return townId;
 }
 
 type GymOffer = { id: string; name: string };

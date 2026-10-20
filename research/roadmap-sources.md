@@ -184,11 +184,11 @@ When a source gave only a title or a name, the one-line meaning is my plain-word
 | 12 | Same-origin policy and CORS | The server must opt in before a page reads a response. | [MDN CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS) |
 | 13 | Preflight request | The browser sends OPTIONS first for non-simple requests. | [MDN CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS) |
 
-### Month 2. API design (12)
+### Month 2. API design (15)
 
 | # | Creature | One line | Source |
 |---|---|---|---|
-| 1 | Resource-oriented design | Design around things (nouns), not actions. | [Google AIP](https://google.aip.dev/) `(rule numbers not verified)` |
+| 1 | Resource-oriented design | Design around things (nouns), not actions. | [Google AIP-121](https://google.aip.dev/121) |
 | 2 | Methods and status codes in APIs | Pick the right code for each result. | [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html) |
 | 3 | Idempotency key | The client sends a unique key so a retry is safe. | [Stripe idempotent requests](https://docs.stripe.com/api/idempotent_requests) |
 | 4 | Atomic token recording | Save the token and the change in one step. | [AWS: Making retries safe](https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/) |
@@ -200,6 +200,36 @@ When a source gave only a title or a name, the one-line meaning is my plain-word
 | 10 | Conditional requests and ETags | Azure covers conditional requests with ETags. | [Azure REST guidelines](https://github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md) |
 | 11 | Request repeatability | Azure's pattern for repeating a request safely. | [Azure REST guidelines](https://github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md) |
 | 12 | Authentication basics for APIs | Who is calling, and how you check it. | [OWASP Authentication cheat sheet](https://cheatsheetseries.owasp.org/) |
+| 13 | Rate limiting | 429 Too Many Requests, Retry-After, limits per key. Added for town 2. | [RFC 6585](https://www.rfc-editor.org/rfc/rfc6585.html#section-4) |
+| 14 | Backwards compatibility | Changes that break clients. Added for town 2. | [Google AIP-180](https://google.aip.dev/180) |
+| 15 | Calling an LLM API | Errors, retries, streaming, timeouts (design 4). Added for town 2. | [Claude API: Errors](https://platform.claude.com/docs/en/api/errors) |
+
+#### Pages town 2 cites (#37)
+
+Fetched again on 2026-10-20 for the town 2 content. Every town 2 card cites one of these pages. The Google AIP rule numbers below are now verified: each one is its own page.
+
+| Page | Used for |
+|---|---|
+| [AIP-121 Resource-oriented design](https://google.aip.dev/121) | Resources, standard methods |
+| [AIP-122 Resource names](https://google.aip.dev/122) | Resource names |
+| [AIP-136 Custom methods](https://google.aip.dev/136) | Custom methods |
+| [AIP-155 Request identification](https://google.aip.dev/155) | The request_id field |
+| [AIP-158 Pagination](https://google.aip.dev/158) | Page tokens, page size |
+| [AIP-180 Backwards compatibility](https://google.aip.dev/180) | Breaking changes |
+| [AIP-185 API versioning](https://google.aip.dev/185) | Major version in the path |
+| [RFC 9110 HTTP Semantics](https://www.rfc-editor.org/rfc/rfc9110.html) | 201, 202, 401, 403, 409, 422, If-Match, If-None-Match, Retry-After |
+| [RFC 9457 Problem Details](https://www.rfc-editor.org/rfc/rfc9457.html) | Error format |
+| [RFC 6585, section 4](https://www.rfc-editor.org/rfc/rfc6585.html#section-4) | 429 Too Many Requests |
+| [Stripe: Idempotent requests](https://docs.stripe.com/api/idempotent_requests) | Idempotency keys |
+| [AWS: Making retries safe with idempotent APIs](https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/) | Client request tokens. This URL loaded directly on 2026-10-20, with no redirect. |
+| [Azure REST API Guidelines](https://github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md) | Status codes, paging, conditional requests, repeatability, long-running operations, versioning, deprecation. Read as the raw Markdown file of the same path. |
+| [OpenAPI Specification, latest (3.2.1)](https://spec.openapis.org/oas/latest.html) | OpenAPI, operationId, components |
+| [OWASP REST Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html) | Access control, HTTPS, keys in URLs, API keys |
+| [Claude API: Errors](https://platform.claude.com/docs/en/api/errors) | The LLM API creature (design 4): errors, retries, long requests |
+| [Claude API: Streaming messages](https://platform.claude.com/docs/en/build-with-claude/streaming) | Streaming |
+| [Claude API: Rate limits](https://platform.claude.com/docs/en/api/rate-limits) | Token bucket rate limits |
+
+The `docs.claude.com/en/...` URLs redirect to `platform.claude.com/docs/en/...`. The cards cite the final URLs.
 
 ### Month 3. Database, SQL, index, transactions (14)
 
@@ -541,6 +571,18 @@ I did not verify the book *The Staff Engineer's Path* `(not verified)`. Its O'Re
 - https://www.rfc-editor.org/rfc/rfc9457.html
 - https://spec.openapis.org/oas/latest.html
 - https://google.aip.dev/
+- https://google.aip.dev/121
+- https://google.aip.dev/122
+- https://google.aip.dev/136
+- https://google.aip.dev/155
+- https://google.aip.dev/158
+- https://google.aip.dev/180
+- https://google.aip.dev/185
+- https://www.rfc-editor.org/rfc/rfc6585.html
+- https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html
+- https://platform.claude.com/docs/en/api/errors
+- https://platform.claude.com/docs/en/build-with-claude/streaming
+- https://platform.claude.com/docs/en/api/rate-limits
 - https://docs.stripe.com/api/idempotent_requests
 - https://github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md
 - https://www.postgresql.org/docs/current/tutorial.html

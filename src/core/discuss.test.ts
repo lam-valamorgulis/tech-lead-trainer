@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildBundle } from "@/content/bundle";
-import { fixtureTown } from "@/content/fixture-town";
+import { fixtureTown, fixtureTwistTown } from "@/content/fixture-town";
 import { townSchema, type Card } from "@/content/schema";
 import { playTurn, startBattle, type BattleState } from "./battle.ts";
 import { COACH_PROMPT, discussPackage, teachBackFor, teachBackItems, type TeachBackRecord } from "./discuss.ts";
@@ -144,6 +144,16 @@ describe("discussPackage", () => {
     expect(text.startsWith("Privacy reminder:")).toBe(true);
     expect(text).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-/);
     expect(text).not.toContain("@");
+  });
+
+  it("names both types of a two-type opponent, and the type that attacked on each turn (#36)", () => {
+    const [, twistTown] = buildBundle([townSchema.parse(fixtureTown()), townSchema.parse(fixtureTwistTown())]).towns;
+    const offer = { scenario: twistTown.scenarios[0], team: { size: 2, choices: ["rate-limit", "api-key"] }, workedExamples: [] };
+    const battle = playTurn(playTurn(startBattle(offer, ["rate-limit", "api-key"]), "rate-limit.quota"), "api-key.rotate");
+    const text = discussPackage({ battle, whys: { 1: "x", 2: "y" }, ticks: {}, itemOf: () => undefined });
+    expect(text).toContain("- Opponent types: Traffic and Security\n");
+    expect(text).toContain("## Turn 1\n\n- Threat type: Traffic\n- Threat: One partner sends 500 requests");
+    expect(text).toContain("## Turn 2\n\n- Threat type: Security\n- Threat: A leaked API key");
   });
 });
 

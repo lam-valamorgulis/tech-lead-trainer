@@ -125,7 +125,8 @@ button,
 }
 
 /* 17px stops iOS Safari from zooming into the field. */
-.field input {
+.field input,
+.field select {
   min-height: var(--tap-main);
   padding: 0 12px;
   font: inherit;
@@ -141,6 +142,7 @@ button,
 }
 
 .field input:focus-visible,
+.field select:focus-visible,
 button:focus-visible,
 a.button:focus-visible {
   outline: 3px solid var(--color-accent);
@@ -404,6 +406,16 @@ h2[tabindex="-1"]:focus {
   font-size: 24px;
 }
 
+/* A two-type opponent (#36): both types side by side, each with its own colour, icon and word. */
+.opponent-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 /* UI rule 3: "Strong hit · 2 ●●". */
 .damage {
   font-family: var(--font-heading);
@@ -553,6 +565,38 @@ h2[tabindex="-1"]:focus {
   gap: 8px;
 }
 
+/* UI rule 9: short effects that play once, so nothing flashes more than 3 times a second.
+   The length is set inline from EFFECTS in src/core/effects.ts, the one source. No effect runs
+   when the phone asks for reduced motion, or when the "Reduce effects" setting is on. */
+.fx {
+  display: inline-block;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-effects="reduced"]) .fx-pop {
+    animation: fx-pop ease-out 1;
+  }
+
+  :root:not([data-effects="reduced"]) .fx-flash {
+    animation: fx-flash linear 1;
+  }
+}
+
+/* The text grows a little and comes back. */
+@keyframes fx-pop {
+  50% {
+    transform: scale(1.2);
+  }
+}
+
+/* One flash: the hearts light up once. */
+@keyframes fx-flash {
+  50% {
+    color: var(--color-accent);
+    text-shadow: 0 0 8px var(--color-accent);
+  }
+}
+
 /* Tracking (ticket #30): one long screen that scrolls. Sections stack with space between. */
 .tracking {
   gap: calc(var(--space) * 1.5);
@@ -626,4 +670,60 @@ h2[tabindex="-1"]:focus {
 .tracking [role="alert"]:empty,
 .tracking [role="status"]:empty {
   margin: 0;
+}
+
+/* Weekend editor (design 11): on a computer, the editor on the left and the preview on the right. */
+.weekend-grid {
+  display: grid;
+  gap: var(--space);
+}
+
+@media (min-width: 900px) {
+  .weekend-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .diagram-preview {
+    position: sticky;
+    top: var(--space);
+  }
+}
+
+.code-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Shown only on a wide screen, such as the Weekend link on home. As specific as a.button, so it wins
+   because it comes later in this file. Keep it after a.button. */
+a.wide-only {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  a.wide-only {
+    display: inline-flex;
+  }
+}
+
+/* The model answer file, shown as written. */
+.model-answer {
+  margin: var(--space) 0 0;
+  white-space: pre-wrap;
+  font: inherit;
+}
+
+/* The dark page needs a dark list behind the status choices. */
+.field select option {
+  background: var(--color-bg);
+}
+
+/* The weekend tab of the open page. */
+a[aria-current="page"] {
+  border-color: var(--color-accent);
 }

@@ -21,6 +21,8 @@ export const BACKUP_TABLES = [
   "battle_discuss_events",
   "battle_teach_back_events",
   "gym_events",
+  "reading_events",
+  "weekend_documents",
   "content_reports",
   "push_subscriptions",
   "reminders",
@@ -98,8 +100,10 @@ const READ_ORDER: Record<BackupTable, string[]> = {
   reminders: ["id"],
   weekly_summaries: ["id"],
   gym_events: ["id"],
+  reading_events: ["id"],
   year_goals: ["user_id", "goal"],
   later_goals: ["id"],
+  weekend_documents: ["id"],
 };
 
 async function readUsers(client: SupabaseClient): Promise<User[]> {

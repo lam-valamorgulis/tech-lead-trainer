@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { confusablePairs, currentTown, reviewItem, scenarioName } from "@/content";
+import { confusablePairs, currentTown, reviewItem, scenarioName, weekendBoss } from "@/content";
 import { battleRechecks, bestMoveRates, formatBestMoveRate, nextBattle, type BattleOffer, type BestMoveRate } from "@/core/battle";
 import { nextCatch, type CatchItem } from "@/core/catch";
 import { teachBackFor } from "@/core/discuss";
@@ -19,6 +19,10 @@ import { BattleFlow } from "./battle-flow";
 import { CatchFlow } from "./catch-flow";
 import { ReviewFlow, type DueReview } from "./review-flow";
 import { useActiveTime } from "./use-active-time";
+import { extraTime, type ExtraTime } from "@/core/extra-time";
+import { sessionStep, type SessionStep } from "@/core/session-plan";
+import { loadReadingRecords } from "@/lib/reading-log";
+import { ExtraTimeFlow } from "./extra-time-flow";
 
 export type CommittedMinutes = SessionEvent["committedMinutes"];
 
@@ -89,7 +93,7 @@ function RunningSession({
   const { activeSeconds, snapshot } = useActiveTime(sessionId, committedMinutes);
   const [finishing, setFinishing] = useState(false);
   const { plan, paused } = useTodaysPlan(committedMinutes, programStartDate);
-  const working = plan.state === "reviews" || plan.state === "catch" || plan.state === "battle";
+  const working = plan.state === "reviews" || plan.state === "catch" || plan.state === "battle" || plan.state === "extra";
 
   async function finish() {
     setFinishing(true);
@@ -123,6 +127,9 @@ function RunningSession({
       )}
       {plan.state === "catch" && <CatchFlow item={plan.item} sessionId={sessionId} onDone={plan.next} />}
       {plan.state === "battle" && <BattleFlow offer={plan.offer} sessionId={sessionId} onDone={plan.next} />}
+      {plan.state === "extra" && (
+        <ExtraTimeFlow extra={plan.extra} townId={plan.townId} sessionId={sessionId} onDone={plan.next} />
+      )}
       {!working && <p className="lead">{PLAN_MESSAGES[plan.state]}</p>}
       {/* Any session can end at any time. 3 minutes still counts as a learned day. */}
       <button
@@ -142,21 +149,24 @@ type TodaysWork = {
   reviews: DueReview[];
   catchItem: CatchItem | null;
   battle: BattleOffer | null;
+  /** Extra time on a 45-minute day, and the town it belongs to. */
+  extra: { time: ExtraTime; townId: string } | null;
   paused: boolean;
 };
 
-type Phase = "reviews" | "catch" | "battle" | "done";
+type Phase = SessionStep;
 
 type TodaysPlan =
   | { state: "loading" | "done" | "nothing" | "failed" }
   | { state: "reviews"; today: string; reviews: DueReview[]; next: () => void }
   | { state: "catch"; item: CatchItem; next: () => void }
-  | { state: "battle"; offer: BattleOffer; next: () => void };
+  | { state: "battle"; offer: BattleOffer; next: () => void }
+  | { state: "extra"; extra: ExtraTime; townId: string; next: () => void };
 
 /** The backlog guard explains itself in one sentence (ticket #8). */
 const PAUSED_MESSAGE = `New catches wait until ${DAILY_REVIEW_LIMIT} or fewer reviews are due, so your reviews never pile up.`;
 
-const PLAN_MESSAGES: Record<Exclude<TodaysPlan["state"], "reviews" | "catch" | "battle">, string> = {
+const PLAN_MESSAGES: Record<Exclude<TodaysPlan["state"], "reviews" | "catch" | "battle" | "extra">, string> = {
   loading: "Loading today's plan…",
   done: "All done for today. Tap Finish.",
   nothing: "Nothing is due today. Tap Finish, or stay a little longer.",
@@ -165,7 +175,7 @@ const PLAN_MESSAGES: Record<Exclude<TodaysPlan["state"], "reviews" | "catch" | "
 
 /**
  * Today's steps (design 3): reviews first, at most 8. Then, on a 15- or 45-minute day,
- * one new creature or move, and one battle.
+ * one new creature or move, and one battle. A 45-minute day then adds extra time.
  */
 function useTodaysPlan(
   committedMinutes: CommittedMinutes,
@@ -177,41 +187,7 @@ function useTodaysPlan(
 
   useEffect(() => {
     let cancelled = false;
-    const client = browserClient();
-    (async () => {
-      const today = await currentLearningDay(client);
-      const [catches, reviews, history] = await Promise.all([
-        loadCatchRecords(client, today),
-        loadReviewRecords(client, today),
-        loadBattleHistory(client, today),
-      ]);
-      const battles = history.battles;
-      // A lost battle and a model answer with missing key points bring moves back tomorrow.
-      const rechecks = battleRechecks(history);
-      const isReviewable = (id: string) => reviewItem(id) !== undefined;
-      const states = reviewStates(catches, reviews, rechecks);
-      const due = dueReviews({ states, reviews, today, isReviewable, pairs: confusablePairs }).map(
-        (state): DueReview => {
-          // Design 10: the teach-back of a battle comes back at the next review of its items.
-          const teachBack = teachBackFor(state.itemId, history.teachBacks, reviews);
-          return {
-            state,
-            item: reviewItem(state.itemId)!,
-            mixedWith: state.mixedWith && reviewItem(state.mixedWith)?.name,
-            teachBack: teachBack && {
-              scenarioName: scenarioName(teachBack.scenarioId) ?? teachBack.scenarioId,
-              sentences: teachBack.sentences,
-            },
-          };
-        },
-      );
-      const town = currentTown(programStartDate, today);
-      const paused = backlogPaused(catches, reviews, today, isReviewable, rechecks);
-      const catchItem = town ? nextCatch({ town, records: catches, today, committedMinutes, paused }) : null;
-      // The battle uses the creatures caught before today's session.
-      const battle = town ? nextBattle({ town, catches, battles, today, committedMinutes }) : null;
-      return { today, reviews: due, catchItem, battle, paused };
-    })()
+    loadTodaysWork(committedMinutes, programStartDate)
       .then((value) => !cancelled && setWork(value))
       .catch(() => !cancelled && setFailed(true));
     return () => {
@@ -222,7 +198,48 @@ function useTodaysPlan(
   return { plan: planStep(work, phase, failed, setPhase), paused: work?.paused ?? false };
 }
 
-/** Where today's work is: reviews first, then the catch, then the battle, then done. */
+/** Today's work, loaded once when the session starts. */
+async function loadTodaysWork(committedMinutes: CommittedMinutes, programStartDate: string): Promise<TodaysWork> {
+  const client = browserClient();
+  const today = await currentLearningDay(client);
+  const [catches, reviews, history, readings] = await Promise.all([
+    loadCatchRecords(client, today),
+    loadReviewRecords(client, today),
+    loadBattleHistory(client, today),
+    loadReadingRecords(client, today),
+  ]);
+  const battles = history.battles;
+  // A lost battle and a model answer with missing key points bring moves back tomorrow.
+  const rechecks = battleRechecks(history);
+  const isReviewable = (id: string) => reviewItem(id) !== undefined;
+  const states = reviewStates(catches, reviews, rechecks);
+  const due = dueReviews({ states, reviews, today, isReviewable, pairs: confusablePairs }).map(
+    (state): DueReview => {
+      // Design 10: the teach-back of a battle comes back at the next review of its items.
+      const teachBack = teachBackFor(state.itemId, history.teachBacks, reviews);
+      return {
+        state,
+        item: reviewItem(state.itemId)!,
+        mixedWith: state.mixedWith && reviewItem(state.mixedWith)?.name,
+        teachBack: teachBack && {
+          scenarioName: scenarioName(teachBack.scenarioId) ?? teachBack.scenarioId,
+          sentences: teachBack.sentences,
+        },
+      };
+    },
+  );
+  const town = currentTown(programStartDate, today);
+  const paused = backlogPaused(catches, reviews, today, isReviewable, rechecks);
+  const catchItem = town ? nextCatch({ town, records: catches, today, committedMinutes, paused }) : null;
+  // The battle uses the creatures caught before today's session.
+  const battle = town ? nextBattle({ town, catches, battles, today, committedMinutes }) : null;
+  const time = town
+    ? extraTime({ town, catches, battles, readings, today, committedMinutes, hasBoss: weekendBoss(town.id) !== undefined })
+    : null;
+  return { today, reviews: due, catchItem, battle, extra: time && town ? { time, townId: town.id } : null, paused };
+}
+
+/** Where today's work is: the first step with work, in the order of `sessionStep` (design 3). */
 function planStep(
   work: TodaysWork | null,
   phase: Phase,
@@ -231,17 +248,15 @@ function planStep(
 ): TodaysPlan {
   if (failed) return { state: "failed" };
   if (!work) return { state: "loading" };
-  if (phase === "reviews" && work.reviews.length > 0) {
-    return { state: "reviews", today: work.today, reviews: work.reviews, next: () => setPhase("catch") };
-  }
-  if ((phase === "reviews" || phase === "catch") && work.catchItem) {
-    return { state: "catch", item: work.catchItem, next: () => setPhase("battle") };
-  }
-  if (phase !== "done" && work.battle) {
-    return { state: "battle", offer: work.battle, next: () => setPhase("done") };
-  }
-  if (work.reviews.length === 0 && !work.catchItem && !work.battle) return { state: "nothing" };
-  return { state: "done" };
+  const step = sessionStep(
+    { reviews: work.reviews.length > 0, catch: work.catchItem !== null, battle: work.battle !== null, extra: work.extra !== null },
+    phase,
+  );
+  if (step === "reviews") return { state: "reviews", today: work.today, reviews: work.reviews, next: () => setPhase("catch") };
+  if (step === "catch") return { state: "catch", item: work.catchItem!, next: () => setPhase("battle") };
+  if (step === "battle") return { state: "battle", offer: work.battle!, next: () => setPhase("extra") };
+  if (step === "extra") return { state: "extra", extra: work.extra!.time, townId: work.extra!.townId, next: () => setPhase("done") };
+  return { state: step };
 }
 
 /** The best-move rate of the current town, from every turn the learner played there. */

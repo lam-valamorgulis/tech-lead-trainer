@@ -153,6 +153,15 @@ export const gymEventSchema = z
     message: "A Gym gives the badge exactly when it has 4 wins.",
   });
 
+/** Read-close-write (#34): the 3 points recalled after closing a primary source. */
+export const readingEventSchema = z.object({
+  type: z.literal("reading"),
+  ...base,
+  itemId: z.string().min(1).max(100),
+  sourceUrl: z.url({ protocol: /^https$/ }).max(2000),
+  points: z.array(z.string().trim().min(1).max(500)).length(3),
+});
+
 export const eventSchema = z.discriminatedUnion("type", [
   sessionEventSchema,
   catchEventSchema,
@@ -164,6 +173,7 @@ export const eventSchema = z.discriminatedUnion("type", [
   battleDiscussEventSchema,
   battleTeachBackEventSchema,
   gymEventSchema,
+  readingEventSchema,
 ]);
 export const eventBatchSchema = z.object({ events: z.array(eventSchema).min(1).max(100) });
 
@@ -179,6 +189,7 @@ export type BattleDiscussEvent = z.infer<typeof battleDiscussEventSchema>;
 export type BattleEventFields = Pick<BattleTurnEvent, "sessionId" | "occurredAt" | "battleId" | "scenarioId" | "contentHash">;
 export type BattleTeachBackEvent = z.infer<typeof battleTeachBackEventSchema>;
 export type GymEvent = z.infer<typeof gymEventSchema>;
+export type ReadingEvent = z.infer<typeof readingEventSchema>;
 export type LearningEvent = z.infer<typeof eventSchema>;
 
 const TABLES = {
@@ -192,6 +203,7 @@ const TABLES = {
   "battle-discuss": "battle_discuss_events",
   "battle-teach-back": "battle_teach_back_events",
   gym: "gym_events",
+  reading: "reading_events",
 } as const satisfies Record<LearningEvent["type"], string>;
 
 /** Every event table. "Download my data" exports each one. */
@@ -321,6 +333,15 @@ function toRow(event: LearningEvent) {
         battle_ids: event.battleIds,
         wins: event.wins,
         passed: event.passed,
+      };
+    case "reading":
+      return {
+        client_event_id: event.clientEventId,
+        session_id: event.sessionId,
+        occurred_at: event.occurredAt,
+        item_id: event.itemId,
+        source_url: event.sourceUrl,
+        points: event.points,
       };
   }
 }

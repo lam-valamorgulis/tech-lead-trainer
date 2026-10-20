@@ -1,6 +1,22 @@
 {
   "words": [
     {
+      "word": "ACID",
+      "definition": "Atomic, consistent, isolated and durable. A change happens completely, or not at all."
+    },
+    {
+      "word": "anti-pattern",
+      "definition": "A common way to solve a problem that causes more problems later."
+    },
+    {
+      "word": "backwards compatible",
+      "definition": "A change that lets old client code keep working with the new server."
+    },
+    {
+      "word": "breaking change",
+      "definition": "A change to an API that makes existing client code stop working."
+    },
+    {
       "word": "certificate authority",
       "definition": "An organization that signs digital certificates, so browsers can check a website's identity."
     },
@@ -17,16 +33,44 @@
       "definition": "Data that proves who the user is, such as cookies or HTTP authentication."
     },
     {
+      "word": "entity tag (ETag)",
+      "definition": "A short value that names one version of a resource. It changes when the resource changes."
+    },
+    {
+      "word": "exponential backoff",
+      "definition": "Waiting longer after each failed try before the next one, for example 1, 2, then 4 seconds."
+    },
+    {
+      "word": "GA (general availability)",
+      "definition": "The stable release of a feature, after its preview."
+    },
+    {
       "word": "handshake",
       "definition": "The first step of a TLS connection, where client and server agree on keys and settings."
+    },
+    {
+      "word": "idempotency key",
+      "definition": "A unique value the client sends with a request, so the server can spot a retry of it."
     },
     {
       "word": "idempotent",
       "definition": "Sending the same request many times has the same intended effect on the server as sending it once."
     },
     {
+      "word": "Identity Provider (IdP)",
+      "definition": "A central service that signs users in and issues access tokens."
+    },
+    {
+      "word": "JSON Web Token (JWT)",
+      "definition": "A signed JSON token with claims about a user, used for access control."
+    },
+    {
       "word": "load balancing",
       "definition": "Many servers share the requests, but they look like one server to the client."
+    },
+    {
+      "word": "lost update",
+      "definition": "One client saves over another client's change, so the first change is lost."
     },
     {
       "word": "manipulator in the middle (MITM)",
@@ -41,12 +85,24 @@
       "definition": "Sending many requests and responses at the same time over one connection."
     },
     {
+      "word": "opaque",
+      "definition": "Not meant to be read by the client. Only the server knows what it means."
+    },
+    {
       "word": "origin",
       "definition": "The protocol, host and port of a URL together."
     },
     {
+      "word": "precondition",
+      "definition": "A condition that the server checks before it runs the request."
+    },
+    {
       "word": "preflight",
       "definition": "An OPTIONS request the browser sends first, to ask if the real request is allowed."
+    },
+    {
+      "word": "rate limiting",
+      "definition": "A limit on how many requests a client may send in a period of time."
     },
     {
       "word": "reason phrase",
@@ -57,24 +113,52 @@
       "definition": "An HTTP method that only reads data and does not change the state of the server."
     },
     {
+      "word": "semantically equivalent",
+      "definition": "With the same meaning, even when some details differ."
+    },
+    {
+      "word": "server-sent events (SSE)",
+      "definition": "A way for a server to send many small messages over one open HTTP response."
+    },
+    {
       "word": "session",
       "definition": "A series of requests that the server links to one user, often with a cookie."
+    },
+    {
+      "word": "singleton resource",
+      "definition": "A resource that exists only once, so there is no list of them."
     },
     {
       "word": "stateless",
       "definition": "A stateless protocol keeps no link between one request and the next."
     },
     {
+      "word": "status monitor",
+      "definition": "A resource the client reads to see the progress of a long-running operation."
+    },
+    {
       "word": "TCP handshake",
       "definition": "The messages a client and a server exchange to open a TCP connection."
+    },
+    {
+      "word": "token bucket",
+      "definition": "A rate limit method where capacity refills all the time, up to a maximum."
     },
     {
       "word": "top-level domain (TLD)",
       "definition": "The rightmost part of a domain name, for example com in example.com."
     },
     {
+      "word": "transient failure",
+      "definition": "A short failure that often goes away when you try again."
+    },
+    {
       "word": "user agent",
       "definition": "Any tool that acts for the user, most often the web browser."
+    },
+    {
+      "word": "UUID",
+      "definition": "A universally unique identifier: a long ID, often random, so two values almost never match."
     }
   ]
 }

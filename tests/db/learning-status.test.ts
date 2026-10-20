@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { addDays } from "@/core/day";
 import { writeEvents } from "@/lib/events/write-events";
 import { loadLearningStatus } from "@/lib/learning-log";
 import { ensureProfile } from "@/lib/profile";
@@ -72,5 +73,24 @@ describe("loadLearningStatus", () => {
     await learnedAt(client, new Date().toISOString(), 659);
     await learnedAt(client, daysAgo(45), 3000);
     expect(await loadLearningStatus(client)).toMatchObject({ weekMinutes: 10 });
+  });
+
+  // Ticket #36: the "new town" screen hides once the learner started a session in the new town.
+  it("gives today, and no last session day to a new learner", async () => {
+    const client = await learner("status-no-session");
+    const status = await loadLearningStatus(client);
+    expect(status.today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(status.lastSessionDay).toBeNull();
+  });
+
+  it("gives the day of the latest session of any length, also before the 30-day window", async () => {
+    const client = await learner("status-last-session");
+    await learnedAt(client, daysAgo(45), 20);
+    const before = await loadLearningStatus(client);
+    expect(before.lastSessionDay).toBe(addDays(before.today, -45));
+
+    await learnedAt(client, new Date().toISOString(), 5);
+    const after = await loadLearningStatus(client);
+    expect(after.lastSessionDay).toBe(after.today);
   });
 });

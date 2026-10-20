@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { GlossaryWord } from "./glossary.ts";
+import type { Boss } from "./weekend.ts";
 import type { Creature, Move, PlacementQuestion, Scenario, Town } from "./schema.ts";
 
 // The bundle is what the app imports: the content plus a content hash per item.
@@ -15,11 +16,19 @@ export type BundledTown = Omit<Town, "creatures" | "placement" | "scenarios"> & 
   placement: Hashed<PlacementQuestion>[];
   scenarios: BundledScenario[];
 };
-export type ContentBundle = { towns: BundledTown[]; glossary: GlossaryWord[] };
+/** The weekend boss of a town (design 3: week 1 of each month). */
+export type TownWeekend = {
+  townId: string;
+  boss: Boss;
+  /** The coach prompt of the town's week-2 ADR file, or null to use the default. */
+  adrCoachPrompt: string | null;
+};
+export type ContentBundle = { towns: BundledTown[]; glossary: GlossaryWord[]; weekends: TownWeekend[] };
 
-export function buildBundle(towns: Town[], glossary: GlossaryWord[] = []): ContentBundle {
+export function buildBundle(towns: Town[], glossary: GlossaryWord[] = [], weekends: TownWeekend[] = []): ContentBundle {
   return {
     glossary,
+    weekends,
     towns: towns.map((town) => ({
       ...town,
       creatures: town.creatures.map((creature) => ({
@@ -39,7 +48,13 @@ export function buildBundle(towns: Town[], glossary: GlossaryWord[] = []): Conte
       placement: town.placement.map((question) => ({ ...question, hash: contentHash(question) })),
       scenarios: town.scenarios.map((scenario) => ({
         ...scenario,
-        hash: contentHash({ opponentType: scenario.opponentType, problem: scenario.problem, turns: scenario.turns }),
+        // A town with no twist has no second type: an undefined field leaves the hash as it was.
+        hash: contentHash({
+          opponentType: scenario.opponentType,
+          secondType: scenario.secondType,
+          problem: scenario.problem,
+          turns: scenario.turns,
+        }),
       })),
     })),
   };

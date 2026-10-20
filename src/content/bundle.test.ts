@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildBundle } from "./bundle.ts";
-import { fixtureTown } from "./fixture-town.ts";
+import { fixtureTown, fixtureTwistTown } from "./fixture-town.ts";
 import { townSchema } from "./schema.ts";
 
 const town = () => townSchema.parse(fixtureTown());
@@ -56,9 +56,33 @@ describe("buildBundle", () => {
     expect(buildBundle([edited]).towns[0].scenarios[0].hash).not.toBe(scenario.hash);
   });
 
+  it("changes a battle's hash when its second type or a turn's threat type changes (#36)", () => {
+    const twist = () => townSchema.parse(fixtureTwistTown());
+    const before = buildBundle([twist()]).towns[0].scenarios[0].hash;
+
+    const secondType = twist();
+    secondType.scenarios[0].secondType = "data";
+    expect(buildBundle([secondType]).towns[0].scenarios[0].hash).not.toBe(before);
+
+    const threatType = twist();
+    threatType.scenarios[0].turns[2].threatType = "security";
+    expect(buildBundle([threatType]).towns[0].scenarios[0].hash).not.toBe(before);
+  });
+
+  it("carries the town's twist, so the game rules can apply it", () => {
+    expect(buildBundle([townSchema.parse(fixtureTwistTown())]).towns[0].twist).toEqual({ kind: "two-types" });
+    expect(buildBundle([town()]).towns[0].twist).toBeUndefined();
+  });
+
   it("carries the glossary, so the app can show a definition on tap", () => {
     const glossary = [{ word: "response", definition: "The message a server sends back to a request." }];
     expect(buildBundle([town()], glossary).glossary).toEqual(glossary);
     expect(buildBundle([town()]).glossary).toEqual([]);
+  });
+
+  it("carries the weekend boss of each town", () => {
+    const boss = { title: "Boss", situation: [{ kind: "paragraph" as const, text: "A shop breaks." }], mermaidStarter: "graph TD", coachPrompt: null, modelAnswer: null };
+    expect(buildBundle([town()], [], [{ townId: "t99", boss, adrCoachPrompt: null }]).weekends).toEqual([{ townId: "t99", boss, adrCoachPrompt: null }]);
+    expect(buildBundle([town()]).weekends).toEqual([]);
   });
 });

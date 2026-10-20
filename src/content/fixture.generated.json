@@ -9,6 +9,31 @@
       "definition": "The small picture that shows the name of a shop."
     }
   ],
+  "weekends": [
+    {
+      "townId": "t99",
+      "boss": {
+        "title": "Weekend 1 boss: the slow sale page",
+        "situation": [
+          {
+            "kind": "paragraph",
+            "text": "The sale page of `shop.example` loads slowly. Visitors leave before it shows. Two things go wrong:"
+          },
+          {
+            "kind": "list",
+            "items": [
+              "Every visitor downloads the same logo again.",
+              "Visitors far away wait for each page."
+            ]
+          }
+        ],
+        "mermaidStarter": "sequenceDiagram\n    participant Browser\n    participant Shop\n    Browser->>Shop: GET /sale",
+        "coachPrompt": null,
+        "modelAnswer": null
+      },
+      "adrCoachPrompt": null
+    }
+  ],
   "towns": [
     {
       "id": "t99",
@@ -695,6 +720,250 @@
             }
           ],
           "hash": "250d0907fdbbae23"
+        }
+      ]
+    },
+    {
+      "id": "t98",
+      "number": 2,
+      "name": "Fixture Town Two",
+      "twist": {
+        "kind": "two-types"
+      },
+      "creatures": [
+        {
+          "id": "rate-limit",
+          "name": "Rate limit",
+          "catch": {
+            "question": "What is Rate limit?",
+            "choices": [
+              "A tool for rate limit in an API",
+              "A kind of cookie",
+              "A status page"
+            ],
+            "correctChoice": 0,
+            "explanation": "Rate limit is a tool of API design."
+          },
+          "card": {
+            "text": "Rate limit is a tool of API design.",
+            "example": "A shop API uses rate limit.",
+            "source": {
+              "title": "MDN: 429 Too Many Requests",
+              "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/429"
+            }
+          },
+          "review": {
+            "question": "What is Rate limit?",
+            "answer": "A tool of API design."
+          },
+          "workedExample": {
+            "problem": "A partner breaks the shop API.",
+            "steps": [
+              "Use rate limit."
+            ],
+            "answer": "Rate limit keeps the API safe."
+          },
+          "moves": [
+            {
+              "id": "rate-limit.quota",
+              "name": "Quota",
+              "catch": {
+                "question": "What is Quota?",
+                "choices": [
+                  "A part of rate limit",
+                  "A kind of cookie",
+                  "A status page"
+                ],
+                "correctChoice": 0,
+                "explanation": "Quota is a part of rate limit."
+              },
+              "card": {
+                "text": "Quota is a part of rate limit.",
+                "example": "A shop API uses quota.",
+                "source": {
+                  "title": "MDN: 429 Too Many Requests",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/429"
+                }
+              },
+              "review": {
+                "question": "What is Quota?",
+                "answer": "A part of rate limit."
+              },
+              "hash": "d84f9d14a33dac8d"
+            }
+          ],
+          "hash": "d79c41c0a0b46c3c"
+        },
+        {
+          "id": "api-key",
+          "name": "API key",
+          "catch": {
+            "question": "What is API key?",
+            "choices": [
+              "A tool for api key in an API",
+              "A kind of cookie",
+              "A status page"
+            ],
+            "correctChoice": 0,
+            "explanation": "API key is a tool of API design."
+          },
+          "card": {
+            "text": "API key is a tool of API design.",
+            "example": "A shop API uses api key.",
+            "source": {
+              "title": "MDN: 429 Too Many Requests",
+              "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/429"
+            }
+          },
+          "review": {
+            "question": "What is API key?",
+            "answer": "A tool of API design."
+          },
+          "workedExample": {
+            "problem": "A partner breaks the shop API.",
+            "steps": [
+              "Use api key."
+            ],
+            "answer": "API key keeps the API safe."
+          },
+          "moves": [
+            {
+              "id": "api-key.rotate",
+              "name": "Key rotation",
+              "catch": {
+                "question": "What is Key rotation?",
+                "choices": [
+                  "A part of api key",
+                  "A kind of cookie",
+                  "A status page"
+                ],
+                "correctChoice": 0,
+                "explanation": "Key rotation is a part of api key."
+              },
+              "card": {
+                "text": "Key rotation is a part of api key.",
+                "example": "A shop API uses key rotation.",
+                "source": {
+                  "title": "MDN: 429 Too Many Requests",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/429"
+                }
+              },
+              "review": {
+                "question": "What is Key rotation?",
+                "answer": "A part of api key."
+              },
+              "hash": "ef9359b6f5818165"
+            }
+          ],
+          "hash": "7d619c84c02cf5c2"
+        }
+      ],
+      "placement": [
+        {
+          "creatureId": "rate-limit",
+          "question": "What does a rate limit do?",
+          "answer": "It caps the requests of one client.",
+          "hash": "0eca1d41604a2219"
+        },
+        {
+          "creatureId": "api-key",
+          "question": "What is an API key?",
+          "answer": "A secret that names the client.",
+          "hash": "ffa05f654fb47984"
+        }
+      ],
+      "confusablePairs": [],
+      "scenarios": [
+        {
+          "id": "t98-public-api",
+          "name": "Public API launch",
+          "opponentType": "traffic",
+          "secondType": "security",
+          "problem": "The shop opens its API to every partner on Monday.",
+          "turns": [
+            {
+              "threatType": "traffic",
+              "threat": "One partner sends 500 requests each second and slows everyone.",
+              "moves": [
+                {
+                  "moveId": "rate-limit.quota",
+                  "damage": 2,
+                  "counterattack": "The partner slows down, but its big jobs take longer."
+                },
+                {
+                  "moveId": "api-key.rotate",
+                  "damage": 0,
+                  "counterattack": "The partner gets a new key and sends just as much."
+                },
+                {
+                  "moveId": "proxy.cdn",
+                  "damage": 1,
+                  "counterattack": "Some answers come from copies, but the writes still pile up."
+                }
+              ],
+              "modelAnswer": "Give each partner a quota. One partner can then never use all the capacity.",
+              "keyPoints": [
+                "One client can use all the capacity.",
+                "A quota caps each client.",
+                "Big jobs now take longer."
+              ]
+            },
+            {
+              "threatType": "security",
+              "threat": "A leaked API key is used from an unknown server.",
+              "moves": [
+                {
+                  "moveId": "api-key.rotate",
+                  "damage": 2,
+                  "counterattack": "The leaked key stops working, but the partner must update its key."
+                },
+                {
+                  "moveId": "rate-limit.quota",
+                  "damage": 1,
+                  "counterattack": "The stranger is slower, but it still reads data."
+                },
+                {
+                  "moveId": "cookie.http-only",
+                  "damage": 0,
+                  "counterattack": "Scripts cannot read the cookie, but the key still works."
+                }
+              ],
+              "modelAnswer": "Rotate the leaked key at once. The old key stops working, and the partner gets a new one.",
+              "keyPoints": [
+                "A leaked key works for anyone.",
+                "Rotation makes the old key useless.",
+                "The partner must update its key."
+              ]
+            },
+            {
+              "threatType": "traffic",
+              "threat": "A partner retries every failed call at once, and the load comes back.",
+              "moves": [
+                {
+                  "moveId": "rate-limit.quota",
+                  "damage": 2,
+                  "counterattack": "The retries wait their turn, but the partner sees more errors."
+                },
+                {
+                  "moveId": "api-key.rotate",
+                  "damage": 0,
+                  "counterattack": "The key changes, but the retries keep coming."
+                },
+                {
+                  "moveId": "proxy.cdn",
+                  "damage": 0,
+                  "counterattack": "The copies do not help, because every retry is new."
+                }
+              ],
+              "modelAnswer": "Keep the quota and answer 429 with a wait time. The partner then retries later.",
+              "keyPoints": [
+                "Retries at once bring the load back.",
+                "The quota still protects the API.",
+                "The partner sees more errors."
+              ]
+            }
+          ],
+          "hash": "c86c482913a5b231"
         }
       ]
     }

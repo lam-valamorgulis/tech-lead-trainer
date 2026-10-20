@@ -4,7 +4,7 @@ All learning content lives here. Towns are JSON, with the schema in `src/content
 
 | File | What it holds |
 | --- | --- |
-| `towns/t01.json` | One town: its creatures, their moves, 10 placement questions, the confusable pairs and the battle scenarios |
+| `towns/t01.json`, `towns/t02.json` | One town per file: its creatures, their moves, 10 placement questions, the confusable pairs and the battle scenarios |
 | `glossary.json` | Hard words with a simple English definition |
 | `ledger.json` | Every id that ever shipped. Never edit it by hand |
 | `weekends/month-01/` | Markdown tasks for the month 1 weekends, used until the weekend editor exists (Sprint 4) |
@@ -34,6 +34,28 @@ A scenario is one battle (design 7). Its id is `<town>-<name>`, for example `t01
 - The best moves of the 3 turns must do at least 4 damage together, so a perfect battle wins.
 - Every move in a table is a real move of any town, and it is not retired. Replace it in the table before you retire it.
 - The app offers a scenario once the learner caught the creature of each best move.
+
+## Town twist
+
+A town can turn on one small battle twist (design 4). Town 1 has none. `npm run content:check` checks every rule below.
+
+- The twist is a town field: `"twist": { "kind": "two-types" }`. Leave it out for no twist.
+- `two-types` is the only kind so far. The app shows its name and rule; the content does not write them.
+- In a `two-types` town, every scenario has a `secondType`, one of the 5 opponent types. It differs from `opponentType`.
+- Each of its 3 turns has a `threatType`: the type that attacks on that turn, `opponentType` or `secondType`.
+- Both types attack in at least one turn.
+- Damage does not change: it still comes from the move table, with the same rules as above.
+- A town with no twist has no `secondType` and no `threatType`.
+
+Example scenario of a `two-types` town, with the other fields as above:
+
+| Field | Value |
+| --- | --- |
+| `opponentType` | `traffic` |
+| `secondType` | `security` |
+| `turns[0].threatType` | `traffic` |
+| `turns[1].threatType` | `security` |
+| `turns[2].threatType` | `traffic` |
 
 ## Commands
 
