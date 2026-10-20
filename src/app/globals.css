@@ -384,3 +384,59 @@ h2[tabindex="-1"]:focus {
 .keyboard-room {
   height: 50dvh;
 }
+
+/* Map. Design 9: pixel art grows by a whole number, with no smoothing. */
+.pixel-art {
+  image-rendering: pixelated;
+}
+
+.town-map {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.town {
+  width: 100%;
+  height: 100%;
+  min-height: var(--tap-min);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.2;
+  color: var(--color-text);
+  background: transparent;
+  border: 2px solid var(--color-muted);
+  border-radius: 4px;
+  touch-action: manipulation;
+}
+
+.town-number {
+  font-family: var(--font-heading);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.town-state {
+  color: var(--color-muted);
+}
+
+.town-current {
+  border-color: var(--color-accent);
+}
+
+.town-current .town-state {
+  color: var(--color-accent);
+}
+
+.town[aria-pressed="true"] {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
+}

@@ -29,7 +29,16 @@ type BestMoves = { townName: string; rate: BestMoveRate };
 
 type Summary = { saved: boolean; rate: ThirtyDayRate | null; bestMoves: BestMoves | null };
 
-export function SessionScreen({ committedMinutes, onDone }: { committedMinutes: CommittedMinutes; onDone: () => void }) {
+export function SessionScreen({
+  committedMinutes,
+  programStartDate,
+  onDone,
+}: {
+  committedMinutes: CommittedMinutes;
+  /** Day 1 of the learner's program. It decides their town. */
+  programStartDate: string;
+  onDone: () => void;
+}) {
   const [summary, setSummary] = useState<Summary | null>(null);
 
   if (summary) {
@@ -60,22 +69,24 @@ export function SessionScreen({ committedMinutes, onDone }: { committedMinutes: 
       </section>
     );
   }
-  return <RunningSession committedMinutes={committedMinutes} onFinished={setSummary} />;
+  return <RunningSession committedMinutes={committedMinutes} programStartDate={programStartDate} onFinished={setSummary} />;
 }
 
 /** Counts and saves active time while it is on screen. Unmounting it stops both timers. */
 function RunningSession({
   committedMinutes,
+  programStartDate,
   onFinished,
 }: {
   committedMinutes: CommittedMinutes;
+  programStartDate: string;
   onFinished: (summary: Summary) => void;
 }) {
   const [activeSeconds, setActiveSeconds] = useState(0);
   const seconds = useRef(0);
   const [sessionId] = useState(() => crypto.randomUUID());
   const [finishing, setFinishing] = useState(false);
-  const { plan, paused } = useTodaysPlan(committedMinutes);
+  const { plan, paused } = useTodaysPlan(committedMinutes, programStartDate);
   const working = plan.state === "reviews" || plan.state === "catch" || plan.state === "battle";
 
   function snapshot(): SessionEvent {
@@ -118,7 +129,7 @@ function RunningSession({
     const saved = await postEvents([snapshot()]);
     const [rate, bestMoves] = await Promise.all([
       loadThirtyDayRate(browserClient()).catch(() => null),
-      loadBestMoves().catch(() => null),
+      loadBestMoves(programStartDate).catch(() => null),
     ]);
     onFinished({ saved, rate, bestMoves });
   }
@@ -189,7 +200,10 @@ const PLAN_MESSAGES: Record<Exclude<TodaysPlan["state"], "reviews" | "catch" | "
  * Today's steps (design 3): reviews first, at most 8. Then, on a 15- or 45-minute day,
  * one new creature or move, and one battle.
  */
-function useTodaysPlan(committedMinutes: CommittedMinutes): { plan: TodaysPlan; paused: boolean } {
+function useTodaysPlan(
+  committedMinutes: CommittedMinutes,
+  programStartDate: string,
+): { plan: TodaysPlan; paused: boolean } {
   const [work, setWork] = useState<TodaysWork | null>(null);
   const [phase, setPhase] = useState<Phase>("reviews");
   const [failed, setFailed] = useState(false);
@@ -222,7 +236,7 @@ function useTodaysPlan(committedMinutes: CommittedMinutes): { plan: TodaysPlan; 
           };
         },
       );
-      const town = currentTown();
+      const town = currentTown(programStartDate, today);
       const paused = backlogPaused(catches, reviews, today, isReviewable, rechecks);
       const catchItem = town ? nextCatch({ town, records: catches, today, committedMinutes, paused }) : null;
       // The battle uses the creatures caught before today's session.
@@ -234,7 +248,7 @@ function useTodaysPlan(committedMinutes: CommittedMinutes): { plan: TodaysPlan; 
     return () => {
       cancelled = true;
     };
-  }, [committedMinutes]);
+  }, [committedMinutes, programStartDate]);
 
   return { plan: planStep(work, phase, failed, setPhase), paused: work?.paused ?? false };
 }
@@ -262,11 +276,12 @@ function planStep(
 }
 
 /** The best-move rate of the current town, from every turn the learner played there. */
-async function loadBestMoves(): Promise<BestMoves | null> {
-  const town = currentTown();
-  if (!town) return null;
+async function loadBestMoves(programStartDate: string): Promise<BestMoves | null> {
   const client = browserClient();
-  const history = await loadBattleHistory(client, await currentLearningDay(client));
+  const today = await currentLearningDay(client);
+  const town = currentTown(programStartDate, today);
+  if (!town) return null;
+  const history = await loadBattleHistory(client, today);
   return { townName: town.name, rate: bestMoveRates(history.turns).get(town.id) ?? { bestMoves: 0, turns: 0 } };
 }
 

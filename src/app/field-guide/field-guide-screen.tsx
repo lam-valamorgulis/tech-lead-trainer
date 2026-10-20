@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { currentTown } from "@/content";
+import type { BundledTown } from "@/content/bundle";
 import { fieldGuideProgress, type CatchRecord, type CreatureStatus } from "@/core/catch";
 import type { ReviewRecord } from "@/core/review";
 import { loadCatchRecords } from "@/lib/catch-log";
@@ -15,10 +16,11 @@ const STATUS_LABEL: Record<CreatureStatus, string> = {
   "not-met": "Not met yet",
 };
 
-export function FieldGuideScreen() {
-  const [records, setRecords] = useState<{ catches: CatchRecord[]; reviews: ReviewRecord[] } | null>(null);
+type Loaded = { town: BundledTown | undefined; catches: CatchRecord[]; reviews: ReviewRecord[] };
+
+export function FieldGuideScreen({ programStartDate }: { programStartDate: string }) {
+  const [records, setRecords] = useState<Loaded | null>(null);
   const [failed, setFailed] = useState(false);
-  const town = currentTown();
 
   useEffect(() => {
     let cancelled = false;
@@ -26,20 +28,20 @@ export function FieldGuideScreen() {
     currentLearningDay(client)
       .then(async (today) => {
         const [catches, reviews] = await Promise.all([loadCatchRecords(client, today), loadReviewRecords(client, today)]);
-        return { catches, reviews };
+        return { town: currentTown(programStartDate, today), catches, reviews };
       })
       .then((value) => !cancelled && setRecords(value))
       .catch(() => !cancelled && setFailed(true));
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [programStartDate]);
 
-  if (!town) return <p className="lead">No creatures here yet. The town 1 content comes next.</p>;
   if (failed) return <p role="alert" className="error">We could not load your Field Guide. Check your connection.</p>;
   if (!records) return <p className="lead">Loading…</p>;
+  if (!records.town) return <p className="lead">No creatures here yet. The town 1 content comes next.</p>;
 
-  const view = fieldGuideProgress(town, records.catches, records.reviews);
+  const view = fieldGuideProgress(records.town, records.catches, records.reviews);
   return (
     <>
       <p className="lead">
