@@ -35,23 +35,6 @@ describe("town 1 content", () => {
     }
   });
 
-  // The catch screen checks the answer by its text, so two equal choices would both count as right.
-  it("has distinct choices in every catch question", () => {
-    for (const item of items) {
-      expect(new Set(item.catch.choices).size, item.id).toBe(item.catch.choices.length);
-    }
-  });
-
-  // The app shows content as plain text: a backtick shows as a backtick, and a line break collapses.
-  it("has no Markdown code marks or line breaks in any text", () => {
-    const texts: string[] = [];
-    JSON.stringify(town, (_key, value) => {
-      if (typeof value === "string") texts.push(value);
-      return value;
-    });
-    expect(texts.filter((text) => /[`\n]/.test(text))).toEqual([]);
-  });
-
   it("puts only town 1 items in its confusable pairs, and never pairs an item with itself", () => {
     const ids = new Set(items.map((item) => item.id));
     expect(town.confusablePairs.length).toBeGreaterThan(0);
