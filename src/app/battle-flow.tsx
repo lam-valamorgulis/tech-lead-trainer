@@ -17,7 +17,9 @@ import {
   type BattleState,
 } from "@/core/battle";
 import { postEvents } from "@/lib/events/post-events";
-import type { LearningEvent } from "@/lib/events/write-events";
+import type { BattleEventFields, LearningEvent } from "@/lib/events/write-events";
+import { DiscussInClaude } from "./discuss-in-claude";
+import { keepAboveKeyboard } from "./keyboard";
 import { OPPONENT_LOOK } from "./opponent-look";
 
 type Step = "team" | "turn" | "result" | "check" | "end";
@@ -26,6 +28,7 @@ type Step = "team" | "turn" | "result" | "check" | "end";
  * Battle (design 7): see the opponent and pick a team. Each turn shows the threat first, then
  * the moves. The "why" comes before the result. The damage comes from the move table.
  * After each result, the model answer: the learner ticks the key points they said.
+ * At the end, "Discuss in Claude" and the teach-back (design 10).
  */
 export function BattleFlow({
   offer,
@@ -44,6 +47,8 @@ export function BattleFlow({
   const checked = useRef(new Set<number>());
   // The why of each turn, shown next to its model answer.
   const [whys, setWhys] = useState<Record<number, string>>({});
+  // The ticked key points of each turn, for the "Discuss in Claude" package.
+  const [ticks, setTicks] = useState<Record<number, number[]>>({});
   const heading = useRef<HTMLHeadingElement>(null);
   const progress = battle ? battleProgress(battle) : null;
 
@@ -52,7 +57,7 @@ export function BattleFlow({
     heading.current?.focus();
   }, [step, battle?.turns.length]);
 
-  const battleFields = () => ({
+  const battleFields = (): BattleEventFields => ({
     sessionId,
     occurredAt: new Date().toISOString(),
     battleId,
@@ -103,6 +108,7 @@ export function BattleFlow({
     if (!checked.current.has(turnNumber)) {
       checked.current.add(turnNumber);
       const check = checkTurn(battle, turnNumber, tickedPoints);
+      setTicks((before) => ({ ...before, [turnNumber]: check.tickedPoints }));
       void postEvents([{ type: "battle-check", clientEventId: crypto.randomUUID(), ...battleFields(), ...check }]);
     }
     setStep(battleProgress(battle).finished ? "end" : "turn");
@@ -193,9 +199,7 @@ export function BattleFlow({
           ? `The opponent's HP reached 0 in ${battle.turns.length} turns.`
           : `The opponent still has HP ${progress!.hp}. A lost battle is practice too.`}
       </p>
-      <button type="button" className="button-main" onClick={onDone}>
-        Continue
-      </button>
+      <DiscussInClaude battle={battle} whys={whys} ticks={ticks} eventFields={battleFields} onDone={onDone} />
     </section>
   );
 }
@@ -323,17 +327,6 @@ function MoveForm({ moves, onMove }: { moves: string[]; onMove: (moveId: string 
     if (ready) onMove(chosen === NO_MOVE ? null : chosen, why.trim());
   }
 
-  /**
-   * UI rule 7: the iPhone keyboard covers the bottom of the screen and does not resize the page.
-   * Moving the box and its button to the top keeps both above the keyboard.
-   */
-  function keepAboveKeyboard() {
-    const align = () => form.current?.scrollIntoView({ block: "start" });
-    align();
-    window.visualViewport?.addEventListener("resize", align, { once: true });
-    setTimeout(align, 400);
-  }
-
   return (
     <form className="stack" onSubmit={submit}>
       <fieldset className="choices">
@@ -355,7 +348,7 @@ function MoveForm({ moves, onMove }: { moves: string[]; onMove: (moveId: string 
         <label className="field">
           <span className="field-label">Why this move?</span>
           <span className="lead">1 or 2 sentences, before you see the result.</span>
-          <textarea rows={3} maxLength={1000} value={why} onFocus={keepAboveKeyboard} onChange={(event) => setWhy(event.target.value)} />
+          <textarea rows={3} maxLength={1000} value={why} onFocus={() => keepAboveKeyboard(form.current)} onChange={(event) => setWhy(event.target.value)} />
         </label>
         <button type="submit" className="button-main" disabled={!ready}>
           Make the move

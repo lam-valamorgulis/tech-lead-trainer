@@ -1,14 +1,19 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BattleEndRecord, BattleRecord, CheckRecord, TurnRecord } from "@/core/battle";
+import type { TeachBackRecord } from "@/core/discuss";
 import { pendingEvents } from "./events/post-events";
 import { selectAll } from "./select-all";
 
-/** What the app needs from the battle log: the battles started, every turn, every loss and every self-check. */
+/**
+ * What the app needs from the battle log: the battles started, every turn, every loss, every
+ * self-check and every teach-back.
+ */
 export type BattleHistory = {
   battles: BattleRecord[];
   turns: TurnRecord[];
   ends: BattleEndRecord[];
   checks: CheckRecord[];
+  teachBacks: TeachBackRecord[];
 };
 
 type TurnRow = {
@@ -27,6 +32,15 @@ type CheckRow = {
   turn_number: number;
   best_move_id: string;
   ticked_points: number[];
+  learning_day: string;
+};
+type TeachBackRow = {
+  client_event_id: string;
+  battle_id: string;
+  scenario_id: string;
+  item_ids: string[];
+  first_sentence: string;
+  second_sentence: string;
   learning_day: string;
 };
 
@@ -50,7 +64,8 @@ export async function loadBattleHistory(client: SupabaseClient, today: string): 
   const waitingTurns = pendingEvents("battle-turn");
   const waitingEnds = pendingEvents("battle");
   const waitingChecks = pendingEvents("battle-check");
-  const [turnRows, endRows, checkRows] = await Promise.all([
+  const waitingTeachBacks = pendingEvents("battle-teach-back");
+  const [turnRows, endRows, checkRows, teachBackRows] = await Promise.all([
     selectAll((from, to) =>
       client
         .from("battle_turn_events")
@@ -77,6 +92,15 @@ export async function loadBattleHistory(client: SupabaseClient, today: string): 
         .order("id")
         .range(from, to)
         .returns<CheckRow[]>(),
+    ),
+    selectAll((from, to) =>
+      client
+        .from("battle_teach_back_events")
+        .select("client_event_id, battle_id, scenario_id, item_ids, first_sentence, second_sentence, learning_day")
+        .order("occurred_at")
+        .order("id")
+        .range(from, to)
+        .returns<TeachBackRow[]>(),
     ),
   ]);
   const turns = withWaiting(
@@ -123,11 +147,29 @@ export async function loadBattleHistory(client: SupabaseClient, today: string): 
       learningDay: today,
     }),
   );
+  const teachBacks = withWaiting(
+    teachBackRows,
+    waitingTeachBacks,
+    (row): TeachBackRecord => ({
+      battleId: row.battle_id,
+      scenarioId: row.scenario_id,
+      itemIds: row.item_ids,
+      sentences: [row.first_sentence, row.second_sentence],
+      learningDay: row.learning_day,
+    }),
+    (event): TeachBackRecord => ({
+      battleId: event.battleId,
+      scenarioId: event.scenarioId,
+      itemIds: event.itemIds,
+      sentences: [event.firstSentence, event.secondSentence],
+      learningDay: today,
+    }),
+  );
   // One record per battle. The first turn of a battle tells its day.
   const battles = [
     ...new Map(
       [...turns].reverse().map((turn) => [turn.battleId, { battleId: turn.battleId, scenarioId: turn.scenarioId, learningDay: turn.learningDay }]),
     ).values(),
   ];
-  return { battles, turns, ends, checks };
+  return { battles, turns, ends, checks, teachBacks };
 }

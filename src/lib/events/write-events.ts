@@ -111,6 +111,33 @@ export const battleCheckEventSchema = z.object({
     .refine((points) => new Set(points).size === points.length, "A key point is ticked once."),
 });
 
+/** One tap on "Discuss in Claude". `copied` is false when the app showed the text box instead. */
+export const battleDiscussEventSchema = z.object({
+  type: z.literal("battle-discuss"),
+  ...base,
+  battleId: z.uuid(),
+  scenarioId,
+  contentHash: z.string().regex(/^[0-9a-f]{16}$/),
+  copied: z.boolean(),
+});
+
+const teachBackSentence = z.string().trim().min(1).max(500);
+
+/**
+ * The 2 sentences the learner wrote from memory after the chat. `itemIds` are the review items
+ * they come back at, fixed when they are saved: the best move of each turn and its creature.
+ */
+export const battleTeachBackEventSchema = z.object({
+  type: z.literal("battle-teach-back"),
+  ...base,
+  battleId: z.uuid(),
+  scenarioId,
+  contentHash: z.string().regex(/^[0-9a-f]{16}$/),
+  itemIds: z.array(z.string().min(1).max(100)).min(1).max(6),
+  firstSentence: teachBackSentence,
+  secondSentence: teachBackSentence,
+});
+
 export const eventSchema = z.discriminatedUnion("type", [
   sessionEventSchema,
   catchEventSchema,
@@ -119,6 +146,8 @@ export const eventSchema = z.discriminatedUnion("type", [
   battleTurnEventSchema,
   battleEventSchema,
   battleCheckEventSchema,
+  battleDiscussEventSchema,
+  battleTeachBackEventSchema,
 ]);
 export const eventBatchSchema = z.object({ events: z.array(eventSchema).min(1).max(100) });
 
@@ -129,6 +158,10 @@ export type PlacementEvent = z.infer<typeof placementEventSchema>;
 export type BattleTurnEvent = z.infer<typeof battleTurnEventSchema>;
 export type BattleEvent = z.infer<typeof battleEventSchema>;
 export type BattleCheckEvent = z.infer<typeof battleCheckEventSchema>;
+export type BattleDiscussEvent = z.infer<typeof battleDiscussEventSchema>;
+/** The fields every event of one battle shares. */
+export type BattleEventFields = Pick<BattleTurnEvent, "sessionId" | "occurredAt" | "battleId" | "scenarioId" | "contentHash">;
+export type BattleTeachBackEvent = z.infer<typeof battleTeachBackEventSchema>;
 export type LearningEvent = z.infer<typeof eventSchema>;
 
 const TABLES = {
@@ -139,6 +172,8 @@ const TABLES = {
   "battle-turn": "battle_turn_events",
   battle: "battle_events",
   "battle-check": "battle_check_events",
+  "battle-discuss": "battle_discuss_events",
+  "battle-teach-back": "battle_teach_back_events",
 } as const satisfies Record<LearningEvent["type"], string>;
 
 /** Every event table. "Download my data" exports each one. */
@@ -235,6 +270,28 @@ function toRow(event: LearningEvent) {
         turn_number: event.turnNumber,
         best_move_id: event.bestMoveId,
         ticked_points: event.tickedPoints,
+      };
+    case "battle-discuss":
+      return {
+        client_event_id: event.clientEventId,
+        session_id: event.sessionId,
+        occurred_at: event.occurredAt,
+        battle_id: event.battleId,
+        scenario_id: event.scenarioId,
+        content_hash: event.contentHash,
+        copied: event.copied,
+      };
+    case "battle-teach-back":
+      return {
+        client_event_id: event.clientEventId,
+        session_id: event.sessionId,
+        occurred_at: event.occurredAt,
+        battle_id: event.battleId,
+        scenario_id: event.scenarioId,
+        content_hash: event.contentHash,
+        item_ids: event.itemIds,
+        first_sentence: event.firstSentence,
+        second_sentence: event.secondSentence,
       };
   }
 }
