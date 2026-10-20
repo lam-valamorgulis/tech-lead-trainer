@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { activeSecondsByDay, addDays, type LearningDay } from "@/core/day";
-import { reminderDue, reminderToSend, type ReminderKind } from "@/core/reminders";
+import { adrReminderDue, adrReminderMessage } from "@/core/adr";
+import { reminderDue, reminderToSend, type ReminderKind, type ReminderMessage } from "@/core/reminders";
 import { toSnapshot, type SnapshotRow } from "@/lib/learning-log";
 import { selectAll } from "@/lib/select-all";
 import type { StoredSubscription } from "./push-subscriptions";
@@ -22,6 +23,9 @@ type ProfileRow = {
 };
 
 const KINDS: readonly ReminderKind[] = ["morning", "evening"];
+
+/** The kinds in the reminders table: the daily ones, and the ADR outcome check. */
+type StoredReminderKind = ReminderKind | "adr-outcome";
 
 /**
  * One run of the 5-minute timer. For each user with a device, it checks in the home time zone
@@ -78,21 +82,57 @@ async function remindUser(
     const due = reminderDue(now, settings, kind);
     if (!due.due) continue;
     const message = reminderToSend(kind, due.learningDay, await recentActiveSeconds(admin, profile.user_id, due.learningDay));
-    if (message === null) continue;
-    const reminderId = await claimReminder(admin, profile.user_id, due.learningDay, kind, now);
-    if (reminderId === null) continue;
-    run.due += 1;
-
-    const delivered = await deliver(admin, devices, JSON.stringify(message), send, run);
-    if (delivered === 0) {
-      // Every device failed (for example a short push-service outage): no device has the
-      // reminder, so the next run, 5 minutes later, tries again inside the reminder window.
-      await releaseReminder(admin, reminderId);
-      continue;
-    }
-    const { error } = await admin.from("reminders").update({ sent_at: now.toISOString(), delivered }).eq("id", reminderId);
-    if (error) throw error;
+    if (message !== null) await sendOnce(admin, profile.user_id, due.learningDay, kind, message, devices, send, now, run);
   }
+  // The ADR outcome check (#33) comes at the morning reminder time of its check date.
+  const morning = reminderDue(now, settings, "morning");
+  if (morning.due) {
+    const adr = await adrToCheck(admin, profile.user_id, morning.learningDay);
+    if (adr) await sendOnce(admin, profile.user_id, morning.learningDay, "adr-outcome", adrReminderMessage(adr), devices, send, now, run);
+  }
+}
+
+/** Claims the reminder for this day and kind, and sends it. A second claim of the same day sends nothing. */
+async function sendOnce(
+  admin: SupabaseClient,
+  userId: string,
+  learningDay: LearningDay,
+  kind: StoredReminderKind,
+  message: ReminderMessage,
+  devices: SubscriptionRow[],
+  send: PushSender,
+  now: Date,
+  run: ReminderRun,
+): Promise<void> {
+  const reminderId = await claimReminder(admin, userId, learningDay, kind, now);
+  if (reminderId === null) return;
+  run.due += 1;
+
+  const delivered = await deliver(admin, devices, JSON.stringify(message), send, run);
+  if (delivered === 0) {
+    // Every device failed (for example a short push-service outage): no device has the
+    // reminder, so the next run, 5 minutes later, tries again inside the reminder window.
+    await releaseReminder(admin, reminderId);
+    return;
+  }
+  const { error } = await admin.from("reminders").update({ sent_at: now.toISOString(), delivered }).eq("id", reminderId);
+  if (error) throw error;
+}
+
+/** The town of an ADR whose outcome check is today and not written yet, or null. */
+async function adrToCheck(admin: SupabaseClient, userId: string, day: LearningDay): Promise<string | null> {
+  const { data, error } = await admin
+    .from("weekend_documents")
+    .select("document_key, outcome_check_date, sections")
+    .eq("user_id", userId)
+    .eq("kind", "adr")
+    .eq("outcome_check_date", day)
+    .returns<{ document_key: string; outcome_check_date: string; sections: Record<string, unknown> }[]>();
+  if (error) throw error;
+  const due = data.find((row) =>
+    adrReminderDue([{ outcomeCheckDate: row.outcome_check_date, outcome: String(row.sections.outcome ?? "") }], day),
+  );
+  return due ? due.document_key.slice(0, 3) : null;
 }
 
 /**
@@ -119,7 +159,7 @@ async function claimReminder(
   admin: SupabaseClient,
   userId: string,
   learningDay: LearningDay,
-  kind: ReminderKind,
+  kind: StoredReminderKind,
   now: Date,
 ): Promise<number | null> {
   const { data, error } = await admin

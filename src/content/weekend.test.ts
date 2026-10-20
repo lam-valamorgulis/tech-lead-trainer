@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { parseBoss } from "./weekend.ts";
+import { parseBoss, parseCoachPrompt } from "./weekend.ts";
 
 const sample = [
   "# Weekend 1 boss: the new checkout page",
@@ -77,5 +77,12 @@ describe("parseBoss", () => {
 
   it("has no coach prompt when the file has none, so the app uses its default", () => {
     expect(parseBoss("# Boss\n\n## The situation\n\nText.").coachPrompt).toBeNull();
+  });
+
+  it("reads the coach prompt of the real month 1 ADR file", () => {
+    expect(parseCoachPrompt(readFileSync("content/weekends/month-01/week-2-adr.md", "utf8"))).toMatch(
+      /^You are my tech lead coach\. Below is an ADR I wrote for a real decision at work\. Do not rewrite it for me\./,
+    );
+    expect(parseCoachPrompt("# No prompt here")).toBeNull();
   });
 });

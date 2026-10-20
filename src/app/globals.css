@@ -125,7 +125,8 @@ button,
 }
 
 /* 17px stops iOS Safari from zooming into the field. */
-.field input {
+.field input,
+.field select {
   min-height: var(--tap-main);
   padding: 0 12px;
   font: inherit;
@@ -141,6 +142,7 @@ button,
 }
 
 .field input:focus-visible,
+.field select:focus-visible,
 button:focus-visible,
 a.button:focus-visible {
   outline: 3px solid var(--color-accent);
@@ -714,4 +716,14 @@ a.wide-only {
   margin: var(--space) 0 0;
   white-space: pre-wrap;
   font: inherit;
+}
+
+/* The dark page needs a dark list behind the status choices. */
+.field select option {
+  background: var(--color-bg);
+}
+
+/* The weekend tab of the open page. */
+a[aria-current="page"] {
+  border-color: var(--color-accent);
 }

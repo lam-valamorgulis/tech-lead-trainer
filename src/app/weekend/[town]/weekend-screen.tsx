@@ -4,10 +4,11 @@ import { useEffect, useId, useState } from "react";
 import { getTown, weekendBoss } from "@/content";
 import type { Boss, SituationBlock } from "@/content/weekend";
 import { DESIGN_DOC_SECTIONS, designDocPackage, type DesignDoc } from "@/core/design-doc";
-import { PRIVACY_REMINDER } from "@/core/discuss";
 import { mermaidProblem } from "@/lib/mermaid-problem";
-import { copyAndOpenClaude } from "../../claude-copy";
-import { useAutosavedDoc, type SaveState } from "./use-autosaved-doc";
+import { browserClient } from "@/lib/supabase/browser";
+import { loadDesignDoc, saveDesignDoc } from "@/lib/weekend-doc";
+import { ColleagueRead, DiscussDoc, DocField, SaveStatus, WeekendTabs } from "../weekend-parts";
+import { useAutosaved, type SaveState } from "./use-autosaved-doc";
 
 /** Draws the diagram this long after the last change. */
 const DRAW_AFTER_MS = 400;
@@ -20,11 +21,23 @@ export function WeekendScreen({ townId }: { townId: string }) {
   const town = getTown(townId);
   const boss = weekendBoss(townId);
   if (!town || !boss) return <p className="lead">This town has no weekend boss yet.</p>;
-  return <BossDoc documentKey={`${townId}-boss`} boss={boss} />;
+  return (
+    <div className="stack">
+      <WeekendTabs townId={townId} current="boss" />
+      <BossDoc documentKey={`${townId}-boss`} boss={boss} />
+    </div>
+  );
 }
 
+const EMPTY_DOC: Omit<DesignDoc, "diagram"> = { problem: "", options: "", decision: "", tradeOffs: "", risks: "" };
+
 function BossDoc({ documentKey, boss }: { documentKey: string; boss: Boss }) {
-  const { doc, failed, saveState, change } = useAutosavedDoc(documentKey, boss.mermaidStarter);
+  const { value: doc, failed, saveState, change } = useAutosaved<DesignDoc>(
+    documentKey,
+    // A new doc starts from the boss's diagram starter.
+    async () => (await loadDesignDoc(browserClient(), documentKey)) ?? { ...EMPTY_DOC, diagram: boss.mermaidStarter },
+    (next) => saveDesignDoc(browserClient(), documentKey, next),
+  );
   if (failed) return <p role="alert" className="error">We could not load your design doc. Check your connection.</p>;
   if (!doc) return <p className="lead">Loading…</p>;
   return (
@@ -39,6 +52,7 @@ function BossDoc({ documentKey, boss }: { documentKey: string; boss: Boss }) {
         <DocEditor doc={doc} saveState={saveState} onChange={change} />
         <MermaidPreview source={doc.diagram} />
       </div>
+      <ColleagueRead documentKey={documentKey} />
       <DiscussDoc text={() => designDocPackage({ boss, doc })} />
       {boss.modelAnswer && (
         <details className="card">
@@ -73,40 +87,8 @@ function DocEditor({ doc, saveState, onChange }: { doc: DesignDoc; saveState: Sa
           />
         )}
       </DocField>
-      <p className="lead" role="status">
-        {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : ""}
-      </p>
-      {saveState === "failed" && (
-        <p role="alert" className="error">
-          Not saved. Check your connection. Your text stays here, and the app tries again when you type or leave.
-        </p>
-      )}
+      <SaveStatus state={saveState} />
     </section>
-  );
-}
-
-/** A labelled field. The hint is read as a description, so the field's name stays just its title. */
-function DocField({
-  id,
-  title,
-  hint,
-  children,
-}: {
-  id: string;
-  title: string;
-  hint: string;
-  children: (props: { id: string; "aria-describedby": string }) => React.ReactNode;
-}) {
-  return (
-    <div className="field">
-      <label htmlFor={id} className="field-label">
-        {title}
-      </label>
-      <span id={`${id}-hint`} className="lead">
-        {hint}
-      </span>
-      {children({ id, "aria-describedby": `${id}-hint` })}
-    </div>
   );
 }
 
@@ -184,39 +166,6 @@ function MermaidPreview({ source }: { source: string }) {
       )}
       {/* The last good drawing stays while a change has a mistake. Mermaid's strict mode cleans the SVG. */}
       {svg ? <div className="diagram" dangerouslySetInnerHTML={{ __html: svg }} /> : !problem && <p className="lead">Drawing…</p>}
-    </section>
-  );
-}
-
-type CopyState = "copied" | "failed" | null;
-
-/** "Discuss in Claude" for the design doc: one tap copies it and opens a new chat (design 10). */
-function DiscussDoc({ text }: { text: () => string }) {
-  const [copyState, setCopyState] = useState<CopyState>(null);
-  const [shown, setShown] = useState("");
-
-  function discuss() {
-    const pkg = text();
-    setShown(pkg);
-    const copy = copyAndOpenClaude(pkg);
-    if (!copy) return setCopyState("failed");
-    void copy.then((copied) => setCopyState(copied ? "copied" : "failed"));
-  }
-
-  return (
-    <section className="stack" aria-labelledby="discuss-doc-title">
-      <h2 id="discuss-doc-title">Discuss with your coach</h2>
-      <p className="notice">{PRIVACY_REMINDER}</p>
-      <button type="button" className="button-main" onClick={discuss}>
-        Discuss in Claude
-      </button>
-      {copyState === "copied" && <p role="status">Copied. Paste it into the new Claude chat.</p>}
-      {copyState === "failed" && (
-        <label className="field">
-          <span className="field-label">The copy did not work. Select this text and copy it by hand.</span>
-          <textarea rows={8} readOnly value={shown} />
-        </label>
-      )}
     </section>
   );
 }

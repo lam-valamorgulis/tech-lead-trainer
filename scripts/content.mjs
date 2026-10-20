@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { buildBundle } from "../src/content/bundle.ts";
 import { checkContent, contentIds } from "../src/content/check.ts";
 import { fixtureBossMarkdown, fixtureGlossary, fixtureTown, fixtureTwistTown } from "../src/content/fixture-town.ts";
-import { parseBoss } from "../src/content/weekend.ts";
+import { parseBoss, parseCoachPrompt } from "../src/content/weekend.ts";
 import { addNewIds } from "../src/content/ledger.ts";
 import { glossarySchema, townSchema } from "../src/content/schema.ts";
 
@@ -41,7 +41,9 @@ const weekends = readdirSync(join(CONTENT, "weekends"))
         readFileSync(join(folder, "week-1-boss.md"), "utf8"),
         existsSync(answer) ? readFileSync(answer, "utf8") : undefined,
       );
-      return { townId: `t${name.slice(-2)}`, boss };
+      const adr = join(folder, "week-2-adr.md");
+      const adrCoachPrompt = existsSync(adr) ? parseCoachPrompt(readFileSync(adr, "utf8")) : null;
+      return { townId: `t${name.slice(-2)}`, boss, adrCoachPrompt };
     } catch (error) {
       console.error(`content: ${join(folder, "week-1-boss.md")}: ${error.message}`);
       process.exit(1);
@@ -66,7 +68,7 @@ const bundle = toJson(buildBundle(towns.map((town) => townSchema.parse(town)), g
 const fixtureTowns = [fixtureTown(), fixtureTwistTown()].map((town) => townSchema.parse(town));
 const fixtureBundle = toJson(
   buildBundle(fixtureTowns, glossarySchema.parse(fixtureGlossary()).words, [
-    { townId: "t99", boss: parseBoss(fixtureBossMarkdown()) },
+    { townId: "t99", boss: parseBoss(fixtureBossMarkdown()), adrCoachPrompt: null },
   ]),
 );
 

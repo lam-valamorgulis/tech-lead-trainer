@@ -21,6 +21,14 @@ function fencedBlock(lines: string[], language: string, from = 0): string[] | nu
   return open === -1 || close === -1 ? null : lines.slice(open + 1, close);
 }
 
+/** The "## Coach prompt" text block of a weekend file, as one line. Null when the file has none. */
+export function parseCoachPrompt(markdown: string): string | null {
+  const lines = markdown.split("\n");
+  const start = lines.findIndex((line) => line.startsWith("## Coach prompt"));
+  const prompt = start === -1 ? null : fencedBlock(lines, "text", start);
+  return prompt ? prompt.map((line) => line.trim()).filter(Boolean).join(" ") : null;
+}
+
 /**
  * Reads the title, "## The situation", the first Mermaid block and the coach prompt of a boss file,
  * and keeps its model answer file when there is one.
@@ -58,9 +66,7 @@ export function parseBoss(markdown: string, modelAnswerMarkdown?: string): Boss 
   closeParagraph();
 
   const mermaidStarter = (fencedBlock(lines, "mermaid") ?? []).join("\n");
-  const promptStart = lines.findIndex((line) => line.startsWith("## Coach prompt"));
-  const prompt = promptStart === -1 ? null : fencedBlock(lines, "text", promptStart);
-  const coachPrompt = prompt ? prompt.map((line) => line.trim()).filter(Boolean).join(" ") : null;
+  const coachPrompt = parseCoachPrompt(markdown);
 
   const modelAnswer = modelAnswerMarkdown
     ? modelAnswerMarkdown

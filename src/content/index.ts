@@ -21,6 +21,11 @@ export function weekendBoss(townId: string): Boss | undefined {
   return bundle.weekends.find((weekend) => weekend.townId === townId)?.boss;
 }
 
+/** The ADR coach prompt of a town's weekend, or null to use the default. */
+export function adrCoachPrompt(townId: string): string | null {
+  return bundle.weekends.find((weekend) => weekend.townId === townId)?.adrCoachPrompt ?? null;
+}
+
 /** Hard words with a simple definition, shown on tap (design 2). */
 export const glossary = bundle.glossary;
 
