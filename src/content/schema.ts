@@ -70,6 +70,37 @@ export const placementQuestionSchema = z.object({
   answer: text,
 });
 
+/** The opponent's type in a battle. The app shows each as a colour, an icon and a word (UI rule 4). */
+export const OPPONENT_TYPES = ["traffic", "speed", "security", "data", "outage"] as const;
+
+export const scenarioIdSchema = z
+  .string()
+  .regex(/^t\d{2}-[a-z0-9]+(-[a-z0-9]+)*$/, "A scenario id is <town>-<name>, for example t01-black-friday.");
+
+/** One row of a move table: the damage this move does to this threat, and what it costs. */
+export const moveTableRowSchema = z.object({
+  moveId: moveIdSchema,
+  damage: z.union([z.literal(0), z.literal(1), z.literal(2)]),
+  /** One sentence. The app shows it after "You chose <move>." */
+  counterattack: text,
+});
+
+export const battleTurnSchema = z.object({
+  threat: text,
+  moves: z.array(moveTableRowSchema).min(3).max(4),
+});
+
+/** A battle against one real tech situation (design 7). */
+export const scenarioSchema = z.object({
+  id: scenarioIdSchema,
+  name: text,
+  retired: z.boolean().optional(),
+  opponentType: z.enum(OPPONENT_TYPES),
+  problem: text,
+  /** A battle lasts at most 3 turns, so every scenario has 3. */
+  turns: z.array(battleTurnSchema).length(3),
+});
+
 export const townSchema = z.object({
   id: townIdSchema,
   number: z.int().min(1).max(12),
@@ -79,6 +110,8 @@ export const townSchema = z.object({
   placement: z.array(placementQuestionSchema),
   /** Pairs of creature or move ids that are easy to mix up. They can come from different towns. */
   confusablePairs: z.array(z.tuple([z.string(), z.string()])),
+  /** Battle scenarios, in the order the app offers them. */
+  scenarios: z.array(scenarioSchema).default([]),
 });
 
 export const glossarySchema = z.object({
@@ -90,4 +123,7 @@ export type Creature = z.infer<typeof creatureSchema>;
 export type Move = z.infer<typeof moveSchema>;
 export type Card = z.infer<typeof cardSchema>;
 export type PlacementQuestion = z.infer<typeof placementQuestionSchema>;
+export type Scenario = z.infer<typeof scenarioSchema>;
+export type BattleTurn = z.infer<typeof battleTurnSchema>;
+export type OpponentType = (typeof OPPONENT_TYPES)[number];
 export type Glossary = z.infer<typeof glossarySchema>;

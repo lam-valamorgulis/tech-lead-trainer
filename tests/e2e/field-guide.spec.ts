@@ -7,8 +7,8 @@ test("the Field Guide lists the creatures of town 1 and hides the ones not met y
   try {
     await page.getByRole("link", { name: "Field Guide" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Field Guide" })).toBeVisible();
-    await expect(page.getByText("Fixture Town: 0 of 2 caught")).toBeVisible();
-    await expect(page.getByRole("listitem")).toHaveCount(2);
+    await expect(page.getByText("Fixture Town: 0 of 3 caught")).toBeVisible();
+    await expect(page.getByRole("listitem")).toHaveCount(3);
     await expect(page.getByRole("listitem").first()).toContainText("???Not met yet");
 
     const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();

@@ -354,3 +354,33 @@ h2[tabindex="-1"]:focus {
 .report [tabindex="-1"]:focus {
   outline: none;
 }
+
+/* Battle. UI rule 4: the opponent type has a colour, an icon and a word. */
+.opponent-type {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 3px solid;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.opponent-icon {
+  font-size: 24px;
+}
+
+/* UI rule 3: "Strong hit · 2 ●●". */
+.damage {
+  font-family: var(--font-heading);
+  color: var(--color-accent);
+}
+
+/* UI rule 7: lets the why box scroll to the top of a phone screen, above the keyboard. */
+.why-form {
+  scroll-margin-top: 8px;
+}
+
+.keyboard-room {
+  height: 50dvh;
+}
