@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { morningReminder, morningReminderDue } from "./reminders";
+import { reminderDue, reminderToSend, type ReminderSettings } from "./reminders";
 
-const home = { homeTimeZone: "Asia/Ho_Chi_Minh", dayCutoffHour: 4, morningReminderTime: "07:30" };
+const home = { homeTimeZone: "Asia/Ho_Chi_Minh", dayCutoffHour: 4, morningReminderTime: "07:30", eveningReminderTime: "20:00" };
+const morningReminderDue = (now: Date, settings: ReminderSettings) => reminderDue(now, settings, "morning");
 
 // Ho Chi Minh City is UTC+7 all year, so 07:30 there is 00:30 UTC.
-describe("morningReminderDue", () => {
+describe("reminderDue for the morning", () => {
   it("is due at 07:30 home time, for that learning day", () => {
     expect(morningReminderDue(new Date("2026-10-21T00:30:00Z"), home)).toEqual({ due: true, learningDay: "2026-10-21" });
   });
@@ -59,11 +60,101 @@ describe("morningReminderDue", () => {
   });
 });
 
-describe("morningReminder", () => {
-  it("opens the home screen and names no lesson content", () => {
-    const message = morningReminder();
-    expect(message.url).toBe("/");
-    expect(message.title).toBe("Tech Lead Trainer");
-    expect(message.body).toBe("Good morning. Your daily practice is ready. 3 minutes is enough.");
+describe("reminderDue for the evening", () => {
+  it("is due at 20:00 home time, for that learning day", () => {
+    // 20:00 in Ho Chi Minh City is 13:00 UTC.
+    expect(reminderDue(new Date("2026-10-21T12:59:00Z"), home, "evening")).toEqual({ due: false });
+    expect(reminderDue(new Date("2026-10-21T13:00:00Z"), home, "evening")).toEqual({ due: true, learningDay: "2026-10-21" });
+    expect(reminderDue(new Date("2026-10-21T14:00:00Z"), home, "evening")).toEqual({ due: false });
+  });
+
+  it("follows the evening time chosen in Settings, not the morning time", () => {
+    const late = { ...home, eveningReminderTime: "21:30" };
+    expect(reminderDue(new Date("2026-10-21T13:00:00Z"), late, "evening")).toEqual({ due: false });
+    expect(reminderDue(new Date("2026-10-21T14:30:00Z"), late, "evening")).toEqual({ due: true, learningDay: "2026-10-21" });
+    expect(reminderDue(new Date("2026-10-21T00:30:00Z"), late, "evening")).toEqual({ due: false });
+  });
+});
+
+describe("reminderToSend for the evening", () => {
+  const today = "2026-10-21";
+
+  it("sends nothing when today already has 180 or more active seconds", () => {
+    expect(reminderToSend("evening", today, new Map([[today, 180]]))).toBeNull();
+    expect(reminderToSend("evening", today, new Map([[today, 2700]]))).toBeNull();
+  });
+
+  it("sends when today has less than 180 active seconds", () => {
+    expect(reminderToSend("evening", today, new Map([[today, 179]]))).not.toBeNull();
+    expect(reminderToSend("evening", today, new Map())).not.toBeNull();
+  });
+
+  it("looks only at today, not at the day before", () => {
+    expect(reminderToSend("evening", today, new Map([["2026-10-20", 900]]))).not.toBeNull();
+  });
+});
+
+describe("reminderToSend for the morning", () => {
+  const today = "2026-10-21";
+  const stronger = "Today matters most. Just 3 minutes keeps your practice going.";
+
+  it("uses the stronger text after one missed day", () => {
+    const message = reminderToSend("morning", today, new Map([["2026-10-19", 600]]));
+    expect(message).toEqual({ title: "Tech Lead Trainer", body: stronger, url: "/" });
+  });
+
+  it("counts a day with less than 180 active seconds as missed", () => {
+    const message = reminderToSend("morning", today, new Map([["2026-10-19", 180], ["2026-10-20", 179]]));
+    expect(message?.body).toBe(stronger);
+  });
+
+  it("uses a normal text when yesterday was learned", () => {
+    const message = reminderToSend("morning", today, new Map([["2026-10-20", 180]]));
+    expect(message?.body).not.toBe(stronger);
+  });
+
+  it("uses a normal text after two or more missed days: the Rest Stop welcomes the learner back", () => {
+    expect(reminderToSend("morning", today, new Map([["2026-10-18", 600]]))?.body).not.toBe(stronger);
+  });
+
+  it("uses a normal text for a new learner with no learned day yet", () => {
+    expect(reminderToSend("morning", today, new Map())?.body).not.toBe(stronger);
+  });
+
+  it("always sends the morning reminder, also when today is already learned", () => {
+    expect(reminderToSend("morning", today, new Map([[today, 900]]))).not.toBeNull();
+  });
+});
+
+describe("reminder texts", () => {
+  const days = ["2026-10-21", "2026-10-22", "2026-10-23", "2026-10-24"];
+  const bodies = (kind: "morning" | "evening") => days.map((day) => reminderToSend(kind, day, new Map())?.body);
+
+  it("rotate among 3 morning styles, one per learning day", () => {
+    const [first, second, third, fourth] = bodies("morning");
+    expect(new Set([first, second, third]).size).toBe(3);
+    expect(fourth).toBe(first);
+  });
+
+  it("rotate among 3 evening styles, one per learning day", () => {
+    const [first, second, third, fourth] = bodies("evening");
+    expect(new Set([first, second, third]).size).toBe(3);
+    expect(fourth).toBe(first);
+  });
+
+  it("all open the home screen, with the app name as the title", () => {
+    const stronger = reminderToSend("morning", "2026-10-21", new Map([["2026-10-19", 600]]));
+    for (const day of days) {
+      for (const message of [reminderToSend("morning", day, new Map()), reminderToSend("evening", day, new Map()), stronger]) {
+        expect(message).toMatchObject({ title: "Tech Lead Trainer", url: "/" });
+      }
+    }
+  });
+
+  it("never blame the learner, also the stronger text", () => {
+    const stronger = reminderToSend("morning", "2026-10-21", new Map([["2026-10-19", 600]]))?.body;
+    for (const body of [...bodies("morning"), ...bodies("evening"), stronger]) {
+      expect(body).not.toMatch(/miss|fail|lazy|behind|broke|streak|should|again|forgot/i);
+    }
   });
 });

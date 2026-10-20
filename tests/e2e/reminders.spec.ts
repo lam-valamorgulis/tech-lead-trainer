@@ -51,6 +51,7 @@ test("before the owner adds the push keys, Settings says reminders are not set u
     await expect(page.getByText("Reminders are not set up yet.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Turn on reminders" })).toHaveCount(0);
     await expect(page.getByText(/could not|failed|went wrong/i)).toHaveCount(0);
+    await expect(page.getByText("The evening reminder comes only on days you have not practised yet.")).toBeVisible();
   } finally {
     await user.forget();
   }

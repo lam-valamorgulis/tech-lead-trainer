@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { morningReminder, morningReminderDue } from "@/core/reminders";
+import { activeSecondsByDay, addDays, type LearningDay } from "@/core/day";
+import { reminderDue, reminderToSend, type ReminderKind } from "@/core/reminders";
+import { toSnapshot, type SnapshotRow } from "@/lib/learning-log";
 import { selectAll } from "@/lib/select-all";
 import type { StoredSubscription } from "./push-subscriptions";
 
@@ -11,12 +13,21 @@ export type PushSender = (subscription: StoredSubscription, payload: string) => 
 export type ReminderRun = { due: number; sent: number; failed: number; gone: number; errors: number };
 
 type SubscriptionRow = { id: number; user_id: string; endpoint: string; p256dh: string; auth: string };
-type ProfileRow = { user_id: string; home_time_zone: string; day_cutoff_hour: number; morning_reminder_time: string };
+type ProfileRow = {
+  user_id: string;
+  home_time_zone: string;
+  day_cutoff_hour: number;
+  morning_reminder_time: string;
+  evening_reminder_time: string;
+};
+
+const KINDS: readonly ReminderKind[] = ["morning", "evening"];
 
 /**
  * One run of the 5-minute timer. For each user with a device, it checks in the home time zone
- * whether the morning reminder is due, claims it, and sends it to every device of that user.
- * `admin` must use the secret key: the run reads every user's devices and writes reminders.
+ * whether the morning or the evening reminder is due and needed, claims it, and sends it to
+ * every device of that user.
+ * `admin` must use the secret key: the run reads every user's devices and learning, and writes reminders.
  */
 export async function sendDueReminders(admin: SupabaseClient, now: Date, send: PushSender): Promise<ReminderRun> {
   const run: ReminderRun = { due: 0, sent: 0, failed: 0, gone: 0, errors: 0 };
@@ -29,7 +40,7 @@ export async function sendDueReminders(admin: SupabaseClient, now: Date, send: P
   const profiles = await selectAll((from, to) =>
     admin
       .from("profiles")
-      .select("user_id, home_time_zone, day_cutoff_hour, morning_reminder_time")
+      .select("user_id, home_time_zone, day_cutoff_hour, morning_reminder_time, evening_reminder_time")
       .in("user_id", [...devices.keys()])
       .order("user_id")
       .range(from, to)
@@ -42,7 +53,7 @@ export async function sendDueReminders(admin: SupabaseClient, now: Date, send: P
       await remindUser(admin, profile, devices.get(profile.user_id) ?? [], send, now, run);
     } catch (error) {
       run.errors += 1;
-      console.error("morning reminder failed for one user", error);
+      console.error("reminder failed for one user", error);
     }
   }
   return run;
@@ -56,34 +67,65 @@ async function remindUser(
   now: Date,
   run: ReminderRun,
 ): Promise<void> {
-  const due = morningReminderDue(now, {
+  const settings = {
     homeTimeZone: profile.home_time_zone,
     dayCutoffHour: profile.day_cutoff_hour,
     // Postgres returns "07:30:00".
     morningReminderTime: profile.morning_reminder_time.slice(0, 5),
-  });
-  if (!due.due) return;
-  const reminderId = await claimReminder(admin, profile.user_id, due.learningDay, now);
-  if (reminderId === null) return;
-  run.due += 1;
+    eveningReminderTime: profile.evening_reminder_time.slice(0, 5),
+  };
+  for (const kind of KINDS) {
+    const due = reminderDue(now, settings, kind);
+    if (!due.due) continue;
+    const message = reminderToSend(kind, due.learningDay, await recentActiveSeconds(admin, profile.user_id, due.learningDay));
+    if (message === null) continue;
+    const reminderId = await claimReminder(admin, profile.user_id, due.learningDay, kind, now);
+    if (reminderId === null) continue;
+    run.due += 1;
 
-  const delivered = await deliver(admin, devices, send, run);
-  if (delivered === 0) {
-    // Every device failed (for example a short push-service outage): no device has the
-    // reminder, so the next run, 5 minutes later, tries again inside the reminder window.
-    await releaseReminder(admin, reminderId);
-    return;
+    const delivered = await deliver(admin, devices, JSON.stringify(message), send, run);
+    if (delivered === 0) {
+      // Every device failed (for example a short push-service outage): no device has the
+      // reminder, so the next run, 5 minutes later, tries again inside the reminder window.
+      await releaseReminder(admin, reminderId);
+      continue;
+    }
+    const { error } = await admin.from("reminders").update({ sent_at: now.toISOString(), delivered }).eq("id", reminderId);
+    if (error) throw error;
   }
-  const { error } = await admin.from("reminders").update({ sent_at: now.toISOString(), delivered }).eq("id", reminderId);
-  if (error) throw error;
+}
+
+/**
+ * Active seconds per learning day for the reminder's day and the 2 days before it. One more
+ * day is loaded, because a session counts for the day it started (see `activeSecondsByDay`).
+ */
+async function recentActiveSeconds(admin: SupabaseClient, userId: string, day: LearningDay): Promise<Map<LearningDay, number>> {
+  const rows = await selectAll((from, to) =>
+    admin
+      .from("session_events")
+      .select("session_id, occurred_at, learning_day, active_seconds")
+      .eq("user_id", userId)
+      .gte("learning_day", addDays(day, -3))
+      .lte("learning_day", day)
+      .order("id")
+      .range(from, to)
+      .returns<SnapshotRow[]>(),
+  );
+  return activeSecondsByDay(rows.map(toSnapshot));
 }
 
 /** Plans the reminder. Null when it was already planned for this day: never send it twice. */
-async function claimReminder(admin: SupabaseClient, userId: string, learningDay: string, now: Date): Promise<number | null> {
+async function claimReminder(
+  admin: SupabaseClient,
+  userId: string,
+  learningDay: LearningDay,
+  kind: ReminderKind,
+  now: Date,
+): Promise<number | null> {
   const { data, error } = await admin
     .from("reminders")
     .upsert(
-      { user_id: userId, learning_day: learningDay, kind: "morning", planned_at: now.toISOString() },
+      { user_id: userId, learning_day: learningDay, kind, planned_at: now.toISOString() },
       { onConflict: "user_id,learning_day,kind", ignoreDuplicates: true },
     )
     .select("id");
@@ -100,8 +142,13 @@ async function releaseReminder(admin: SupabaseClient, reminderId: number): Promi
  * Sends to every device and forgets the gone ones. Returns how many devices got it.
  * It never throws once a push went out, so a sent reminder is never released and sent again.
  */
-async function deliver(admin: SupabaseClient, devices: SubscriptionRow[], send: PushSender, run: ReminderRun): Promise<number> {
-  const payload = JSON.stringify(morningReminder());
+async function deliver(
+  admin: SupabaseClient,
+  devices: SubscriptionRow[],
+  payload: string,
+  send: PushSender,
+  run: ReminderRun,
+): Promise<number> {
   const results = await Promise.all(
     devices.map(async (row) => ({
       id: row.id,

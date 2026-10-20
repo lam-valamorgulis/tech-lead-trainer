@@ -186,7 +186,7 @@ function ReminderTimes({
           }}
         />
       </label>
-      <p className="lead">These times use your home time zone.</p>
+      <p className="lead">These times use your home time zone. The evening reminder comes only on days you have not practised yet.</p>
       <p role="status" className="lead">
         {status === "saved" ? "Reminder times saved." : ""}
       </p>

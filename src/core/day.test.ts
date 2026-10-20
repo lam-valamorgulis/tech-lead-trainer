@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isLearnedDay, learningDay, thirtyDayRate, type SessionSnapshot } from "./day.ts";
+import { dayNumber, isLearnedDay, learningDay, thirtyDayRate, type SessionSnapshot } from "./day.ts";
 
 const HCM = "Asia/Ho_Chi_Minh";
 
@@ -72,5 +72,15 @@ describe("thirtyDayRate", () => {
     const todayInParis = learningDay(new Date("2026-10-20T02:00:00Z"), "Europe/Paris", 4);
     expect(todayInParis).toBe("2026-10-20");
     expect(thirtyDayRate(events, todayInParis)).toEqual({ learnedDays: 2, windowDays: 30 });
+  });
+});
+
+describe("dayNumber", () => {
+  it("counts days from 1970-01-01, one more each day, also across a month and a year", () => {
+    expect(dayNumber("1970-01-01")).toBe(0);
+    expect(dayNumber("1970-01-02")).toBe(1);
+    expect(dayNumber("2026-10-31")).toBe(20757);
+    expect(dayNumber("2026-11-01")).toBe(20758);
+    expect(dayNumber("2027-01-01")).toBe(20819);
   });
 });

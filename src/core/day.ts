@@ -91,5 +91,14 @@ export function thirtyDayRate(snapshots: SessionSnapshot[], today: LearningDay):
 }
 
 export function addDays(day: LearningDay, count: number): LearningDay {
-  return new Date(Date.parse(`${day}T00:00:00Z`) + count * DAY_MS).toISOString().slice(0, 10);
+  return new Date(dayStart(day) + count * DAY_MS).toISOString().slice(0, 10);
+}
+
+/** The number of the day: 0 on 1970-01-01, one more each day after. */
+export function dayNumber(day: LearningDay): number {
+  return Math.floor(dayStart(day) / DAY_MS);
+}
+
+function dayStart(day: LearningDay): number {
+  return Date.parse(`${day}T00:00:00Z`);
 }

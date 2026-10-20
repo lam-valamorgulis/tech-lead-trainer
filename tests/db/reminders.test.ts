@@ -104,7 +104,8 @@ describe("sendDueReminders", () => {
     for (const call of calls) {
       expect(call.payload).toEqual({
         title: "Tech Lead Trainer",
-        body: "Good morning. Your daily practice is ready. 3 minutes is enough.",
+        // 21 Jan 2030 has the third morning style.
+        body: "Good morning. Tap 3, 15 or 45 minutes. Every choice counts.",
         url: "/",
       });
     }
@@ -205,6 +206,83 @@ describe("sendDueReminders with Settings and devices", () => {
     expect(update.error?.code).toBe("42501");
     const remove = await user.client.from("reminders").delete().eq("user_id", user.id);
     expect(remove.error?.code).toBe("42501");
+  });
+});
+
+describe("sendDueReminders in the evening and after a missed day", () => {
+  let user: User;
+  let phone: ReturnType<typeof subscriptionFor>;
+
+  // Past days, because the database refuses session events from the future.
+  // 20:00 in Ho Chi Minh City is 13:00 UTC; 07:30 is 00:30 UTC.
+  const EVENING_MAR_10 = new Date("2026-03-10T13:00:00Z");
+  const EVENING_MAR_11 = new Date("2026-03-11T13:00:00Z");
+  const MORNING_MAR_13 = new Date("2026-03-13T00:30:00Z");
+
+  /** One session snapshot with this many active seconds, at 12:00 home time. */
+  async function learn(day: string, activeSeconds: number) {
+    const { error } = await user.client.from("session_events").insert({
+      client_event_id: crypto.randomUUID(),
+      session_id: crypto.randomUUID(),
+      occurred_at: `${day}T05:00:00Z`,
+      learning_day: day,
+      committed_minutes: 3,
+      active_seconds: activeSeconds,
+      device: "test",
+    });
+    if (error) throw error;
+  }
+
+  async function remindersOn(day: string) {
+    const { data } = await user.client.from("reminders").select("kind").eq("learning_day", day).order("kind");
+    return data?.map((row) => row.kind);
+  }
+
+  beforeAll(async () => {
+    user = await signedInUser("remind-evening");
+    await ensureProfile(user.client);
+    phone = subscriptionFor("evening-phone");
+    await savePushSubscription(user.client, phone, "iPhone");
+  });
+
+  afterAll(async () => {
+    await forgetEmail(user.email);
+  });
+
+  it("sends the evening reminder at 20:00 when today is not learned, once", async () => {
+    await learn("2026-03-10", 179);
+    const push = fakePushService();
+    await sendDueReminders(adminClient(), EVENING_MAR_10, push.send);
+    await sendDueReminders(adminClient(), new Date("2026-03-10T13:05:00Z"), push.send);
+    expect(push.callsTo([phone.endpoint]).map((c) => c.payload)).toEqual([
+      { title: "Tech Lead Trainer", body: "Your practice for today is still open. Even 3 minutes counts.", url: "/" },
+    ]);
+    expect(await remindersOn("2026-03-10")).toEqual(["evening"]);
+  });
+
+  it("sends no evening reminder when today already has 180 active seconds", async () => {
+    await learn("2026-03-11", 180);
+    const push = fakePushService();
+    await sendDueReminders(adminClient(), EVENING_MAR_11, push.send);
+    expect(push.callsTo([phone.endpoint])).toEqual([]);
+    expect(await remindersOn("2026-03-11")).toEqual([]);
+  });
+
+  it("sends the stronger morning text after one missed day", async () => {
+    // 11 March is learned, 12 March is not.
+    const push = fakePushService();
+    await sendDueReminders(adminClient(), MORNING_MAR_13, push.send);
+    expect(push.callsTo([phone.endpoint]).map((c) => c.payload)).toEqual([
+      { title: "Tech Lead Trainer", body: "Today matters most. Just 3 minutes keeps your practice going.", url: "/" },
+    ]);
+  });
+
+  it("keeps one morning and one evening reminder apart on the same learning day", async () => {
+    const push = fakePushService();
+    await sendDueReminders(adminClient(), new Date("2026-03-13T13:00:00Z"), push.send);
+    await sendDueReminders(adminClient(), new Date("2026-03-13T00:35:00Z"), push.send);
+    expect(push.callsTo([phone.endpoint])).toHaveLength(1);
+    expect(await remindersOn("2026-03-13")).toEqual(["evening", "morning"]);
   });
 });
 
