@@ -74,14 +74,20 @@ export function activeSecondsByDay(snapshots: SessionSnapshot[]): Map<LearningDa
 
 export type ThirtyDayRate = { learnedDays: number; windowDays: number };
 
+/** The learned days up to today (days after today are left out), in no fixed order. */
+export function learnedDays(snapshots: SessionSnapshot[], today: LearningDay): LearningDay[] {
+  const days: LearningDay[] = [];
+  for (const [day, seconds] of activeSecondsByDay(snapshots)) {
+    if (day <= today && isLearnedDay(seconds)) days.push(day);
+  }
+  return days;
+}
+
 /** Learned days among the 30 days that end today. There is no streak anywhere (design 2). */
 export function thirtyDayRate(snapshots: SessionSnapshot[], today: LearningDay): ThirtyDayRate {
   const first = addDays(today, -(RATE_WINDOW_DAYS - 1));
-  let learnedDays = 0;
-  for (const [day, seconds] of activeSecondsByDay(snapshots)) {
-    if (day >= first && day <= today && isLearnedDay(seconds)) learnedDays += 1;
-  }
-  return { learnedDays, windowDays: RATE_WINDOW_DAYS };
+  const inWindow = learnedDays(snapshots, today).filter((day) => day >= first);
+  return { learnedDays: inWindow.length, windowDays: RATE_WINDOW_DAYS };
 }
 
 export function addDays(day: LearningDay, count: number): LearningDay {
