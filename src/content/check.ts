@@ -190,6 +190,7 @@ function townProblems(town: Town, allTowns: Town[]): Problem[] {
   const moves = new Map(allTowns.flatMap((t) => t.creatures.flatMap((c) => c.moves)).map((m) => [m.id, m]));
   for (const scenario of town.scenarios) {
     problems.push(...scenarioProblems(town, scenario, moves));
+    problems.push(...twistProblems(town, scenario));
   }
 
   return problems;
@@ -242,6 +243,57 @@ function scenarioProblems(town: Town, scenario: Scenario, moves: Map<string, Mov
       else if (move.retired) problems.push({ where: at, message: `${moveId} is retired, so it cannot be in a move table.` });
     });
   });
+  return problems;
+}
+
+/**
+ * The town twist (#36). In a "two-types" town, every opponent has a second type, and each turn
+ * names which of the two types attacks, so the learner always sees the type as colour, icon and
+ * word. Both types attack at least once. A town with no twist uses neither field.
+ */
+function twistProblems(town: Town, scenario: Scenario): Problem[] {
+  const at = `${town.id}.${scenario.id}`;
+  const problems: Problem[] = [];
+  if (town.twist?.kind !== "two-types") {
+    if (scenario.secondType !== undefined) {
+      problems.push({
+        where: `${at}.secondType`,
+        message: "Only a town with the two-types twist has opponents with a second type.",
+      });
+    }
+    scenario.turns.forEach((turn, index) => {
+      if (turn.threatType !== undefined) {
+        problems.push({
+          where: `${at}.turns.${index}.threatType`,
+          message: "Only a town with the two-types twist names the type of each threat.",
+        });
+      }
+    });
+    return problems;
+  }
+
+  const { opponentType, secondType } = scenario;
+  if (secondType === undefined) {
+    return [{ where: `${at}.secondType`, message: "In a two-types town, every opponent has a second type." }];
+  }
+  if (secondType === opponentType) {
+    return [{ where: `${at}.secondType`, message: `The second type must differ from the opponent type ${opponentType}.` }];
+  }
+  const types = [opponentType, secondType];
+  scenario.turns.forEach((turn, index) => {
+    if (turn.threatType === undefined || !types.includes(turn.threatType)) {
+      problems.push({
+        where: `${at}.turns.${index}.threatType`,
+        message: `In a two-types town, each turn names its threat type: ${opponentType} or ${secondType}.`,
+      });
+    }
+  });
+  if (problems.length > 0) return problems;
+  for (const type of types) {
+    if (!scenario.turns.some((turn) => turn.threatType === type)) {
+      problems.push({ where: at, message: `Both types must attack in at least one turn. ${type} never does.` });
+    }
+  }
   return problems;
 }
 

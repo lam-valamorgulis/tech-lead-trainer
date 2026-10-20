@@ -50,3 +50,24 @@ export function townToPlay<T extends { number: number; retired?: boolean }>(town
     .filter((town) => !town.retired && town.number <= townNumber)
     .reduce<T | undefined>((best, town) => (best && best.number >= town.number ? best : town), undefined);
 }
+
+/**
+ * True when home shows the "new town" screen (design 4: a fresh start): the town the learner
+ * plays is town 2 or later, and they started no session since that town's first day. Their first
+ * session in the town starts on the same day, so the screen shows once. Town 1 is not a new town.
+ * `lastSessionDay` is the learning day of their latest session of any length, or null.
+ */
+export function showsNewTown({
+  programStartDate,
+  townNumber,
+  lastSessionDay,
+}: {
+  programStartDate: LearningDay;
+  /** The town the learner plays today (townToPlay), so it has already started. */
+  townNumber: number;
+  lastSessionDay: LearningDay | null;
+}): boolean {
+  if (townNumber < 2) return false;
+  const firstDay = townStartDay(programStartDate, townNumber);
+  return lastSessionDay === null || lastSessionDay < firstDay;
+}

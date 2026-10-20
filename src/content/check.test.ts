@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { checkContent } from "./check.ts";
-import { fixtureGlossary, fixtureLedger, fixtureTown } from "./fixture-town.ts";
+import { fixtureGlossary, fixtureLedger, fixtureTown, fixtureTwistLedger, fixtureTwistTown } from "./fixture-town.ts";
 
 function check(town: unknown = fixtureTown(), ledger = fixtureLedger, glossary: unknown = fixtureGlossary()) {
   return checkContent({ towns: [town], ledger, glossary });
@@ -341,6 +341,91 @@ describe("checkContent", () => {
           "t99.scenarios.0.turns.1.keyPoints.0",
         ]);
       });
+    });
+  });
+
+  // Ticket #36: a town can turn on one battle twist. Town 2 has "two-types": opponents with two types.
+  describe("the town twist", () => {
+    const withTwistTown = (twistTown: unknown = fixtureTwistTown(), town: unknown = fixtureTown()) =>
+      checkContent({ towns: [town, twistTown], ledger: [...fixtureLedger, ...fixtureTwistLedger], glossary: fixtureGlossary() });
+
+    it("accepts a two-types town next to a town with no twist", () => {
+      expect(withTwistTown()).toEqual([]);
+    });
+
+    it("fails on a twist kind the game does not know", () => {
+      const town = fixtureTwistTown();
+      town.twist = { kind: "timed" };
+      expect(withTwistTown(town).map((problem) => problem.where)).toEqual(["t98.twist.kind"]);
+    });
+
+    it("fails when a scenario in a town with no twist has a second type", () => {
+      const town = fixtureTown();
+      Object.assign(town.scenarios[0], { secondType: "security" });
+      expect(withTwistTown(undefined, town)).toEqual([
+        {
+          where: "t99.t99-sale-day.secondType",
+          message: "Only a town with the two-types twist has opponents with a second type.",
+        },
+      ]);
+    });
+
+    it("fails when a turn in a town with no twist names its threat type", () => {
+      const town = fixtureTown();
+      Object.assign(town.scenarios[0].turns[1], { threatType: "traffic" });
+      expect(withTwistTown(undefined, town)).toEqual([
+        {
+          where: "t99.t99-sale-day.turns.1.threatType",
+          message: "Only a town with the two-types twist names the type of each threat.",
+        },
+      ]);
+    });
+
+    it("fails when a scenario of a two-types town has no second type", () => {
+      const town = fixtureTwistTown();
+      delete (town.scenarios[0] as { secondType?: unknown }).secondType;
+      expect(withTwistTown(town)).toEqual([
+        { where: "t98.t98-public-api.secondType", message: "In a two-types town, every opponent has a second type." },
+      ]);
+    });
+
+    it("fails when the second type is the same as the first", () => {
+      const town = fixtureTwistTown();
+      town.scenarios[0].secondType = "traffic";
+      expect(withTwistTown(town)).toContainEqual({
+        where: "t98.t98-public-api.secondType",
+        message: "The second type must differ from the opponent type traffic.",
+      });
+    });
+
+    it("fails when a turn of a two-types town does not say which type attacks", () => {
+      const town = fixtureTwistTown();
+      delete (town.scenarios[0].turns[0] as { threatType?: unknown }).threatType;
+      expect(withTwistTown(town)).toEqual([
+        {
+          where: "t98.t98-public-api.turns.0.threatType",
+          message: "In a two-types town, each turn names its threat type: traffic or security.",
+        },
+      ]);
+    });
+
+    it("fails when a turn attacks with a type the opponent does not have", () => {
+      const town = fixtureTwistTown();
+      town.scenarios[0].turns[2].threatType = "data";
+      expect(withTwistTown(town)).toEqual([
+        {
+          where: "t98.t98-public-api.turns.2.threatType",
+          message: "In a two-types town, each turn names its threat type: traffic or security.",
+        },
+      ]);
+    });
+
+    it("fails when one of the two types never attacks, so the opponent has two types in name only", () => {
+      const town = fixtureTwistTown();
+      town.scenarios[0].turns[1].threatType = "traffic";
+      expect(withTwistTown(town)).toEqual([
+        { where: "t98.t98-public-api", message: "Both types must attack in at least one turn. security never does." },
+      ]);
     });
   });
 });
