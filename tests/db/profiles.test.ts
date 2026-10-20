@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ensureProfile } from "@/lib/profile";
+import { ensureProfile, savePlans } from "@/lib/profile";
 import { forgetEmail, signedInUser, sql } from "./helpers";
 
 type User = { id: string; email: string; client: SupabaseClient };
@@ -125,5 +125,32 @@ describe("learning day in the database", () => {
 
   it("starts the new day at 04:00", async () => {
     expect(await learningDay("2026-10-20T21:00:00Z")).toBe("2026-10-21");
+  });
+});
+
+describe("the if-then plans", () => {
+  let user: User;
+
+  beforeAll(async () => {
+    user = await signedInUser("plans");
+    await ensureProfile(user.client);
+  });
+
+  afterAll(async () => {
+    await forgetEmail(user.email);
+  });
+
+  it("are saved in the profile and read back", async () => {
+    await savePlans(user.client, user.id, { ifThenPlan: "drink my coffee", tiredDayPlan: "If I am tired, I tap 3." });
+    expect(await ensureProfile(user.client)).toMatchObject({
+      ifThenPlan: "drink my coffee",
+      tiredDayPlan: "If I am tired, I tap 3.",
+    });
+  });
+
+  it("refuse a plan longer than 200 characters", async () => {
+    await expect(
+      savePlans(user.client, user.id, { ifThenPlan: "x".repeat(201), tiredDayPlan: "If I am tired, I tap 3." }),
+    ).rejects.toThrow();
   });
 });

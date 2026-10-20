@@ -61,3 +61,16 @@ function toProfile(row: ProfileRow): Profile {
     programStartDate: row.program_start_date,
   };
 }
+
+/** Saves both if-then plans (design 3). `ifThenPlan` holds the learner's cue, the words after "After I". */
+export async function savePlans(
+  client: SupabaseClient,
+  userId: string,
+  plans: { ifThenPlan: string; tiredDayPlan: string },
+): Promise<void> {
+  const { error } = await client
+    .from("profiles")
+    .update({ if_then_plan: plans.ifThenPlan, tired_day_plan: plans.tiredDayPlan })
+    .eq("user_id", userId);
+  if (error) throw error;
+}

@@ -25,6 +25,9 @@ test("an allowed email signs in with the 6-digit code from the email", async ({ 
     await page.getByLabel("6-digit code").fill(codeFrom(await waitForMail(local.mailUrl, email)));
     await page.getByRole("button", { name: "Sign in" }).click();
 
+    // A new user first sees the if-then plan screen.
+    await expect(page.getByRole("heading", { name: "Your if-then plan" })).toBeVisible();
+    await page.getByRole("button", { name: "Later" }).click();
     await expect(page.getByText("Today I commit to:")).toBeVisible();
 
     // The session stays after the app is closed and opened again.

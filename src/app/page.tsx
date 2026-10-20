@@ -10,7 +10,7 @@ export default function Home() {
       <p className="lead" data-testid="home-intro">
         Your daily practice starts here.
       </p>
-      <AuthGate>{() => <HomeScreen />}</AuthGate>
+      <AuthGate>{(signedIn) => <HomeScreen {...signedIn} />}</AuthGate>
     </main>
   );
 }

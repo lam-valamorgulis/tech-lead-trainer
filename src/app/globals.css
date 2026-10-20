@@ -327,3 +327,12 @@ h2[tabindex="-1"]:focus {
 .notice.row {
   align-items: center;
 }
+
+.plan-lines p {
+  margin: 0;
+  font-size: 16px;
+}
+
+.field input::placeholder {
+  color: var(--color-muted);
+}
