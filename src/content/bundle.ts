@@ -43,7 +43,13 @@ export function buildBundle(towns: Town[], glossary: GlossaryWord[] = [], weeken
       placement: town.placement.map((question) => ({ ...question, hash: contentHash(question) })),
       scenarios: town.scenarios.map((scenario) => ({
         ...scenario,
-        hash: contentHash({ opponentType: scenario.opponentType, problem: scenario.problem, turns: scenario.turns }),
+        // A town with no twist has no second type: an undefined field leaves the hash as it was.
+        hash: contentHash({
+          opponentType: scenario.opponentType,
+          secondType: scenario.secondType,
+          problem: scenario.problem,
+          turns: scenario.turns,
+        }),
       })),
     })),
   };

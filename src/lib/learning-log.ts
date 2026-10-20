@@ -39,18 +39,38 @@ export async function loadSessionNumbers(client: SupabaseClient): Promise<{ rate
  * What home needs to know about past learning: the 30-day rate, whether to open on the Rest
  * Stop, and the minutes of this week against the weekly goal.
  */
-export type LearningStatus = { rate: ThirtyDayRate; restStop: boolean; weekMinutes: number };
+export type LearningStatus = {
+  today: LearningDay;
+  rate: ThirtyDayRate;
+  restStop: boolean;
+  weekMinutes: number;
+  /** The learning day of the latest session of any length, or null. It decides the "new town" screen. */
+  lastSessionDay: LearningDay | null;
+};
 
 export async function loadLearningStatus(client: SupabaseClient): Promise<LearningStatus> {
   const { today, from, recent } = await loadRecentSnapshots(client);
+  let snapshots = recent;
   let last = lastLearnedDay(recent, today);
   if (last === null) {
     // Nothing learned in the window: look further back, so a long break also opens the Rest Stop.
     const older = await loadSnapshots(client, (query) => query.lt("learning_day", from));
-    last = lastLearnedDay([...older, ...recent], today);
+    snapshots = [...older, ...recent];
+    last = lastLearnedDay(snapshots, today);
   }
+  // A learned day in the window means a session there too, so `snapshots` always holds the latest one.
+  const lastSessionDay = snapshots.reduce<LearningDay | null>(
+    (latest, { learningDay }) => (latest === null || learningDay > latest ? learningDay : latest),
+    null,
+  );
   // The 30-day window always holds this week, which is at most 7 days.
-  return { rate: thirtyDayRate(recent, today), restStop: showsRestStop(last, today), weekMinutes: weekMinutes(recent, today) };
+  return {
+    today,
+    rate: thirtyDayRate(recent, today),
+    restStop: showsRestStop(last, today),
+    weekMinutes: weekMinutes(recent, today),
+    lastSessionDay,
+  };
 }
 
 /** Today, and the snapshots of the 30-day window plus one day: a session counts for the day it started. */

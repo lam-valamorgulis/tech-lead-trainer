@@ -264,3 +264,110 @@ export function fixtureBossMarkdown() {
     "```",
   ].join("\n");
 }
+
+const apiSource = { title: "MDN: 429 Too Many Requests", url: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/429" };
+
+/** A creature with one move, for the fixture town 2. */
+function apiCreature(id: string, name: string, moveId: string, moveName: string) {
+  return {
+    id,
+    name,
+    catch: {
+      question: `What is ${name}?`,
+      choices: [`A tool for ${name.toLowerCase()} in an API`, "A kind of cookie", "A status page"],
+      correctChoice: 0,
+      explanation: `${name} is a tool of API design.`,
+    },
+    card: { text: `${name} is a tool of API design.`, example: `A shop API uses ${name.toLowerCase()}.`, source: apiSource },
+    review: { question: `What is ${name}?`, answer: "A tool of API design." },
+    workedExample: {
+      problem: "A partner breaks the shop API.",
+      steps: [`Use ${name.toLowerCase()}.`],
+      answer: `${name} keeps the API safe.`,
+    },
+    moves: [
+      {
+        id: moveId,
+        name: moveName,
+        catch: {
+          question: `What is ${moveName}?`,
+          choices: [`A part of ${name.toLowerCase()}`, "A kind of cookie", "A status page"],
+          correctChoice: 0,
+          explanation: `${moveName} is a part of ${name.toLowerCase()}.`,
+        },
+        card: { text: `${moveName} is a part of ${name.toLowerCase()}.`, example: `A shop API uses ${moveName.toLowerCase()}.`, source: apiSource },
+        review: { question: `What is ${moveName}?`, answer: `A part of ${name.toLowerCase()}.` },
+      },
+    ],
+  };
+}
+
+/**
+ * A small valid town 2 with the "two-types" twist (#36), for tests. It never ships in the app.
+ * Its battle is a two-type opponent: each turn says which of its two types attacks.
+ * The move tables also use moves of the town 1 fixture, so check it together with fixtureTown().
+ */
+export function fixtureTwistTown() {
+  return {
+    id: "t98",
+    number: 2,
+    name: "Fixture Town Two",
+    twist: { kind: "two-types" },
+    creatures: [
+      apiCreature("rate-limit", "Rate limit", "rate-limit.quota", "Quota"),
+      apiCreature("api-key", "API key", "api-key.rotate", "Key rotation"),
+    ],
+    placement: [
+      { creatureId: "rate-limit", question: "What does a rate limit do?", answer: "It caps the requests of one client." },
+      { creatureId: "api-key", question: "What is an API key?", answer: "A secret that names the client." },
+    ],
+    confusablePairs: [],
+    scenarios: [
+      {
+        id: "t98-public-api",
+        name: "Public API launch",
+        opponentType: "traffic",
+        secondType: "security",
+        problem: "The shop opens its API to every partner on Monday.",
+        // Best moves: rate-limit.quota, api-key.rotate, rate-limit.quota.
+        turns: [
+          {
+            threatType: "traffic",
+            threat: "One partner sends 500 requests each second and slows everyone.",
+            moves: [
+              { moveId: "rate-limit.quota", damage: 2, counterattack: "The partner slows down, but its big jobs take longer." },
+              { moveId: "api-key.rotate", damage: 0, counterattack: "The partner gets a new key and sends just as much." },
+              { moveId: "proxy.cdn", damage: 1, counterattack: "Some answers come from copies, but the writes still pile up." },
+            ],
+            modelAnswer: "Give each partner a quota. One partner can then never use all the capacity.",
+            keyPoints: ["One client can use all the capacity.", "A quota caps each client.", "Big jobs now take longer."],
+          },
+          {
+            threatType: "security",
+            threat: "A leaked API key is used from an unknown server.",
+            moves: [
+              { moveId: "api-key.rotate", damage: 2, counterattack: "The leaked key stops working, but the partner must update its key." },
+              { moveId: "rate-limit.quota", damage: 1, counterattack: "The stranger is slower, but it still reads data." },
+              { moveId: "cookie.http-only", damage: 0, counterattack: "Scripts cannot read the cookie, but the key still works." },
+            ],
+            modelAnswer: "Rotate the leaked key at once. The old key stops working, and the partner gets a new one.",
+            keyPoints: ["A leaked key works for anyone.", "Rotation makes the old key useless.", "The partner must update its key."],
+          },
+          {
+            threatType: "traffic",
+            threat: "A partner retries every failed call at once, and the load comes back.",
+            moves: [
+              { moveId: "rate-limit.quota", damage: 2, counterattack: "The retries wait their turn, but the partner sees more errors." },
+              { moveId: "api-key.rotate", damage: 0, counterattack: "The key changes, but the retries keep coming." },
+              { moveId: "proxy.cdn", damage: 0, counterattack: "The copies do not help, because every retry is new." },
+            ],
+            modelAnswer: "Keep the quota and answer 429 with a wait time. The partner then retries later.",
+            keyPoints: ["Retries at once bring the load back.", "The quota still protects the API.", "The partner sees more errors."],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+export const fixtureTwistLedger = ["t98", "rate-limit", "rate-limit.quota", "api-key", "api-key.rotate", "t98-public-api"];
