@@ -319,3 +319,36 @@ describe("the best-move rate", () => {
     expect(formatBestMoveRate({ bestMoves: 0, turns: 0 })).toBe("no battle turns yet");
   });
 });
+
+describe("worked examples before a battle", () => {
+  const offer = (catches: CatchRecord[], battles: BattleRecord[] = []) =>
+    nextBattle({ town: town(), catches, battles, today: TODAY, committedMinutes: 15 })!;
+  const exampleIds = (catches: CatchRecord[], battles: BattleRecord[] = []) =>
+    offer(catches, battles).workedExamples.map((example) => example.creatureId);
+
+  it("come first in the first battle that uses a concept: the creatures of its best moves, in town order", () => {
+    expect(exampleIds(caught("cache", "cookie", "proxy"))).toEqual(["cache", "proxy"]);
+    expect(offer(caught("cache", "proxy")).workedExamples[0]).toEqual({
+      creatureId: "cache",
+      name: "Cache",
+      workedExample: {
+        problem: "The product page loads slowly for every visitor.",
+        steps: ["Find the parts that change rarely.", "Let the browser cache them for one hour."],
+        answer: "Cache the logo and the styles. Keep the price fresh.",
+      },
+    });
+  });
+
+  it("are shown once per concept: a later battle that uses the same concepts has none", () => {
+    const played: BattleRecord[] = [{ battleId: "b1", scenarioId: "t99-sale-day", learningDay: "2026-10-19" }];
+    expect(exampleIds(caught("cache", "cookie", "proxy"), played)).toEqual([]);
+  });
+
+  it("are skipped for a concept the placement test caught", () => {
+    const placed: CatchRecord[] = [
+      { itemId: "cache", correct: true, learningDay: "2026-10-18", fromPlacement: true },
+      ...caught("proxy"),
+    ];
+    expect(exampleIds(placed)).toEqual(["proxy"]);
+  });
+});

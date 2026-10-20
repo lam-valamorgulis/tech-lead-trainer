@@ -441,3 +441,9 @@ h2[tabindex="-1"]:focus {
   outline: 2px solid var(--color-text);
   outline-offset: 2px;
 }
+
+/* The steps of a worked example. */
+.steps {
+  margin: 0;
+  padding-left: 24px;
+}

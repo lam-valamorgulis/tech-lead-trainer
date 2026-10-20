@@ -20,7 +20,7 @@ function itemOf(id: string): { name: string; card: Card } | undefined {
 }
 
 function battleOf(team: string[], moves: (string | null)[]): BattleState {
-  const offer = { scenario: town().scenarios[0], team: { size: team.length, choices: ["cache", "cookie", "proxy"] } };
+  const offer = { scenario: town().scenarios[0], team: { size: team.length, choices: ["cache", "cookie", "proxy"] }, workedExamples: [] };
   return moves.reduce((battle, moveId) => playTurn(battle, moveId), startBattle(offer, team));
 }
 
@@ -110,7 +110,7 @@ describe("discussPackage", () => {
 
   it("tells a loss, a turn with no move, and each card once", () => {
     // A team without Proxy that never picks the best move.
-    const offer = { scenario: town().scenarios[0], team: { size: 2, choices: ["cache", "cookie"] } };
+    const offer = { scenario: town().scenarios[0], team: { size: 2, choices: ["cache", "cookie"] }, workedExamples: [] };
     const lost = ["cookie.http-only", "cache.ttl", "cookie.http-only"].reduce(
       (state, moveId) => playTurn(state, moveId),
       startBattle(offer, ["cache", "cookie"]),
@@ -129,7 +129,7 @@ describe("discussPackage", () => {
   });
 
   it("says so when the team had no move for a threat", () => {
-    const offer = { scenario: town().scenarios[0], team: { size: 1, choices: ["cookie"] } };
+    const offer = { scenario: town().scenarios[0], team: { size: 1, choices: ["cookie"] }, workedExamples: [] };
     // Turn 2's moves are all Cache and Proxy moves, so a Cookie-only team has none.
     const battle = playTurn(playTurn(startBattle(offer, ["cookie"]), "cookie.http-only"), null);
     const text = discussPackage({ battle, whys: { 1: "x", 2: "none fits" }, ticks: {}, itemOf });

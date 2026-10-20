@@ -41,6 +41,16 @@ test("a full battle: team pick, threat first, why before the result, damage and 
     await catchItems(user.email, ["cache", "cookie", "proxy"]);
     await page.getByRole("button", { name: "15 minutes" }).click();
 
+    // The first battle with Cache and Proxy starts with their worked examples, one at a time.
+    await expect(page.getByRole("heading", { name: "Worked example: Cache" })).toBeFocused();
+    await expect(page.getByText("The product page loads slowly for every visitor.")).toBeVisible();
+    await expect(page.getByText("Cache the logo and the styles. Keep the price fresh.")).toBeVisible();
+    await page.getByRole("button", { name: "Next example" }).click();
+    await expect(page.getByRole("heading", { name: "Worked example: Proxy" })).toBeFocused();
+    await page.getByRole("button", { name: "Go to the battle" }).click();
+    // Then the examples hide.
+    await expect(page.getByText("The product page loads slowly for every visitor.")).toHaveCount(0);
+
     await expect(page.getByRole("heading", { name: "A battle begins: Sale day" })).toBeVisible();
     // UI rule 4: the type is a colour, an icon and a word.
     await expect(page.getByText("Type: Traffic")).toBeVisible();
