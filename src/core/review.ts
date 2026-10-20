@@ -107,8 +107,8 @@ export function reviewStates(
   // A stable sort keeps the order of the rechecks inside one day.
   const waiting = [...rechecks].sort((a, b) => a.learningDay.localeCompare(b.learningDay));
   let next = 0;
-  const recheckBefore = (day: LearningDay | null) => {
-    while (next < waiting.length && (day === null || waiting[next].learningDay < day)) applyRecheck(states, waiting[next++]);
+  const recheckBefore = (day: LearningDay) => {
+    while (next < waiting.length && waiting[next].learningDay < day) applyRecheck(states, waiting[next++]);
   };
   for (const review of reviews) {
     recheckBefore(review.learningDay);
@@ -119,7 +119,8 @@ export function reviewStates(
     state.step = graded.step;
     state.dueDay = graded.dueDay;
   }
-  recheckBefore(null);
+  // The rechecks after the last review.
+  while (next < waiting.length) applyRecheck(states, waiting[next++]);
   return states;
 }
 

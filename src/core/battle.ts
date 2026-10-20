@@ -185,7 +185,7 @@ export type BestMoveRate = { bestMoves: number; turns: number };
 export function bestMoveRates(turns: TurnRecord[]): Map<string, BestMoveRate> {
   const rates = new Map<string, BestMoveRate>();
   for (const turn of turns) {
-    const townId = turn.scenarioId.slice(0, turn.scenarioId.indexOf("-"));
+    const [townId] = turn.scenarioId.split("-");
     const rate = rates.get(townId) ?? { bestMoves: 0, turns: 0 };
     rates.set(townId, { bestMoves: rate.bestMoves + (turn.bestMove ? 1 : 0), turns: rate.turns + 1 });
   }
@@ -198,7 +198,7 @@ export function formatBestMoveRate(rate: BestMoveRate): string {
   return `${Math.round((rate.bestMoves / rate.turns) * 100)}% (${rate.bestMoves} of ${rate.turns} turns)`;
 }
 
-const DAMAGE_WORDS ={ 0: "No effect", 1: "Hit", 2: "Strong hit" } as const;
+const DAMAGE_WORDS = { 0: "No effect", 1: "Hit", 2: "Strong hit" } as const;
 
 /** UI rule 3: words, a number and pips, for example "Strong hit · 2 ●●". */
 export function damageLabel(damage: 0 | 1 | 2): string {

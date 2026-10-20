@@ -66,7 +66,7 @@ export function BattleFlow({
     if (played.current.has(turnNumber)) return;
     const next = playTurn(battle, moveId);
     played.current.add(turnNumber);
-    setWhys({ ...whys, [turnNumber]: whyText });
+    setWhys((before) => ({ ...before, [turnNumber]: whyText }));
     const turn = next.turns[next.turns.length - 1];
     const events: LearningEvent[] = [
       {

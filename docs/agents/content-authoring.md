@@ -17,10 +17,12 @@ Give the writer agent these rules:
 - Write in B1 English.
 - Make every wrong choice believable: a mistake a real learner makes, not a joke.
 - Spread the right choice over all positions. The catch screen shuffles the choices, but the readable PR comments show them in file order.
+- Give every battle turn a `modelAnswer` and exactly 3 `keyPoints` (`content/README.md`). The model answer explains the best move and its cost. Each key point is one short idea a learner can say in their "why". The learner ticks the points they said, so each point must be easy to recognise.
 
 ## The fact check
 
 - Run one reviewer agent per about 5 creatures. Each reviewer fetches every cited page and checks each card, catch question and review answer against it.
+- Check each battle turn the same way: its move table, its model answer and its 3 key points, against the cited pages of the moves it names.
 - A finding must quote the page. In town 1, one finding said "503 is for temporary conditions" was not on the page, and it was. Before you change content for a finding with no quote, check the page yourself.
 - Fix every finding before the merge.
 

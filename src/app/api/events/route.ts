@@ -1,6 +1,29 @@
-import { EventWriteError, eventBatchSchema, lostBattleIds, touchedItemIds, writeEvents } from "@/lib/events/write-events";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  EventWriteError,
+  eventBatchSchema,
+  lostBattleIds,
+  touchedItemIds,
+  writeEvents,
+  type LearningEvent,
+} from "@/lib/events/write-events";
 import { movesOfBattles, refreshReviewState } from "@/lib/review-state";
 import { authenticate, bearerToken } from "@/lib/supabase/user";
+
+/**
+ * Refreshes the review state of the items a batch is about, and of the moves of a battle it
+ * ends with a loss. The state is a cache: if this fails, the events are still saved, and the
+ * rebuild script can recompute it. A failed lookup of the lost moves skips only those moves.
+ */
+async function refreshTouchedState(client: SupabaseClient, userId: string, events: LearningEvent[]): Promise<void> {
+  const lostMoves = await movesOfBattles(client, lostBattleIds(events)).catch((error) => {
+    console.error("lost battle moves lookup failed", error);
+    return [];
+  });
+  await refreshReviewState(client, userId, [...new Set([...touchedItemIds(events), ...lostMoves])]).catch((error) =>
+    console.error("review_state refresh failed", error),
+  );
+}
 
 // The one endpoint that writes learning events. A retry with the same batch is always safe.
 // 400 tells the app to drop the batch; 401 and 500 tell it to try again later.
@@ -24,12 +47,7 @@ export async function POST(request: Request): Promise<Response> {
 
     await writeEvents(client, batch.data.events);
 
-    // The review state is a cache. If this update fails, the events are still saved,
-    // and the rebuild script can recompute it.
-    await (async () => {
-      const lostMoves = await movesOfBattles(client, lostBattleIds(batch.data.events));
-      await refreshReviewState(client, userId, [...new Set([...touchedItemIds(batch.data.events), ...lostMoves])]);
-    })().catch((error) => console.error("review_state refresh failed", error));
+    await refreshTouchedState(client, userId, batch.data.events);
   } catch (error) {
     if (error instanceof EventWriteError && error.refused) {
       return Response.json({ error: "Some events are not valid." }, { status: 400 });

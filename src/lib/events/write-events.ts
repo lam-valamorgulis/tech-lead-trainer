@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { KEY_POINTS } from "@/content/schema";
 import { REVIEW_STEPS } from "@/core/review";
 
 // The one write path for learning events (spec: "Interfaces and contracts").
@@ -105,8 +106,8 @@ export const battleCheckEventSchema = z.object({
   turnNumber: z.int().min(1).max(3),
   bestMoveId: z.string().min(1).max(100),
   tickedPoints: z
-    .array(z.int().min(1).max(3))
-    .max(3)
+    .array(z.int().min(1).max(KEY_POINTS))
+    .max(KEY_POINTS)
     .refine((points) => new Set(points).size === points.length, "A key point is ticked once."),
 });
 

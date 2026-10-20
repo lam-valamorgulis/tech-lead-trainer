@@ -59,16 +59,20 @@ async function loadLog(client: SupabaseClient, userId: string, itemIds?: string[
     if (itemIds) query = query.in("move_id", itemIds);
     return query.order("id").range(from, to).returns<BattleTurnRow[]>();
   });
-  const battleEnds = await selectAll((from, to) =>
-    client
-      .from("battle_events")
-      .select("battle_id, result, learning_day")
-      .eq("user_id", userId)
-      .eq("result", "lost")
-      .order("id")
-      .range(from, to)
-      .returns<BattleEndRow[]>(),
-  );
+  // Only the losses of those turns' battles. A refresh with no battle turn needs none.
+  const turnBattles = [...new Set(battleTurns.map((row) => row.battle_id))];
+  const battleEnds =
+    itemIds && turnBattles.length === 0
+      ? []
+      : await selectAll((from, to) => {
+          let query = client
+            .from("battle_events")
+            .select("battle_id, result, learning_day")
+            .eq("user_id", userId)
+            .eq("result", "lost");
+          if (itemIds) query = query.in("battle_id", turnBattles);
+          return query.order("id").range(from, to).returns<BattleEndRow[]>();
+        });
   const battleChecks = await selectAll((from, to) => {
     let query = client
       .from("battle_check_events")
