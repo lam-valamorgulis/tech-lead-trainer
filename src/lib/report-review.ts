@@ -1,4 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ReportScreen } from "./report.ts";
+import { selectAll } from "./select-all.ts";
 
 // The monthly content review (ticket #29, design 8 and 12.3): every open "Report wrong" as one
 // Markdown list, grouped by item, and a way to mark reports done after the content is fixed.
@@ -8,7 +10,7 @@ export type OpenReport = {
   id: number;
   itemId: string;
   contentHash: string;
-  screen: string;
+  screen: ReportScreen;
   message: string | null;
   createdAt: string;
 };
@@ -16,19 +18,23 @@ export type OpenReport = {
 /** What the review needs from the content, by item id: the name and the current hash. */
 export type ContentLookup = Map<string, { name: string; hash: string }>;
 
-const SCREEN_LABEL: Record<string, string> = { "catch-card": "catch card", review: "review" };
+const SCREEN_LABEL: Record<ReportScreen, string> = { "catch-card": "catch card", review: "review" };
 
 /** Every open report of every learner, oldest first. */
 export async function loadOpenReports(admin: SupabaseClient): Promise<OpenReport[]> {
-  const { data, error } = await admin
-    .from("content_reports")
-    .select("id, item_id, content_hash, screen, message, created_at")
-    .eq("status", "open")
-    .order("created_at")
-    .order("id")
-    .returns<{ id: number; item_id: string; content_hash: string; screen: string; message: string | null; created_at: string }[]>();
-  if (error) throw error;
-  return data.map((row) => ({
+  const rows = await selectAll((from, to) =>
+    admin
+      .from("content_reports")
+      .select("id, item_id, content_hash, screen, message, created_at")
+      .eq("status", "open")
+      .order("created_at")
+      .order("id")
+      .range(from, to)
+      .returns<
+        { id: number; item_id: string; content_hash: string; screen: ReportScreen; message: string | null; created_at: string }[]
+      >(),
+  );
+  return rows.map((row) => ({
     id: row.id,
     itemId: row.item_id,
     contentHash: row.content_hash,
@@ -61,30 +67,30 @@ export function formatOpenReports(
   command = "npm run reports --",
 ): string {
   if (reports.length === 0) return "# Open reports: 0\n\nNothing to review.\n";
-  const order = [...content.keys()];
-  const rank = (itemId: string) => (order.includes(itemId) ? order.indexOf(itemId) : order.length);
+  const ranks = new Map([...content.keys()].map((id, index) => [id, index]));
+  const rank = (itemId: string) => ranks.get(itemId) ?? ranks.size;
   const itemIds = [...new Set(reports.map((r) => r.itemId))].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
   const byTime = (a: OpenReport, b: OpenReport) => a.createdAt.localeCompare(b.createdAt) || a.id - b.id;
 
   const lines = [`# Open reports: ${reports.length}`, ""];
-  const ids: number[] = [];
   for (const itemId of itemIds) {
     const item = content.get(itemId);
     const group = reports.filter((r) => r.itemId === itemId).sort(byTime);
     lines.push(`## ${item?.name ?? itemId} (\`${itemId}\`): ${group.length}`, "");
     for (const r of group) {
-      ids.push(r.id);
       const parts = [
         `#${r.id}`,
         r.createdAt.slice(0, 10),
         SCREEN_LABEL[r.screen] ?? r.screen,
-        r.message ? `"${r.message}"` : "no message",
+        // A line break would end the list item, so the message stays on one line.
+        r.message ? `"${r.message.replace(/\s+/g, " ").trim()}"` : "no message",
       ];
       if (item && item.hash !== r.contentHash) parts.push("changed since");
       lines.push(`- ${parts.join(" · ")}`);
     }
     lines.push("");
   }
-  lines.push(`Mark reports done: \`${command} --done ${ids.join(" ")}\``, "");
+  // No ready-made list of numbers: mark only the reports whose content you fixed.
+  lines.push(`After a fix, mark its reports done: \`${command} --done <numbers>\``, "");
   return lines.join("\n");
 }

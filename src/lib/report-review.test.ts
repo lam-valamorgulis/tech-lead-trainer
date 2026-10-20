@@ -40,7 +40,7 @@ describe("formatOpenReports", () => {
         "",
         '- #7 · 2026-10-21 · review · "The answer says 60 seconds." · changed since',
         "",
-        "Mark reports done: `npm run reports -- --done 3 5 7`",
+        "After a fix, mark its reports done: `npm run reports -- --done <numbers>`",
         "",
       ].join("\n"),
     );
@@ -48,8 +48,13 @@ describe("formatOpenReports", () => {
 
   it("ends with the done command of the database it ran on", () => {
     expect(formatOpenReports([report({ id: 9 })], content, "npm run reports -- --live")).toContain(
-      "Mark reports done: `npm run reports -- --live --done 9`",
+      "After a fix, mark its reports done: `npm run reports -- --live --done <numbers>`",
     );
+  });
+
+  it("keeps a message with line breaks on one line, so it cannot break the list", () => {
+    const text = formatOpenReports([report({ id: 4, message: "Wrong header.\n# Not a heading\n- not a bullet" })], content);
+    expect(text).toContain('- #4 · 2026-10-21 · catch card · "Wrong header. # Not a heading - not a bullet"');
   });
 
   it("says when nothing is open", () => {

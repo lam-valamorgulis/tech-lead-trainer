@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { createClient } from "@supabase/supabase-js";
 import { formatOpenReports, loadOpenReports, markReportsDone } from "../src/lib/report-review.ts";
-import { readLiveSupabase } from "./live-supabase.mjs";
+import { liveSecretKey, readLiveEnv } from "./live-supabase.mjs";
 import { readLocalSupabase } from "./local-supabase.mjs";
 
 const { values: args, positionals } = parseArgs({
@@ -15,7 +15,7 @@ const { values: args, positionals } = parseArgs({
   allowPositionals: true,
 });
 
-const target = args.live ? readLiveSupabase() : readLocalSupabase();
+const target = args.live ? liveTarget() : readLocalSupabase();
 const admin = createClient(target.url, target.secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
 const command = args.live ? "npm run reports -- --live" : "npm run reports --";
 
@@ -30,6 +30,11 @@ if (args.done) {
   if (changed < ids.length) console.log("The others were already done, or do not exist.");
 } else {
   console.log(formatOpenReports(await loadOpenReports(admin), contentLookup(), command));
+}
+
+function liveTarget() {
+  const env = readLiveEnv();
+  return { url: env.NEXT_PUBLIC_SUPABASE_URL, secretKey: liveSecretKey(env) };
 }
 
 /** The name and current hash of every creature, move and scenario in the shipped content. */

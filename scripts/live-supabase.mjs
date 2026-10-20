@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 // Shared by the scripts that read the live project. They read only public values from
 // .env.wizard, and get the secret key through the Supabase CLI login. They never print the key.
 
-export function readEnvFile(path) {
+function readEnvFile(path) {
   const values = {};
   for (const line of readFileSync(path, "utf8").split("\n")) {
     const match = line.match(/^([A-Z0-9_]+)=(.*)$/);
@@ -13,7 +13,9 @@ export function readEnvFile(path) {
   return values;
 }
 
-export function secretKeyFor(projectRef) {
+/** The live project's secret key, through the Supabase CLI login. Call it only when needed. */
+export function liveSecretKey(env) {
+  const projectRef = env.SUPABASE_PROJECT_REF;
   const output = execFileSync(
     "npx",
     ["supabase", "projects", "api-keys", "--project-ref", projectRef, "--reveal", "-o", "json"],
@@ -26,11 +28,11 @@ export function secretKeyFor(projectRef) {
   return secret.api_key;
 }
 
-/** The live project's URL and secret key, from .env.wizard and the Supabase CLI. */
-export function readLiveSupabase() {
+/** The public values of the live project from .env.wizard. It holds no secret. */
+export function readLiveEnv() {
   const env = readEnvFile(".env.wizard");
   for (const key of ["SUPABASE_PROJECT_REF", "NEXT_PUBLIC_SUPABASE_URL"]) {
     if (!env[key]) throw new Error(`${key} is missing from .env.wizard. Run scripts/setup-production.sh first.`);
   }
-  return { env, url: env.NEXT_PUBLIC_SUPABASE_URL, secretKey: secretKeyFor(env.SUPABASE_PROJECT_REF) };
+  return env;
 }
