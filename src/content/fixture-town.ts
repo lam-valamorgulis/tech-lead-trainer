@@ -221,5 +221,10 @@ export const fixtureLedger = [
 ];
 
 export function fixtureGlossary() {
-  return { words: [{ word: "response", definition: "The message a server sends back to a request." }] };
+  return {
+    words: [
+      { word: "response", definition: "The message a server sends back to a request." },
+      { word: "logo", definition: "The small picture that shows the name of a shop." },
+    ],
+  };
 }

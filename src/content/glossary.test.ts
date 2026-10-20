@@ -36,9 +36,18 @@ describe("glossarySegments", () => {
     expect(short[1]).toMatchObject({ text: "MITM", word: "manipulator in the middle (MITM)" });
   });
 
+  it("handles terms with dots, plus signs and brackets, and a word at the very start", () => {
+    const special: GlossaryWord[] = [
+      { word: "top-level domain (TLD)", definition: "The last part of a domain name, like com." },
+      { word: "C++", definition: "A programming language." },
+    ];
+    expect(glossarySegments("TLD and C++ code.", special).filter((s) => "word" in s).map((s) => s.text)).toEqual(["TLD", "C++"]);
+    expect(glossarySegments("A top-level domain.", special)[1]).toMatchObject({ text: "top-level domain" });
+  });
+
   it("marks only the first use of a word in one text, so a card does not fill with links", () => {
     const segments = glossarySegments("A handshake, then another handshake.", glossary);
-    expect(segments.filter((segment) => segment.word)).toHaveLength(1);
+    expect(segments.filter((segment) => "word" in segment)).toHaveLength(1);
     expect(segments.map((segment) => segment.text).join("")).toBe("A handshake, then another handshake.");
   });
 });

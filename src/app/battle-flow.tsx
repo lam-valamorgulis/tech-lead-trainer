@@ -131,16 +131,18 @@ export function BattleFlow({
         </p>
         <div className="card stack">
           <p>
-            <strong>Problem:</strong> {example.workedExample.problem}
+            <strong>Problem:</strong> <GlossaryText text={example.workedExample.problem} />
           </p>
           <ol className="steps">
             {/* The steps never change order, and two steps may share the same words. */}
             {example.workedExample.steps.map((stepText, index) => (
-              <li key={index}>{stepText}</li>
+              <li key={index}>
+                <GlossaryText text={stepText} />
+              </li>
             ))}
           </ol>
           <p>
-            <strong>Answer:</strong> {example.workedExample.answer}
+            <strong>Answer:</strong> <GlossaryText text={example.workedExample.answer} />
           </p>
         </div>
         <button type="button" className="button-main" onClick={() => setExamplesRead(examplesRead + 1)}>
@@ -182,7 +184,11 @@ export function BattleFlow({
           Turn {battle.turns.length + 1} of {MAX_TURNS}
         </h2>
         <HitPoints hp={progress!.hp} />
-        {last && <p className="lead">Last turn: {resultSentence(last)}</p>}
+        {last && (
+          <p className="lead">
+            Last turn: <GlossaryText text={resultSentence(last)} />
+          </p>
+        )}
         {/* UI rule 1: the threat comes before the moves. */}
         <p className="notice">
           <strong>Threat:</strong> <GlossaryText text={turn.threat} />
@@ -199,7 +205,9 @@ export function BattleFlow({
           Turn {last.turnNumber} result
         </h2>
         <p className="damage">{damageLabel(last.damage)}</p>
-        <p>{resultSentence(last)}</p>
+        <p>
+          <GlossaryText text={resultSentence(last)} />
+        </p>
         <HitPoints hp={progress!.hp} />
         <button type="button" className="button-main" onClick={() => setStep("check")}>
           See the model answer
@@ -216,7 +224,9 @@ export function BattleFlow({
           Model answer
         </h2>
         <p className="lead">Your why: {whys[last.turnNumber]}</p>
-        <p>{turn.modelAnswer}</p>
+        <p>
+          <GlossaryText text={turn.modelAnswer} />
+        </p>
         <CheckForm
           key={last.turnNumber}
           keyPoints={turn.keyPoints}
