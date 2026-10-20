@@ -1,6 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { writeEvents, type BattleEvent, type BattleTurnEvent } from "@/lib/events/write-events";
+import {
+  eventSchema,
+  writeEvents,
+  type BattleCheckEvent,
+  type BattleEvent,
+  type BattleTurnEvent,
+} from "@/lib/events/write-events";
 import { ensureProfile } from "@/lib/profile";
 import { forgetEmail, signedInUser } from "./helpers";
 
@@ -36,6 +42,20 @@ function battleEvent(overrides: Partial<BattleEvent> = {}): BattleEvent {
     team: ["cache", "cookie", "proxy"],
     result: "won",
     turnsUsed: 2,
+    ...overrides,
+  };
+}
+
+function checkEvent(overrides: Partial<BattleCheckEvent> = {}): BattleCheckEvent {
+  return {
+    type: "battle-check",
+    ...base(),
+    battleId: crypto.randomUUID(),
+    scenarioId: "t99-sale-day",
+    contentHash: "0123456789abcdef",
+    turnNumber: 2,
+    bestMoveId: "cache.no-store",
+    tickedPoints: [1, 3],
     ...overrides,
   };
 }
@@ -118,5 +138,48 @@ describe("battle events", () => {
         learning_day: "2026-10-18",
       },
     ]);
+  });
+
+  it("store the self-check of a turn once: the ticked key points and the best move of play time", async () => {
+    const check = checkEvent();
+    await writeEvents(user.client, [check, check]);
+
+    const { data } = await user.client
+      .from("battle_check_events")
+      .select("battle_id, scenario_id, content_hash, turn_number, best_move_id, ticked_points, learning_day")
+      .eq("client_event_id", check.clientEventId);
+    expect(data).toEqual([
+      {
+        battle_id: check.battleId,
+        scenario_id: "t99-sale-day",
+        content_hash: "0123456789abcdef",
+        turn_number: 2,
+        best_move_id: "cache.no-store",
+        ticked_points: [1, 3],
+        learning_day: "2026-10-18",
+      },
+    ]);
+  });
+
+  it("store a self-check with no ticks", async () => {
+    const check = checkEvent({ tickedPoints: [] });
+    await writeEvents(user.client, [check]);
+    const { data } = await user.client.from("battle_check_events").select("ticked_points").eq("client_event_id", check.clientEventId);
+    expect(data).toEqual([{ ticked_points: [] }]);
+  });
+
+  it("refuse a second self-check of the same turn, a point that does not exist and a point ticked twice", async () => {
+    const first = checkEvent();
+    await writeEvents(user.client, [first]);
+    await expect(writeEvents(user.client, [checkEvent({ battleId: first.battleId })])).rejects.toThrow();
+    await expect(writeEvents(user.client, [checkEvent({ tickedPoints: [4] })])).rejects.toThrow();
+    await expect(writeEvents(user.client, [checkEvent({ tickedPoints: [2, 2] })])).rejects.toThrow();
+    await expect(writeEvents(user.client, [checkEvent({ tickedPoints: [1, 2, 3, 1] })])).rejects.toThrow();
+  });
+
+  it("refuse a self-check event that the endpoint schema does not accept", () => {
+    expect(eventSchema.safeParse(checkEvent({ tickedPoints: [2, 2] })).success).toBe(false);
+    expect(eventSchema.safeParse(checkEvent({ tickedPoints: [0] })).success).toBe(false);
+    expect(eventSchema.safeParse(checkEvent()).success).toBe(true);
   });
 });

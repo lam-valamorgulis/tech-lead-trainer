@@ -89,4 +89,14 @@ describe("backlogPaused", () => {
     const retired = catches[0].itemId;
     expect(backlogPaused(catches, [], "2026-10-20", (id) => id !== retired)).toBe(false);
   });
+
+  it("counts the items a battle made due", () => {
+    const catches = catchesOn("2026-10-17", 9);
+    // Reviewed on 18 Oct, so only 8 are due on 19 and 20 Oct.
+    const reviews = [reviewed(catches[0].itemId, "2026-10-18", "good")];
+    expect(backlogPaused(catches, reviews, "2026-10-20")).toBe(false);
+    // A lost battle on 18 Oct makes it due again on 19 Oct: 9 due on 3 days in a row.
+    const rechecks = [{ itemId: catches[0].itemId, learningDay: "2026-10-18" }];
+    expect(backlogPaused(catches, reviews, "2026-10-20", () => true, rechecks)).toBe(true);
+  });
 });

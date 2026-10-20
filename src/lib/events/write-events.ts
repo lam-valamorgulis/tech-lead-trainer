@@ -92,6 +92,24 @@ export const battleEventSchema = z.object({
   turnsUsed: z.int().min(1).max(3),
 });
 
+/**
+ * The self-check of one turn: the key points (1 to 3) of the model answer that the learner said.
+ * `bestMoveId` is the turn's best move at play time. The ticks change only the review schedule.
+ */
+export const battleCheckEventSchema = z.object({
+  type: z.literal("battle-check"),
+  ...base,
+  battleId: z.uuid(),
+  scenarioId,
+  contentHash: z.string().regex(/^[0-9a-f]{16}$/),
+  turnNumber: z.int().min(1).max(3),
+  bestMoveId: z.string().min(1).max(100),
+  tickedPoints: z
+    .array(z.int().min(1).max(3))
+    .max(3)
+    .refine((points) => new Set(points).size === points.length, "A key point is ticked once."),
+});
+
 export const eventSchema = z.discriminatedUnion("type", [
   sessionEventSchema,
   catchEventSchema,
@@ -99,6 +117,7 @@ export const eventSchema = z.discriminatedUnion("type", [
   placementEventSchema,
   battleTurnEventSchema,
   battleEventSchema,
+  battleCheckEventSchema,
 ]);
 export const eventBatchSchema = z.object({ events: z.array(eventSchema).min(1).max(100) });
 
@@ -108,6 +127,7 @@ export type ReviewEvent = z.infer<typeof reviewEventSchema>;
 export type PlacementEvent = z.infer<typeof placementEventSchema>;
 export type BattleTurnEvent = z.infer<typeof battleTurnEventSchema>;
 export type BattleEvent = z.infer<typeof battleEventSchema>;
+export type BattleCheckEvent = z.infer<typeof battleCheckEventSchema>;
 export type LearningEvent = z.infer<typeof eventSchema>;
 
 const TABLES = {
@@ -117,6 +137,7 @@ const TABLES = {
   placement: "placement_events",
   "battle-turn": "battle_turn_events",
   battle: "battle_events",
+  "battle-check": "battle_check_events",
 } as const satisfies Record<LearningEvent["type"], string>;
 
 /** Every event table. "Download my data" exports each one. */
@@ -202,6 +223,18 @@ function toRow(event: LearningEvent) {
         result: event.result,
         turns_used: event.turnsUsed,
       };
+    case "battle-check":
+      return {
+        client_event_id: event.clientEventId,
+        session_id: event.sessionId,
+        occurred_at: event.occurredAt,
+        battle_id: event.battleId,
+        scenario_id: event.scenarioId,
+        content_hash: event.contentHash,
+        turn_number: event.turnNumber,
+        best_move_id: event.bestMoveId,
+        ticked_points: event.tickedPoints,
+      };
   }
 }
 
@@ -235,7 +268,23 @@ export async function writeEvents(client: SupabaseClient, events: LearningEvent[
   }
 }
 
-/** The creatures and moves a batch is about. Their review state must be refreshed. */
+/**
+ * The creatures and moves a batch is about. Their review state must be refreshed.
+ * A self-check is about its turn's best move. The moves of a lost battle: see `lostBattleIds`.
+ */
 export function touchedItemIds(events: LearningEvent[]): string[] {
-  return [...new Set(events.flatMap((event) => ("itemId" in event ? [event.itemId] : [])))];
+  return [
+    ...new Set(
+      events.flatMap((event) => {
+        if ("itemId" in event) return [event.itemId];
+        if (event.type === "battle-check") return [event.bestMoveId];
+        return [];
+      }),
+    ),
+  ];
+}
+
+/** The battles a batch ends with a loss. Their used moves come back tomorrow. */
+export function lostBattleIds(events: LearningEvent[]): string[] {
+  return events.flatMap((event) => (event.type === "battle" && event.result === "lost" ? [event.battleId] : []));
 }

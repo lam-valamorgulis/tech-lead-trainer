@@ -71,6 +71,7 @@ test("a session with a catch can still finish early", async ({ page }) => {
     await expect(page.getByRole("heading", { name: "A new creature appears" })).toBeVisible();
     await page.getByRole("button", { name: "Finish" }).click();
     await expect(page.getByRole("heading", { name: "Session saved" })).toBeVisible();
+    await expect(page.getByText("Best moves in Fixture Town: no battle turns yet")).toBeVisible();
   } finally {
     await user.forget();
   }

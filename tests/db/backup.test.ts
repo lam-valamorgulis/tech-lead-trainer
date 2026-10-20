@@ -65,6 +65,17 @@ const events: LearningEvent[] = [
     result: "won",
     turnsUsed: 1,
   },
+  {
+    // One key point not said, so cache comes back the next day: the restore must rebuild that too.
+    type: "battle-check",
+    ...base(daysAgo(3)),
+    battleId,
+    scenarioId: "t01-black-friday",
+    contentHash: "0123456789abcdef",
+    turnNumber: 1,
+    bestMoveId: "cache",
+    tickedPoints: [1, 3],
+  },
   ...(["good", "good", "hard"] as const).map((grade, i): LearningEvent => {
     const at = daysAgo(8 - i * 2);
     return {
@@ -132,6 +143,7 @@ describe("weekly backup and restore", () => {
     expect(backup.tables.review_events).toHaveLength(3);
     expect(backup.tables.battle_turn_events).toEqual([expect.objectContaining({ best_move: true, damage: 2 })]);
     expect(backup.tables.battle_events).toEqual([expect.objectContaining({ result: "won", team: ["cache", "dns"] })]);
+    expect(backup.tables.battle_check_events).toEqual([expect.objectContaining({ best_move_id: "cache", ticked_points: [1, 3] })]);
     expect(backup.tables.review_state.length).toBeGreaterThan(0);
     expect(backup.tables.content_reports).toEqual([expect.objectContaining({ message: "Typo" })]);
   });

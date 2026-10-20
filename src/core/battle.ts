@@ -1,8 +1,9 @@
 // Battle rules (design 7, ticket #16). Pure functions: no clock, no database.
 import type { BundledScenario, BundledTown } from "@/content/bundle";
-import type { BattleTurn } from "@/content/schema";
+import { KEY_POINTS, type BattleTurn } from "../content/schema.ts";
 import { caughtIds, type CatchRecord } from "./catch.ts";
 import type { LearningDay } from "./day.ts";
+import type { RecheckRecord } from "./review.ts";
 
 /** The opponent's HP. With HP 3 a random guesser wins 63% of battles; with HP 4, 37% (design 7). */
 export const OPPONENT_HP = 4;
@@ -119,7 +120,85 @@ export function playTurn(battle: BattleState, moveId: string | null): BattleStat
   return { ...battle, turns: [...battle.turns, played] };
 }
 
-const DAMAGE_WORDS = { 0: "No effect", 1: "Hit", 2: "Strong hit" } as const;
+/** The learner's self-check on one turn's model answer: the key points (1 to 3) they said. */
+export type SelfCheck = { turnNumber: number; bestMoveId: string; tickedPoints: number[] };
+
+/**
+ * The self-check of a played turn. It returns a record and never changes the battle, so the
+ * ticks cannot change the damage or the result (design 7.7). The best move is fixed here, at
+ * play time, so a later content edit never changes what the check was about.
+ */
+export function checkTurn(battle: BattleState, turnNumber: number, tickedPoints: number[]): SelfCheck {
+  if (!battle.turns.some((turn) => turn.turnNumber === turnNumber)) throw new Error(`Turn ${turnNumber} was not played.`);
+  if (tickedPoints.some((point) => !Number.isInteger(point) || point < 1 || point > KEY_POINTS)) {
+    throw new Error(`A key point is 1, 2 or ${KEY_POINTS}.`);
+  }
+  if (new Set(tickedPoints).size !== tickedPoints.length) throw new Error("A key point is ticked once.");
+  const turn = battle.scenario.turns[turnNumber - 1];
+  return { turnNumber, bestMoveId: bestRow(turn).moveId, tickedPoints: [...tickedPoints].sort((a, b) => a - b) };
+}
+
+/** What the rules need from the battle log: a played turn, a battle's end, and a self-check. */
+export type TurnRecord = {
+  battleId: string;
+  scenarioId: string;
+  turnNumber: number;
+  moveId: string | null;
+  bestMove: boolean;
+  learningDay: LearningDay;
+};
+export type BattleEndRecord = { battleId: string; result: "won" | "lost"; learningDay: LearningDay };
+export type CheckRecord = SelfCheck & { battleId: string; learningDay: LearningDay };
+
+/**
+ * What the battles ask the review schedule to bring back tomorrow (design 7):
+ * - a turn's best move, when the learner did not tick all 3 key points of its model answer;
+ * - every move used in a lost battle. A battle left unfinished is not lost.
+ */
+export function battleRechecks({
+  turns,
+  ends,
+  checks,
+}: {
+  turns: Pick<TurnRecord, "battleId" | "moveId">[];
+  ends: BattleEndRecord[];
+  checks: CheckRecord[];
+}): RecheckRecord[] {
+  const fromChecks = checks
+    .filter((check) => check.tickedPoints.length < KEY_POINTS)
+    .map((check) => ({ itemId: check.bestMoveId, learningDay: check.learningDay }));
+  const fromLosses = ends
+    .filter((end) => end.result === "lost")
+    .flatMap((end) => {
+      const used = turns.filter((turn) => turn.battleId === end.battleId).map((turn) => turn.moveId);
+      return [...new Set(used)]
+        .filter((moveId): moveId is string => moveId !== null)
+        .map((itemId) => ({ itemId, learningDay: end.learningDay }));
+    });
+  return [...fromChecks, ...fromLosses];
+}
+
+/** How often the learner picked the best move: the main learning number, not the win rate (design 7). */
+export type BestMoveRate = { bestMoves: number; turns: number };
+
+/** The best-move rate per town id, from the flags stored at play time. A scenario id starts with its town id. */
+export function bestMoveRates(turns: TurnRecord[]): Map<string, BestMoveRate> {
+  const rates = new Map<string, BestMoveRate>();
+  for (const turn of turns) {
+    const townId = turn.scenarioId.slice(0, turn.scenarioId.indexOf("-"));
+    const rate = rates.get(townId) ?? { bestMoves: 0, turns: 0 };
+    rates.set(townId, { bestMoves: rate.bestMoves + (turn.bestMove ? 1 : 0), turns: rate.turns + 1 });
+  }
+  return rates;
+}
+
+/** For example "67% (2 of 3 turns)". */
+export function formatBestMoveRate(rate: BestMoveRate): string {
+  if (rate.turns === 0) return "no battle turns yet";
+  return `${Math.round((rate.bestMoves / rate.turns) * 100)}% (${rate.bestMoves} of ${rate.turns} turns)`;
+}
+
+const DAMAGE_WORDS ={ 0: "No effect", 1: "Hit", 2: "Strong hit" } as const;
 
 /** UI rule 3: words, a number and pips, for example "Strong hit · 2 ●●". */
 export function damageLabel(damage: 0 | 1 | 2): string {

@@ -24,7 +24,10 @@ All learning content lives here. Towns are JSON, with the schema in `src/content
 A scenario is one battle (design 7). Its id is `<town>-<name>`, for example `t01-black-friday`.
 
 - `opponentType` is one of `traffic`, `speed`, `security`, `data`, `outage`.
-- It has exactly 3 turns. Each turn has a `threat` and a move table of 3 or 4 rows.
+- It has exactly 3 turns. Each turn has a `threat`, a move table of 3 or 4 rows, a `modelAnswer` and 3 `keyPoints`.
+- The `modelAnswer` is what a senior engineer says to this threat. It explains the best move and its cost. The app shows it after the turn's result, next to the learner's why.
+- `keyPoints` is a list of exactly 3 short points of the model answer. The learner ticks the ones they said. A point not ticked brings the turn's best move back in tomorrow's reviews.
+- Each sentence of the model answer and of each key point is at most 20 words, in plain text.
 - A row has a `moveId`, a `damage` of 0, 1 or 2, and a `counterattack`.
 - The counterattack is one sentence with the consequence only. The app adds "You chose <move>." in front.
 - Each turn has exactly one best move: one row with the top damage.

@@ -293,5 +293,53 @@ describe("checkContent", () => {
         "t99.t99-sale-day.turns.1.threat",
       ]);
     });
+
+    describe("the model answer of a turn", () => {
+      it("is required, with its key points", () => {
+        const town = fixtureTown();
+        delete (town.scenarios[0].turns[0] as { modelAnswer?: unknown }).modelAnswer;
+        delete (town.scenarios[0].turns[1] as { keyPoints?: unknown }).keyPoints;
+        expect(check(town).map((problem) => problem.where)).toEqual([
+          "t99.scenarios.0.turns.0.modelAnswer",
+          "t99.scenarios.0.turns.1.keyPoints",
+        ]);
+      });
+
+      it("fails when a turn does not have exactly 3 key points", () => {
+        const town = fixtureTown();
+        town.scenarios[0].turns[0].keyPoints.pop();
+        town.scenarios[0].turns[1].keyPoints.push("A fourth point.");
+        expect(check(town)).toEqual([
+          { where: "t99.scenarios.0.turns.0.keyPoints", message: "A turn has exactly 3 key points." },
+          { where: "t99.scenarios.0.turns.1.keyPoints", message: "A turn has exactly 3 key points." },
+        ]);
+      });
+
+      it("fails when a key point is empty", () => {
+        const town = fixtureTown();
+        town.scenarios[0].turns[2].keyPoints[1] = " ";
+        expect(check(town).map((problem) => problem.where)).toEqual(["t99.scenarios.0.turns.2.keyPoints.1"]);
+      });
+
+      it("checks sentence length in the model answer and the key points", () => {
+        const town = fixtureTown();
+        town.scenarios[0].turns[0].modelAnswer = `Short first sentence. ${words(21)}.`;
+        town.scenarios[0].turns[2].keyPoints[2] = `${words(21)}.`;
+        expect(check(town).map((problem) => problem.where)).toEqual([
+          "t99.t99-sale-day.turns.0.modelAnswer",
+          "t99.t99-sale-day.turns.2.keyPoints.2",
+        ]);
+      });
+
+      it("must be plain text", () => {
+        const town = fixtureTown();
+        town.scenarios[0].turns[1].modelAnswer = "Send the header `no-store` with every price.";
+        town.scenarios[0].turns[1].keyPoints[0] = "Prices change often.\nOld prices lose trust.";
+        expect(check(town).map((problem) => problem.where)).toEqual([
+          "t99.scenarios.0.turns.1.modelAnswer",
+          "t99.scenarios.0.turns.1.keyPoints.0",
+        ]);
+      });
+    });
   });
 });
