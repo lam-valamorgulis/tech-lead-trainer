@@ -1,0 +1,3353 @@
+{
+  "id": "t02",
+  "number": 2,
+  "name": "API design",
+  "twist": {
+    "kind": "two-types"
+  },
+  "creatures": [
+    {
+      "id": "resource-design",
+      "name": "Resource-oriented design",
+      "catch": {
+        "question": "In resource-oriented design, what are the main building blocks of an API?",
+        "choices": [
+          "Actions, with one endpoint for each task",
+          "Named resources, the nouns, and the links between them",
+          "The database tables, with one endpoint for each table",
+          "The app screens, with one endpoint for each screen"
+        ],
+        "correctChoice": 1,
+        "explanation": "AIP-121 says the building blocks are named resources, the nouns, with their relationships and hierarchy."
+      },
+      "card": {
+        "text": "Resource-oriented design is a way to design APIs. The building blocks are named resources, the nouns, and the relationships between them. A small set of standard methods, the verbs, covers most operations. Custom methods are for cases the standard methods do not fit. Each request is independent of the others: the protocol is stateless. The API should not copy the database schema. AIP-121 calls an API identical to the database schema an anti-pattern.",
+        "example": "A publisher has the collection of books that it publishes. A client reads one book with Get and changes it with Update. It lists the books with List.",
+        "source": {
+          "title": "Google AIP-121: Resource-oriented design",
+          "url": "https://google.aip.dev/121"
+        }
+      },
+      "review": {
+        "question": "Why should an API not copy the database schema?",
+        "answer": "It ties the API surface to the system below it. AIP-121 calls this an anti-pattern."
+      },
+      "workedExample": {
+        "problem": "Your team plans the endpoints /getBookById, /saveNewBook and /removeBookNow for a library API.",
+        "steps": [
+          "List the nouns first: publishers and books.",
+          "Find the relationship: a publisher has a collection of books.",
+          "Map each action to a standard method: Get, Create and Delete."
+        ],
+        "answer": "Design books as a resource under publishers, and use the standard methods instead of one endpoint per action."
+      },
+      "moves": [
+        {
+          "id": "resource-design.resource-name",
+          "name": "Resource name",
+          "catch": {
+            "question": "Which resource name follows Google AIP-122?",
+            "choices": [
+              "/Publisher/123/Book/LesMiserables",
+              "publisher-123-book-les-miserables",
+              "publishers/123/books/les-miserables",
+              "publishers/123?book=les-miserables"
+            ],
+            "correctChoice": 2,
+            "explanation": "A name alternates between plural collection identifiers and resource IDs. It uses slashes and has no leading slash."
+          },
+          "card": {
+            "text": "Each resource has a unique name. Users store this name to refer to the resource. A name follows the URI path schema, but without the leading slash. It usually alternates between collection identifiers and resource IDs. Collection identifiers are plural nouns in camelCase, like publishers or books. Resource IDs should not use upper-case letters. A resource must have a name field that holds its resource name.",
+            "example": "publishers/123/books/les-miserables names one book. publishers and books are collection identifiers. 123 and les-miserables are resource IDs. users/vhugo1802 names one user.",
+            "source": {
+              "title": "Google AIP-122: Resource names",
+              "url": "https://google.aip.dev/122"
+            }
+          },
+          "review": {
+            "question": "What do the parts of publishers/123/books/les-miserables alternate between?",
+            "answer": "Collection identifiers, like books, and resource IDs, like les-miserables."
+          }
+        },
+        {
+          "id": "resource-design.standard-methods",
+          "name": "Standard methods",
+          "catch": {
+            "question": "AIP-121 names one method that every resource must support at minimum, so clients can check a change. Which one?",
+            "choices": [
+              "List",
+              "Update",
+              "Delete",
+              "Get"
+            ],
+            "correctChoice": 3,
+            "explanation": "A resource must support at least Get. Then clients can check its state after Create, Update or Delete."
+          },
+          "card": {
+            "text": "Most operations use five standard methods: Get, List, Create, Update and Delete. Create and Update send the resource and return it. Get returns the resource. List returns the resources. Delete sends and returns no resource. Every resource must support at least Get, so clients can check its state after a change. It must also support List, except a singleton resource. The resource schema must be the same in all methods.",
+            "example": "A client creates a book with Create and gets the book back. Then it calls Get on the same book to check the saved values.",
+            "source": {
+              "title": "Google AIP-121: Resource-oriented design",
+              "url": "https://google.aip.dev/121"
+            }
+          },
+          "review": {
+            "question": "Which two standard methods must a normal resource support?",
+            "answer": "Get and List. A singleton resource needs only Get."
+          }
+        },
+        {
+          "id": "resource-design.custom-method",
+          "name": "Custom method",
+          "catch": {
+            "question": "You need an action that archives a book, and no standard method fits. Which call follows AIP-136?",
+            "choices": [
+              "POST /v1/publishers/123/books/456:archive",
+              "ARCHIVE /v1/publishers/123/books/456",
+              "GET /v1/archiveBook?id=456",
+              "DELETE /v1/publishers/123/books/456?archive=true"
+            ],
+            "correctChoice": 0,
+            "explanation": "A custom method uses POST when it changes data. The URI ends with a colon and the custom verb."
+          },
+          "card": {
+            "text": "A custom method is for an action that standard methods cannot express well. Prefer standard methods when they fit, because their meaning is consistent. A custom method does not add a new HTTP verb. It uses GET to read data, and POST when it changes data. The URI ends with a colon and the custom verb, like :archive. The name is a verb and a noun, like ArchiveBook, with no prepositions like for or with.",
+            "example": "ArchiveBook is called with POST /v1/publishers/123/books/456:archive. TranslateText is a stateless custom method: POST /v1/projects/my-project:translateText.",
+            "source": {
+              "title": "Google AIP-136: Custom methods",
+              "url": "https://google.aip.dev/136"
+            }
+          },
+          "review": {
+            "question": "When should you use a custom method instead of a standard method?",
+            "answer": "Only when the action does not fit Get, List, Create, Update or Delete."
+          }
+        }
+      ]
+    },
+    {
+      "id": "api-status-code",
+      "name": "Status codes in APIs",
+      "catch": {
+        "question": "A POST creates a new order, and the service picks its ID. What should the response be, per the Azure guidelines?",
+        "choices": [
+          "200 OK with the order in the body",
+          "202 Accepted with no body",
+          "201 Created with the URL of the new order",
+          "204 No Content"
+        ],
+        "correctChoice": 2,
+        "explanation": "Azure says a POST that creates a resource returns 201 Created with the URL of the created resource."
+      },
+      "card": {
+        "text": "Use the right status code, so customers can find and fix their own problems. The Azure guidelines give a table for calls that finish at once. PUT and PATCH return 200 OK or 201 Created. A POST that creates a resource returns 201 Created with its URL. A POST action returns 200 OK. GET returns 200 OK. DELETE returns 204 No Content, also when the resource does not exist. A call that finishes later returns 202 Accepted.",
+        "example": "DELETE /users/Bob returns 204 No Content with no body. If Bob was already deleted, it returns 204 again, not 404 Not Found.",
+        "source": {
+          "title": "Azure REST API Guidelines: HTTP return codes",
+          "url": "https://github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md#http-success-status-codes"
+        }
+      },
+      "review": {
+        "question": "What does an Azure-style API return for a DELETE of a resource that does not exist?",
+        "answer": "204 No Content, not 404 Not Found."
+      },
+      "workedExample": {
+        "problem": "Your API returns 200 OK with a body that says not found when an order is missing.",
+        "steps": [
+          "Azure says to use proper response codes, so customers can find and fix their own problems.",
+          "200 OK says the request worked, so clients treat the error as a success.",
+          "In HTTP, 404 Not Found says the server found nothing for this URL."
+        ],
+        "answer": "Return 404 Not Found for the missing order, so clients can see the error without reading the body."
+      },
+      "moves": [
+        {
+          "id": "api-status-code.created",
+          "name": "201 Created",
+          "catch": {
+            "question": "Where does a 201 Created response say which resource was created?",
+            "choices": [
+              "In the Content-Type header",
+              "In the Location header, or else it is the target URI",
+              "In the reason phrase of the status line",
+              "In a Retry-After header"
+            ],
+            "correctChoice": 1,
+            "explanation": "The Location header names the main new resource. With no Location header, the new resource is the target URI."
+          },
+          "card": {
+            "text": "201 Created means the request worked and created one or more new resources. The Location header names the main new resource. With no Location header, the new resource is the target URI. The response content usually describes the new resource and links to it. A validator in the response, like an ETag, belongs to the new representation.",
+            "example": "POST /orders returns 201 Created with Location: /orders/42. The client keeps /orders/42 to read the order later.",
+            "source": {
+              "title": "RFC 9110: 201 Created",
+              "url": "https://www.rfc-editor.org/rfc/rfc9110.html#name-201-created"
+            }
+          },
+          "review": {
+            "question": "Which header of a 201 response names the new resource?",
+            "answer": "The Location header. Without it, the target URI is the new resource."
+          }
+        },
+        {
+          "id": "api-status-code.unprocessable",
+          "name": "422 Unprocessable Content",
+          "catch": {
+            "question": "A request has valid JSON and a supported Content-Type, but the server cannot process the instructions in it. Which code fits?",
+            "choices": [
+              "415 Unsupported Media Type",
+              "406 Not Acceptable",
+              "401 Unauthorized",
+              "422 Unprocessable Content"
+            ],
+            "correctChoice": 3,
+            "explanation": "422 means the server understands the content type and the syntax is correct, but it cannot process the instructions."
+          },
+          "card": {
+            "text": "RFC 9110 has three client error codes for content the server will not take. 400 Bad Request is for a client error, like malformed syntax. 415 Unsupported Media Type is for content in a format the server does not support. 422 Unprocessable Content means the content type is understood and the syntax is correct. But the server cannot process the instructions in it.",
+            "example": "A client sends valid JSON with Content-Type: application/json, but the quantity is minus 3. The server answers 422 Unprocessable Content. Broken JSON gets 400 Bad Request.",
+            "source": {
+              "title": "RFC 9110: 422 Unprocessable Content",
+              "url": "https://www.rfc-editor.org/rfc/rfc9110.html#name-422-unprocessable-content"
+            }
+          },
+          "review": {
+            "question": "What is the difference between 415 and 422?",
+            "answer": "415: the format is not supported. 422: format and syntax are fine, but the server cannot process the instructions."
+          }
+        },
+        {
+          "id": "api-status-code.conflict",
+          "name": "409 Conflict",
+          "catch": {
+            "question": "A PUT would overwrite changes that another user made a moment earlier. Which code does RFC 9110 describe for this?",
+            "choices": [
+              "409 Conflict",
+              "404 Not Found",
+              "403 Forbidden",
+              "503 Service Unavailable"
+            ],
+            "correctChoice": 0,
+            "explanation": "409 means the request conflicts with the current state. RFC 9110 gives a similar PUT example, where a new version conflicts with an earlier change."
+          },
+          "card": {
+            "text": "409 Conflict means the request conflicts with the current state of the target resource. The user might be able to resolve the conflict and send the request again. So the response should give enough information to find the source of the conflict. Conflicts happen most often with PUT. For example, the new version conflicts with changes from an earlier request by someone else.",
+            "example": "Two editors change the same page. The second PUT gets 409 Conflict, and the body shows the other change, so the editor can merge both.",
+            "source": {
+              "title": "RFC 9110: 409 Conflict",
+              "url": "https://www.rfc-editor.org/rfc/rfc9110.html#name-409-conflict"
+            }
+          },
+          "review": {
+            "question": "What should a 409 Conflict response contain?",
+            "answer": "Enough information for the user to find the source of the conflict and resolve it."
+          }
+        }
+      ]
+    },
+    {
+      "id": "problem-details",
+      "name": "Problem Details",
+      "catch": {
+        "question": "Which media type does RFC 9457 define for an error body in JSON?",
+        "choices": [
+          "application/json+error",
+          "application/problem+json",
+          "text/problem",
+          "application/error+json"
+        ],
+        "correctChoice": 1,
+        "explanation": "Problem details in JSON use the media type application/problem+json."
+      },
+      "card": {
+        "text": "A status code cannot always say enough about an error. RFC 9457 defines a standard JSON format for error details, called problem details. Its media type is application/problem+json. The members are type, title, status, detail and instance. Problem details work with any status code, but they fit 4xx and 5xx best. The status member must match the real HTTP status code.",
+        "example": "A purchase fails with 403 Forbidden. The body has type https://example.com/probs/out-of-credit and title You do not have enough credit. Its detail is: Your current balance is 30, but that costs 50.",
+        "source": {
+          "title": "RFC 9457: Problem Details for HTTP APIs",
+          "url": "https://www.rfc-editor.org/rfc/rfc9457.html"
+        }
+      },
+      "review": {
+        "question": "Name the five standard members of a problem details object.",
+        "answer": "type, title, status, detail and instance."
+      },
+      "workedExample": {
+        "problem": "Each team in your company returns errors in its own JSON shape. The app needs a different parser for each API.",
+        "steps": [
+          "Pick one standard format for every API: problem details.",
+          "Send it with the media type application/problem+json.",
+          "Give each error a type URI, a short title and a detail for this case."
+        ],
+        "answer": "Use RFC 9457 problem details in every API, so one parser in the app reads every error."
+      },
+      "moves": [
+        {
+          "id": "problem-details.type",
+          "name": "Problem type",
+          "catch": {
+            "question": "What must a client use as the main identifier of a problem?",
+            "choices": [
+              "The title text",
+              "The detail text",
+              "The type URI",
+              "The instance URI"
+            ],
+            "correctChoice": 2,
+            "explanation": "Consumers must use the type URI as the primary identifier of the problem type."
+          },
+          "card": {
+            "text": "The type member is a URI that identifies the problem type. Clients must use it as the main identifier of the problem. When type is missing, its value is about:blank. That means the problem has no meaning beyond the status code. An http or https type should lead to documentation for humans. But clients should not fetch the type URI automatically. Absolute URIs are recommended.",
+            "example": "Every out-of-credit error has type https://example.com/probs/out-of-credit. The app checks this type, not the title text, to start a credit top-up.",
+            "source": {
+              "title": "RFC 9457: The type member",
+              "url": "https://www.rfc-editor.org/rfc/rfc9457.html#name-type"
+            }
+          },
+          "review": {
+            "question": "What does a missing type member mean?",
+            "answer": "Its value is about:blank: the problem means no more than the HTTP status code."
+          }
+        },
+        {
+          "id": "problem-details.extension",
+          "name": "Extension members",
+          "catch": {
+            "question": "A client gets a problem details object with a member it does not know. What must it do?",
+            "choices": [
+              "Reject the whole response",
+              "Retry the request",
+              "Show the member as the error title",
+              "Ignore the unknown member"
+            ],
+            "correctChoice": 3,
+            "explanation": "Clients must ignore extensions they do not recognize. This lets problem types grow later."
+          },
+          "card": {
+            "text": "A problem type can add its own members, called extensions. They carry extra data about that problem. Clients must ignore extensions they do not recognize. So problem types can add information later without breaking clients. Clients should not parse the detail text for data. Extensions are better for that, with fewer errors.",
+            "example": "The out-of-credit problem adds balance: 30 and a list of accounts with top-up links. A validation error adds an errors list, each with a detail and a pointer like #/age.",
+            "source": {
+              "title": "RFC 9457: Extension members",
+              "url": "https://www.rfc-editor.org/rfc/rfc9457.html#name-extension-members"
+            }
+          },
+          "review": {
+            "question": "Should a client read machine data from the detail text or from extensions?",
+            "answer": "From extensions. Clients should not parse the detail text."
+          }
+        },
+        {
+          "id": "problem-details.safe-detail",
+          "name": "Safe error details",
+          "catch": {
+            "question": "What should a problem details response not show to the client?",
+            "choices": [
+              "A stack dump of the server",
+              "The HTTP status code",
+              "A short title of the problem",
+              "A link to documentation for the problem type"
+            ],
+            "correctChoice": 0,
+            "explanation": "RFC 9457 warns against showing implementation details, like a stack dump, through the HTTP interface."
+          },
+          "card": {
+            "text": "Error details can leak information. Attackers can use it to break into the system, or to harm the privacy of users. So check what each problem includes. RFC 9457 encourages you to avoid showing implementation details, like a stack dump, through the HTTP interface. Problem details are not a tool to debug the server. They describe the HTTP interface. The detail text should help the client fix the problem.",
+            "example": "A database error breaks a purchase. The response has title Purchase failed and a detail that tells the client to try again later. The SQL error and the stack trace are not in it.",
+            "source": {
+              "title": "RFC 9457: Security considerations",
+              "url": "https://www.rfc-editor.org/rfc/rfc9457.html#name-security-considerations"
+            }
+          },
+          "review": {
+            "question": "What should the detail member focus on?",
+            "answer": "Helping the client correct the problem, not debugging information."
+          }
+        }
+      ]
+    },
+    {
+      "id": "api-auth",
+      "name": "API access control",
+      "catch": {
+        "question": "Where must a non-public REST service perform access control?",
+        "choices": [
+          "Only at sign-in",
+          "Only in the mobile app",
+          "At each API endpoint",
+          "Only at the company firewall"
+        ],
+        "correctChoice": 2,
+        "explanation": "OWASP says non-public REST services must perform access control at each API endpoint."
+      },
+      "card": {
+        "text": "Non-public REST services must check access at each API endpoint. User sign-in should be central, at an Identity Provider that issues access tokens. Each endpoint then makes its own access decision with the token. Many APIs use JSON Web Tokens. Make sure a JWT has a signature or a MAC, and never accept alg none. By default, also check the claims iss, aud and exp.",
+        "example": "A JWT arrives with aud set to another service. The orders endpoint rejects it, because the orders service is not in the token's audience.",
+        "source": {
+          "title": "OWASP REST Security Cheat Sheet",
+          "url": "https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html"
+        }
+      },
+      "review": {
+        "question": "Which three JWT claims should an API check by default?",
+        "answer": "iss, the issuer; aud, the audience; and exp, the expiration time."
+      },
+      "workedExample": {
+        "problem": "Your internal orders API accepts any request that comes from the company network.",
+        "steps": [
+          "OWASP says non-public REST services must check access at each endpoint.",
+          "Users sign in at one Identity Provider, which issues access tokens.",
+          "Each endpoint checks the token and decides if this caller may do this operation."
+        ],
+        "answer": "Check an access token at every endpoint, instead of trusting the network."
+      },
+      "moves": [
+        {
+          "id": "api-auth.https-only",
+          "name": "HTTPS only",
+          "catch": {
+            "question": "Why must a secure REST service offer only HTTPS endpoints?",
+            "choices": [
+              "HTTPS responses are easier to cache",
+              "It protects credentials, like API keys, in transit",
+              "It removes the need for authentication",
+              "It lets the browser skip CORS checks"
+            ],
+            "correctChoice": 1,
+            "explanation": "HTTPS protects credentials in transit, lets clients authenticate the service, and protects the integrity of the data."
+          },
+          "card": {
+            "text": "Secure REST services must only provide HTTPS endpoints. HTTPS protects credentials in transit, like passwords, API keys or JSON Web Tokens. It also lets clients authenticate the service. And it guarantees the integrity of the data sent. For highly privileged services, consider client certificates, so both sides authenticate each other.",
+            "example": "A mobile app sends an access token with each call. Over HTTPS, the token is protected in transit, and the app knows it talks to the real service.",
+            "source": {
+              "title": "OWASP REST Security Cheat Sheet: HTTPS",
+              "url": "https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html#https"
+            }
+          },
+          "review": {
+            "question": "Name two things HTTPS gives a REST API.",
+            "answer": "It protects credentials in transit, and clients can authenticate the service. It also protects data integrity."
+          }
+        },
+        {
+          "id": "api-auth.key-not-in-url",
+          "name": "Keys out of the URL",
+          "catch": {
+            "question": "Which request leaks the API key into web server logs?",
+            "choices": [
+              "GET /orders/123 with the key in an HTTP header",
+              "POST /orders with the key in the request body",
+              "PUT /orders/123 with the key in an HTTP header",
+              "GET /orders/123?apiKey=a53f435643de32"
+            ],
+            "correctChoice": 3,
+            "explanation": "Web server logs can capture URLs. So keys, tokens and passwords must not appear in the URL."
+          },
+          "card": {
+            "text": "Passwords, security tokens and API keys should not appear in the URL. Web server logs can capture URLs, and that makes the logs valuable to attackers. In POST and PUT requests, send sensitive data in the request body or in headers. In GET requests, send sensitive data in an HTTP header.",
+            "example": "Not OK: https://example.com/controller/123/action?apiKey=a53f435643de32. OK: https://example.com/resourceCollection/123/action, with the key in a header.",
+            "source": {
+              "title": "OWASP REST Security Cheat Sheet: Sensitive information in HTTP requests",
+              "url": "https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html#sensitive-information-in-http-requests"
+            }
+          },
+          "review": {
+            "question": "In a GET request, where should an API key go?",
+            "answer": "In an HTTP header, never in the URL."
+          }
+        },
+        {
+          "id": "api-auth.unauthorized-vs-forbidden",
+          "name": "401 or 403",
+          "catch": {
+            "question": "A request has a valid token, but this user may not see the report. Which status code fits?",
+            "choices": [
+              "401 Unauthorized",
+              "403 Forbidden",
+              "400 Bad Request",
+              "405 Method Not Allowed"
+            ],
+            "correctChoice": 1,
+            "explanation": "403 means the server understood the request but refuses it. The credentials are not enough for this resource."
+          },
+          "card": {
+            "text": "401 Unauthorized means the request lacks valid authentication credentials. The server must send a WWW-Authenticate header with at least one challenge. The client may try again with new credentials. 403 Forbidden means the server understood the request but refuses it. If credentials were sent, they are not enough for access. The client should not repeat the request automatically with the same credentials.",
+            "example": "A request with an expired token gets 401 Unauthorized and a WWW-Authenticate header. A signed-in user who asks for another team's report gets 403 Forbidden.",
+            "source": {
+              "title": "RFC 9110: 401 Unauthorized and 403 Forbidden",
+              "url": "https://www.rfc-editor.org/rfc/rfc9110.html#name-401-unauthorized"
+            }
+          },
+          "review": {
+            "question": "Which of the two codes must come with a WWW-Authenticate header?",
+            "answer": "401 Unauthorized."
+          }
+        }
+      ]
+    },
+    {
+      "id": "rate-limit",
+      "name": "Rate limiting",
+      "catch": {
+        "question": "Which status code says the client sent too many requests in a given amount of time?",
+        "choices": [
+          "503 Service Unavailable",
+          "403 Forbidden",
+          "413 Content Too Large",
+          "429 Too Many Requests"
+        ],
+        "correctChoice": 3,
+        "explanation": "429 Too Many Requests is the status code for rate limiting."
+      },
+      "card": {
+        "text": "429 Too Many Requests means the user sent too many requests in a given amount of time. This is rate limiting. The response should explain the condition. It may include a Retry-After header that says how long to wait. RFC 6585 does not say how the server counts requests. It can count per resource, across the server, or across many servers. A cache must not store a 429 response.",
+        "example": "A site allows 50 requests per hour for each logged-in user. The next request gets 429 Too Many Requests with Retry-After: 3600.",
+        "source": {
+          "title": "RFC 6585: 429 Too Many Requests",
+          "url": "https://www.rfc-editor.org/rfc/rfc6585.html#section-4"
+        }
+      },
+      "review": {
+        "question": "May a cache store a 429 response?",
+        "answer": "No. A response with the 429 status code must not be stored by a cache."
+      },
+      "workedExample": {
+        "problem": "One partner's script calls your API in a tight loop. The answers for all other partners get slow.",
+        "steps": [
+          "Set a limit of requests per time for each client.",
+          "When a client goes over it, answer 429 Too Many Requests.",
+          "Add Retry-After if you can, so the script knows how long to wait."
+        ],
+        "answer": "Answer 429 when one client goes over its limit, and add Retry-After, so the script slows down."
+      },
+      "moves": [
+        {
+          "id": "rate-limit.api-key-quota",
+          "name": "Limits per API key",
+          "catch": {
+            "question": "Requests with one API key come in too quickly. Which status code does OWASP say to return?",
+            "choices": [
+              "429 Too Many Requests",
+              "500 Internal Server Error",
+              "404 Not Found",
+              "401 Unauthorized"
+            ],
+            "correctChoice": 0,
+            "explanation": "OWASP says to return 429 Too Many Requests if requests are coming in too quickly."
+          },
+          "card": {
+            "text": "Public REST services with no access control can be farmed, which leads to big bills for bandwidth or compute. API keys reduce this risk. Require an API key for every request to a protected endpoint. Return 429 Too Many Requests if requests come in too quickly. Revoke the key if the client breaks the usage agreement. Do not rely only on API keys for sensitive or high-value resources.",
+            "example": "A free-plan key sends 100 requests per second. The API answers 429 Too Many Requests. The client keeps breaking the usage agreement, so the provider revokes the key.",
+            "source": {
+              "title": "OWASP REST Security Cheat Sheet: API keys",
+              "url": "https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html#api-keys"
+            }
+          },
+          "review": {
+            "question": "What should you do with an API key whose client breaks the usage agreement?",
+            "answer": "Revoke the key."
+          }
+        },
+        {
+          "id": "rate-limit.retry-after",
+          "name": "Retry-After",
+          "catch": {
+            "question": "What does the response header Retry-After: 120 mean?",
+            "choices": [
+              "Retry the request 120 times",
+              "The response stays fresh for 120 seconds",
+              "Wait 2 minutes before the next request",
+              "The connection stays open for 120 seconds"
+            ],
+            "correctChoice": 2,
+            "explanation": "A number in Retry-After is a delay in seconds. 120 seconds is 2 minutes."
+          },
+          "card": {
+            "text": "Servers send Retry-After to say how long the client ought to wait before a follow-up request. The value is an HTTP date or a number of seconds. With 503 Service Unavailable, it says how long the service will be unavailable. With a 3xx redirect, it is the minimum wait before the redirected request.",
+            "example": "Retry-After: 120 means wait 2 minutes. Retry-After: Fri, 31 Dec 1999 23:59:59 GMT means wait until that time.",
+            "source": {
+              "title": "RFC 9110: Retry-After",
+              "url": "https://www.rfc-editor.org/rfc/rfc9110.html#name-retry-after"
+            }
+          },
+          "review": {
+            "question": "What two forms can a Retry-After value have?",
+            "answer": "An HTTP date, or a number of seconds to wait."
+          }
+        },
+        {
+          "id": "rate-limit.token-bucket",
+          "name": "Token bucket",
+          "catch": {
+            "question": "The Claude API uses the token bucket algorithm for rate limits. What does that mean for your capacity?",
+            "choices": [
+              "It resets to full at the start of each minute",
+              "It refills all the time, up to your maximum limit",
+              "It refills only when you pay",
+              "It grows with no maximum"
+            ],
+            "correctChoice": 1,
+            "explanation": "With a token bucket, capacity is replenished all the time up to the maximum, not reset at fixed times."
+          },
+          "card": {
+            "text": "The Claude API uses the token bucket algorithm for rate limiting. Your capacity refills all the time, up to your maximum limit. It does not reset at fixed intervals. Limits can also apply over shorter times. For example, 60 requests per minute may be enforced as 1 request per second. So short bursts of requests can trigger rate limit errors.",
+            "example": "A job has a limit of 60 requests per minute. It sends 20 requests in the same second. Some get 429 errors, because the limit can work like 1 request per second.",
+            "source": {
+              "title": "Claude API: Rate limits",
+              "url": "https://platform.claude.com/docs/en/api/rate-limits"
+            }
+          },
+          "review": {
+            "question": "Why can a burst of requests get 429 errors under a per-minute limit?",
+            "answer": "Limits can apply over shorter times, for example 60 per minute as 1 per second."
+          }
+        }
+      ]
+    },
+    {
+      "id": "paging",
+      "name": "Collections and paging",
+      "catch": {
+        "question": "In the Azure guidelines, how does a list response tell the client that another page exists?",
+        "choices": [
+          "A hasMore field set to true",
+          "A 206 Partial Content status code",
+          "A nextLink field with an absolute URL",
+          "A count of all items"
+        ],
+        "correctChoice": 2,
+        "explanation": "Each page has a nextLink with an absolute URL for the next page. The last page has no nextLink."
+      },
+      "card": {
+        "text": "A list operation returns an object with a top-level array of resources, usually named value. Support paging from the start if the list can ever grow very large. Adding paging later is a breaking change. Each page has a nextLink field with an absolute URL for the next page. Leave nextLink out on the last page, and never send it as null. Avoid a count of all items, because it can be expensive.",
+        "example": "GET /items returns value with Item 01 to Item 99 and a nextLink. The client calls GET on the nextLink URL. The last page has no nextLink.",
+        "source": {
+          "title": "Azure REST API Guidelines: Collections",
+          "url": "https://github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md#collections"
+        }
+      },
+      "review": {
+        "question": "How does a client know it got the last page in an Azure-style API?",
+        "answer": "The response has no nextLink field."
+      },
+      "workedExample": {
+        "problem": "Your team designs GET /orders for a new API. The shop has only 300 orders today, so someone suggests no paging.",
+        "steps": [
+          "Orders grow over time, so the list can become very large.",
+          "Adding paging later is a breaking change for clients.",
+          "So return a value array and a nextLink from the first version."
+        ],
+        "answer": "Add paging now, while there are no clients to break."
+      },
+      "moves": [
+        {
+          "id": "paging.next-link",
+          "name": "nextLink",
+          "catch": {
+            "question": "Which query parameter must the nextLink URL include, according to the Azure guidelines?",
+            "choices": [
+              "The API key",
+              "api-version",
+              "None, because the client adds them",
+              "Only maxpagesize"
+            ],
+            "correctChoice": 1,
+            "explanation": "nextLink must include every query parameter the service needs, including api-version."
+          },
+          "card": {
+            "text": "nextLink is an absolute URL that the client calls with GET to get the next page. The service does any URL encoding it needs. nextLink includes every query parameter the service needs, including api-version. All pages use the same filter and sort order. Document that items may be skipped or duplicated across pages. The exception is a service that takes special steps, like a snapshot that expires.",
+            "example": "GET /people?filter=name eq 'david'&orderby=hireDate returns a first page. Its nextLink keeps the same filter, the same sort order and the api-version.",
+            "source": {
+              "title": "Azure REST API Guidelines: Collections",
+              "url": "https://github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md#collections"
+            }
+          },
+          "review": {
+            "question": "What must an Azure-style API document about items across pages?",
+            "answer": "Items may be skipped or duplicated across pages, unless the service prevents it, for example with a snapshot."
+          }
+        },
+        {
+          "id": "paging.page-token",
+          "name": "Page token",
+          "catch": {
+            "question": "Why must page tokens be opaque?",
+            "choices": [
+              "So users cannot depend on how they work, and you can change it later",
+              "So they are shorter than page numbers",
+              "So they work without authorization",
+              "So they never expire"
+            ],
+            "correctChoice": 0,
+            "explanation": "If users can take tokens apart, they will. Then the paging details become part of the API and cannot change."
+          },
+          "card": {
+            "text": "In Google APIs, the response has a next_page_token. The client sends it as page_token to get the next page. An empty next_page_token is the only sign of the end of the list. Page tokens must be opaque. If users can take them apart, they will, and then you cannot change your paging without breaking them. Base-64 encoding alone is not enough. A page token never gives authorization.",
+            "example": "ListBooks returns 50 books and a next_page_token. The client sends it as page_token, with the same other parameters. The API may expire old tokens, and three days is a good rule of thumb.",
+            "source": {
+              "title": "Google AIP-158: Pagination",
+              "url": "https://google.aip.dev/158"
+            }
+          },
+          "review": {
+            "question": "How does a Google API say that the list has ended?",
+            "answer": "next_page_token is empty. This is the only way."
+          }
+        },
+        {
+          "id": "paging.page-size",
+          "name": "Page size",
+          "catch": {
+            "question": "A client asks for page_size 5000, but the maximum is 1000. What should the API do?",
+            "choices": [
+              "Return an error",
+              "Return all 5000 results",
+              "Turn off paging for this call",
+              "Use 1000 instead"
+            ],
+            "correctChoice": 3,
+            "explanation": "If page_size is above the maximum, the API should lower it to the maximum."
+          },
+          "card": {
+            "text": "page_size sets the maximum number of results in one page. It must not be required. If the client leaves it out or sends 0, the API uses a default, which it should document. If the value is above the maximum, the API should lower it to the maximum. A negative value gets an INVALID_ARGUMENT error. The API may return fewer results than asked, even zero, before the end of the list.",
+            "example": "ListBooks has a default of 50 and a maximum of 1000. A page_size of 5000 becomes 1000. A page with 0 books but a next_page_token is not the end.",
+            "source": {
+              "title": "Google AIP-158: Pagination",
+              "url": "https://google.aip.dev/158"
+            }
+          },
+          "review": {
+            "question": "Does a short page mean that the list has ended?",
+            "answer": "No. Only an empty next_page_token means the end."
+          }
+        }
+      ]
+    },
+    {
+      "id": "conditional-request",
+      "name": "Conditional requests",
+      "catch": {
+        "question": "What do headers like If-Match and If-None-Match let a client do?",
+        "choices": [
+          "Choose the language of the response",
+          "Ask the server to compress the body",
+          "Set a precondition, so the server acts only if the resource is in the expected state",
+          "Pick a newer API version"
+        ],
+        "correctChoice": 2,
+        "explanation": "These headers set a precondition for the request. They allow efficient caching and prevent data loss."
+      },
+      "card": {
+        "text": "HTTP lets a client put a precondition on a request. The headers are If-Match, If-None-Match, If-Modified-Since, If-Unmodified-Since and If-Range. They allow efficient caching. They also prevent data loss when clients update the same resource at the same time. A service must honor every precondition header it receives. ETags are strongly preferred over last-modified dates, because dates cannot tell apart updates less than a second apart.",
+        "example": "A client reads a user with ETag \"67ab43\". It sends PUT with If-Match: \"67ab43\". If someone changed the user in between, the server answers 412 Precondition Failed.",
+        "source": {
+          "title": "Azure REST API Guidelines: Conditional requests",
+          "url": "https://github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md#conditional-requests"
+        }
+      },
+      "review": {
+        "question": "Why are ETags better than last-modified dates for preconditions?",
+        "answer": "Dates cannot tell apart two updates made less than a second apart."
+      },
+      "workedExample": {
+        "problem": "Two support agents edit the same customer at the same time. The second save silently removes the first agent's change.",
+        "steps": [
+          "This is the lost update problem.",
+          "Return an ETag when a client reads the customer, as Azure says you should.",
+          "Honor If-Match with that ETag on each save, and answer 412 when it does not match."
+        ],
+        "answer": "Use ETags and If-Match, so a save based on old data fails with 412 instead of overwriting."
+      },
+      "moves": [
+        {
+          "id": "conditional-request.etag",
+          "name": "ETag",
+          "catch": {
+            "question": "Why do the Azure guidelines prefer a hash of the resource over a version number as the ETag?",
+            "choices": [
+              "A hash is always shorter",
+              "A hash never changes",
+              "With a version number, a retried update can be seen as a conflict",
+              "Clients cannot read a version number"
+            ],
+            "correctChoice": 2,
+            "explanation": "An update works, but its reply is lost. With a version number as the ETag, the identical retry can look like a conflict."
+          },
+          "card": {
+            "text": "Azure says you should return an ETag with any operation that returns or updates a resource. A version number is a natural ETag for versioned resources. But Azure prefers a hash of the whole resource. A version number can break retries. An update works, but the reply is lost. The identical retry is then seen as a conflict. Weak ETags are allowed, for example when a hash is too expensive.",
+            "example": "A user resource has ETag \"67ab43\", a hash of the whole resource. A different encoding of the same resource gets a different ETag.",
+            "source": {
+              "title": "Azure REST API Guidelines: Computing ETags",
+              "url": "https://github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md#conditional-requests"
+            }
+          },
+          "review": {
+            "question": "What can go wrong when the ETag is a version number?",
+            "answer": "An update works but the reply is lost. The identical retry is then seen as a conflict."
+          }
+        },
+        {
+          "id": "conditional-request.if-match",
+          "name": "If-Match",
+          "catch": {
+            "question": "A PUT has If-Match: \"v1\", but the current ETag is \"v2\". What must the server not do?",
+            "choices": [
+              "Apply the PUT",
+              "Send a 412 response",
+              "Read the If-Match header",
+              "Compare the two tags"
+            ],
+            "correctChoice": 0,
+            "explanation": "When the If-Match condition is false, the server must not perform the method. It may answer 412."
+          },
+          "card": {
+            "text": "If-Match makes a request depend on the current entity tag. It is most often used with POST, PUT and DELETE. It prevents the lost update problem when several clients change the same resource. If-Match: * is true when any current representation exists. If the condition is false, the server must not perform the method. It may answer 412 Precondition Failed. The server must use strong comparison for If-Match.",
+            "example": "Ann and Bob both read a page with ETag \"v1\". Ann saves with If-Match: \"v1\", and the ETag becomes \"v2\". Bob saves with If-Match: \"v1\" and gets 412.",
+            "source": {
+              "title": "RFC 9110: If-Match",
+              "url": "https://www.rfc-editor.org/rfc/rfc9110.html#name-if-match"
+            }
+          },
+          "review": {
+            "question": "Which problem does If-Match prevent?",
+            "answer": "The lost update problem: one client overwrites another client's change."
+          }
+        },
+        {
+          "id": "conditional-request.if-none-match",
+          "name": "If-None-Match",
+          "catch": {
+            "question": "A client sends PUT with If-None-Match: * to create a file, but the file already exists. What happens?",
+            "choices": [
+              "The server overwrites the file",
+              "The server answers 304 Not Modified",
+              "The server creates a second file",
+              "The server answers 412 Precondition Failed"
+            ],
+            "correctChoice": 3,
+            "explanation": "If-None-Match: * is false when the resource exists. For methods other than GET and HEAD, the answer is 412."
+          },
+          "card": {
+            "text": "If-None-Match is mostly used in conditional GET requests. The client sends the entity tags of its stored responses. If one matches, the server answers 304 Not Modified. If-None-Match: * stops a PUT from changing a resource that already exists. This is another form of the lost update problem. When the condition is false, the server answers 304 for GET or HEAD, and 412 for other methods.",
+            "example": "An app has a stored list with ETag \"abc\". It sends GET with If-None-Match: \"abc\". The list did not change, so the answer is 304 Not Modified, and the app uses its copy.",
+            "source": {
+              "title": "RFC 9110: If-None-Match",
+              "url": "https://www.rfc-editor.org/rfc/rfc9110.html#name-if-none-match"
+            }
+          },
+          "review": {
+            "question": "What does If-None-Match: * do on a PUT?",
+            "answer": "It stops the PUT if the resource already exists. The server answers 412."
+          }
+        }
+      ]
+    },
+    {
+      "id": "idempotency-key",
+      "name": "Idempotency key",
+      "catch": {
+        "question": "A payment request times out, and you do not know if it worked. What makes a retry safe with the Stripe API?",
+        "choices": [
+          "Send the same request again with a new idempotency key",
+          "Send the same request again with the same idempotency key",
+          "Wait 24 hours, then send it again",
+          "Change the request to GET"
+        ],
+        "correctChoice": 1,
+        "explanation": "With the same key, Stripe recognizes the retry, so the payment does not happen twice."
+      },
+      "card": {
+        "text": "An idempotency key lets a client retry a request safely, without doing the same operation twice. The client creates a unique key and sends it with the request. After a connection error, the client repeats the request with the same key. Stripe suggests V4 UUIDs or other random strings with enough entropy. Keys are up to 255 characters long. Do not use sensitive data, like email addresses, as keys.",
+        "example": "A request to https://api.stripe.com/v1/customers has the header Idempotency-Key: KG5LxwFBepaKHyUD. A retry with the same key does not create a second customer.",
+        "source": {
+          "title": "Stripe API: Idempotent requests",
+          "url": "https://docs.stripe.com/api/idempotent_requests"
+        }
+      },
+      "review": {
+        "question": "What value does Stripe suggest for an idempotency key?",
+        "answer": "A V4 UUID, or another random string with enough entropy. No sensitive data."
+      },
+      "workedExample": {
+        "problem": "Your checkout calls a payment API. Sometimes the call times out, and the retry charges the customer twice.",
+        "steps": [
+          "A timeout does not tell you if the first charge happened.",
+          "Create one unique key for this checkout, for example a V4 UUID.",
+          "Send the same key on the first call and on every retry."
+        ],
+        "answer": "Retry with the same idempotency key, so the payment API runs the charge only once."
+      },
+      "moves": [
+        {
+          "id": "idempotency-key.saved-response",
+          "name": "Saved response",
+          "catch": {
+            "question": "With Stripe API v1, the first request with a key returned a 500 error. What does a retry with the same key get?",
+            "choices": [
+              "A new attempt that may succeed",
+              "A 409 Conflict",
+              "The same saved 500 response",
+              "A 404 Not Found"
+            ],
+            "correctChoice": 2,
+            "explanation": "Stripe saves the status code and body of the first request. Retries with the same key get them, even a 500."
+          },
+          "card": {
+            "text": "For API v1, Stripe saves the status code and body of the first request with a key. It saves them after the endpoint starts to run. Retries with the same key get the saved response, even a 500 error. Some requests are not saved: when parameters fail validation, or when the request conflicts with another request that is running. You can retry those.",
+            "example": "A request with key KG5LxwFBepaKHyUD gets a 500 error. A retry with that key gets the same saved 500 response, not a new attempt.",
+            "source": {
+              "title": "Stripe API: Idempotent requests",
+              "url": "https://docs.stripe.com/api/idempotent_requests"
+            }
+          },
+          "review": {
+            "question": "When does Stripe v1 not save the result for a key?",
+            "answer": "When parameters fail validation, or when the request conflicts with a request that is still running."
+          }
+        },
+        {
+          "id": "idempotency-key.parameter-check",
+          "name": "Parameter check",
+          "catch": {
+            "question": "A client reuses an idempotency key, but sends different parameters. What does Stripe do?",
+            "choices": [
+              "It returns an error",
+              "It returns the first saved response",
+              "It runs the new request",
+              "It changes the first request"
+            ],
+            "correctChoice": 0,
+            "explanation": "Stripe compares the new parameters with the original request. If they differ, it returns an error."
+          },
+          "card": {
+            "text": "The idempotency layer compares the parameters of a request with those of the original request. If they are not the same, it returns an error. This prevents accidental misuse of a key. A key is meant to recognize retries of the same request. So create a new key for each new operation.",
+            "example": "A first request with key K1 creates a customer with description A. A second request with K1 and description B gets an error, not a second customer.",
+            "source": {
+              "title": "Stripe API: Idempotent requests",
+              "url": "https://docs.stripe.com/api/idempotent_requests"
+            }
+          },
+          "review": {
+            "question": "Why does Stripe compare the parameters of a request with a reused key?",
+            "answer": "To catch accidental misuse. Different parameters with the same key get an error."
+          }
+        },
+        {
+          "id": "idempotency-key.key-expiry",
+          "name": "Key expiry",
+          "catch": {
+            "question": "Stripe v1 can remove keys that are at least 24 hours old. What happens when a client reuses a removed key?",
+            "choices": [
+              "Stripe returns the old saved response",
+              "Stripe always returns an error",
+              "Stripe treats it as a new request",
+              "Stripe blocks the client"
+            ],
+            "correctChoice": 2,
+            "explanation": "Stripe generates a new request if a key is reused after the original was removed."
+          },
+          "card": {
+            "text": "Keys do not live forever. For API v1, keys can be removed after they are at least 24 hours old. If a key is reused after the original was removed, Stripe treats it as a new request. So a retry is only safe while the key is still saved. All POST requests accept idempotency keys. Do not send keys with GET or DELETE: these are idempotent by definition, so a key has no effect.",
+            "example": "A job retries a failed POST two days later with the old key. The key may already be removed, so Stripe may run it as a new request.",
+            "source": {
+              "title": "Stripe API: Idempotent requests",
+              "url": "https://docs.stripe.com/api/idempotent_requests"
+            }
+          },
+          "review": {
+            "question": "Should you send an idempotency key with a GET request to Stripe?",
+            "answer": "No. GET and DELETE are idempotent by definition, so the key has no effect."
+          }
+        }
+      ]
+    },
+    {
+      "id": "client-token",
+      "name": "Client request token",
+      "catch": {
+        "question": "In the AWS article, how does a service know that a request repeats an earlier one?",
+        "choices": [
+          "It compares only the request parameters",
+          "It checks the time between the requests",
+          "It asks the caller in a second request",
+          "The caller sends a unique client request identifier"
+        ],
+        "correctChoice": 3,
+        "explanation": "Requests from the same caller with the same client request identifier are duplicates."
+      },
+      "card": {
+        "text": "AWS makes retries safe with idempotent API operations. The caller adds a unique client request identifier to the request. Requests from the same caller with the same identifier are duplicates. A hash of the parameters does not work in all cases. Two identical requests to launch EC2 instances may mean the caller wants two instances. The identifier also appears in logs like AWS CloudTrail, so intent can be audited.",
+        "example": "In the EC2 RunInstances API, the identifier is the ClientToken field. The AWS CLI creates one when you do not, and reuses it on retries.",
+        "source": {
+          "title": "Amazon Builders' Library: Making retries safe with idempotent APIs",
+          "url": "https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/"
+        }
+      },
+      "review": {
+        "question": "Why does AWS not find duplicates by hashing the parameters?",
+        "answer": "Identical requests may be on purpose, for example two identical EC2 instances."
+      },
+      "workedExample": {
+        "problem": "Your provisioning job asks a service to start one server. It gets a network timeout and does not know if the server runs.",
+        "steps": [
+          "A simple retry could start a second server.",
+          "Send a unique client request identifier with the first request.",
+          "Retry with the same identifier, so the service knows it is the same request."
+        ],
+        "answer": "Use a client request token, so the job can retry without starting a second server."
+      },
+      "moves": [
+        {
+          "id": "client-token.atomic-record",
+          "name": "Atomic token recording",
+          "catch": {
+            "question": "Why must a service save the token and make the changes in one ACID operation?",
+            "choices": [
+              "To make the response faster",
+              "So it never saves the token without the changes, or the changes without the token",
+              "So other callers can reuse the token",
+              "So the client can skip retries"
+            ],
+            "correctChoice": 1,
+            "explanation": "All or nothing: otherwise the service could save the token and not create the resources, or the other way round."
+          },
+          "card": {
+            "text": "On a new request, the service first checks if it has seen the identifier. If not, it creates an idempotent session for the caller and the identifier. Saving the token and all changes for the request must be one ACID operation, all or nothing. Otherwise the service could save the token and fail to create the resources. Or it could create the resources and fail to save the token.",
+            "example": "A create request saves token 123 and the new volume in one database transaction. If the transaction fails, neither is saved, so a retry starts clean.",
+            "source": {
+              "title": "Amazon Builders' Library: Making retries safe with idempotent APIs",
+              "url": "https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/"
+            }
+          },
+          "review": {
+            "question": "Which two bad states does an atomic token record prevent?",
+            "answer": "A saved token with no resources, and resources with no saved token."
+          }
+        },
+        {
+          "id": "client-token.same-meaning",
+          "name": "Semantically equivalent response",
+          "catch": {
+            "question": "A retry with the same token arrives after the resource was created. Which answer does AWS describe as the better alternative?",
+            "choices": [
+              "A ResourceAlreadyExists error",
+              "An empty 204 response",
+              "A response with the same meaning as the first response",
+              "A second new resource"
+            ],
+            "correctChoice": 2,
+            "explanation": "AWS describes a semantically equivalent response as the alternative. Then client code does not need to know about the retry."
+          },
+          "card": {
+            "text": "A service could answer a retry with ResourceAlreadyExists. That has no side effect on the service. But the caller cannot tell if its own request created the resource, and its code must handle a new case. AWS describes an alternative: a semantically equivalent response. Each retry with the same token gets a response with the same meaning as the first. Then SDKs can retry for you, and your code never sees the retry.",
+            "example": "A retried RunInstances call with the same ClientToken returns a very similar response. For example, the state changed from pending to running.",
+            "source": {
+              "title": "Amazon Builders' Library: Making retries safe with idempotent APIs",
+              "url": "https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/"
+            }
+          },
+          "review": {
+            "question": "Why is ResourceAlreadyExists a poor answer to a retry?",
+            "answer": "The caller cannot tell if its own request created the resource, so it must handle a new case."
+          }
+        },
+        {
+          "id": "client-token.retention",
+          "name": "Token retention",
+          "catch": {
+            "question": "How long does EC2 keep the record of a client token for an instance?",
+            "choices": [
+              "Forever",
+              "Exactly 24 hours",
+              "Until the next request from any client",
+              "The life of the instance, plus some time after it"
+            ],
+            "correctChoice": 3,
+            "explanation": "For EC2 instances, AWS keeps it for the lifetime of the resource plus an interval for late requests."
+          },
+          "card": {
+            "text": "A retry can arrive late, for example after another user deleted the resource. EC2 still honors the first contract and returns an equivalent response. This follows the principle of least astonishment. So the service must keep the token record. Keeping it forever is not practical, and a new token could collide with a very old one. For EC2 instances, AWS keeps it for the life of the resource plus a time for late requests.",
+            "example": "An instance was terminated. A late RunInstances retry with the same ClientToken returns that instance, now with the state terminated.",
+            "source": {
+              "title": "Amazon Builders' Library: Making retries safe with idempotent APIs",
+              "url": "https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/"
+            }
+          },
+          "review": {
+            "question": "Why not keep client tokens forever?",
+            "answer": "It is not practical, and a new token could collide with one used much earlier."
+          }
+        }
+      ]
+    },
+    {
+      "id": "repeatability",
+      "name": "Request repeatability",
+      "catch": {
+        "question": "What do the Azure guidelines require of all service operations, including POST?",
+        "choices": [
+          "They must be idempotent",
+          "They must be safe",
+          "They must be cacheable",
+          "They must return 200 OK"
+        ],
+        "correctChoice": 0,
+        "explanation": "Azure says all service operations, including POST, must be idempotent, so customers can retry."
+      },
+      "card": {
+        "text": "Cloud applications expect failure. So customers must be able to retry requests without unwanted results. The Azure guidelines say all service operations must be idempotent, including POST. You should use PUT or PATCH to create a resource. They are easy to build, idempotent, and let customers name their own resource. You may use POST to create, but it must be idempotent and return 201 Created with the URL.",
+        "example": "PUT /users/Jeff?api-version=2021-06-04 creates the user Jeff. If the client sends it again after a timeout, there is still only one Jeff.",
+        "source": {
+          "title": "Azure REST API Guidelines: HTTP request and response pattern",
+          "url": "https://github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md#http-use-put-or-patch"
+        }
+      },
+      "review": {
+        "question": "Why does Azure prefer PUT or PATCH to create resources?",
+        "answer": "They are idempotent and easy to build, and the customer names the resource."
+      },
+      "workedExample": {
+        "problem": "Clients create projects with POST /projects. After a timeout, a retry sometimes creates two projects.",
+        "steps": [
+          "With POST, the service picks the ID, so a retry looks like a new create.",
+          "With PUT /projects/website-2026, the client names the project.",
+          "A repeated PUT with the same name and body has the same effect as one."
+        ],
+        "answer": "Create projects with PUT and a name the client chooses, so a retry cannot make a second project."
+      },
+      "moves": [
+        {
+          "id": "repeatability.headers",
+          "name": "Repeatability headers",
+          "catch": {
+            "question": "Which pair of request headers makes an Azure POST safe to retry?",
+            "choices": [
+              "If-Match and If-None-Match",
+              "Retry-After and Location",
+              "Repeatability-Request-ID and Repeatability-First-Sent",
+              "Operation-Id and Operation-Location"
+            ],
+            "correctChoice": 2,
+            "explanation": "Azure uses the OASIS Repeatable Requests headers, Repeatability-Request-ID and Repeatability-First-Sent, for POST."
+          },
+          "card": {
+            "text": "In Azure, all HTTP operations are naturally idempotent, except POST to create a resource and POST for an action. To make such a POST safe to retry, Azure says you should support OASIS Repeatable Requests. The client sends Repeatability-Request-ID and Repeatability-First-Sent. The service tracks requests for at least 5 minutes after the first send. An operation without this support should return 501 Not Implemented for requests with these headers.",
+            "example": "A client sends POST /users/Bob:grant?access=read with both repeatability headers. It retries 2 minutes later with the same headers, and the grant happens once.",
+            "source": {
+              "title": "Azure REST API Guidelines: Repeatability of requests",
+              "url": "https://github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md#repeatability"
+            }
+          },
+          "review": {
+            "question": "How long must an Azure service track repeatable requests?",
+            "answer": "At least 5 minutes after the Repeatability-First-Sent time."
+          }
+        },
+        {
+          "id": "repeatability.request-id",
+          "name": "Request ID field",
+          "catch": {
+            "question": "A Google API gets a duplicate request with the same request_id. What should it return?",
+            "choices": [
+              "An ALREADY_EXISTS error",
+              "A new resource",
+              "The response of the earlier successful request",
+              "Nothing, it drops the request"
+            ],
+            "correctChoice": 2,
+            "explanation": "The client most likely did not get the first response, so the server should return it again."
+          },
+          "card": {
+            "text": "Google APIs may add a request_id field to request messages. A random UUID is recommended. Providing a request ID must guarantee idempotency. If the server finds a duplicate, it should return the response of the earlier successful request. The client most likely did not get that response. Sometimes it cannot be rebuilt, because the resource changed since. Then the method may return the current state of the resource.",
+            "example": "CreateBookRequest has a request_id field, restricted to 36 ASCII characters. The request is only idempotent when a request_id is provided.",
+            "source": {
+              "title": "Google AIP-155: Request identification",
+              "url": "https://google.aip.dev/155"
+            }
+          },
+          "review": {
+            "question": "What may a server return when the old success response cannot be rebuilt?",
+            "answer": "The current state of the resource."
+          }
+        }
+      ]
+    },
+    {
+      "id": "long-running",
+      "name": "Long-running operation",
+      "catch": {
+        "question": "When should an Azure operation be a long-running operation?",
+        "choices": [
+          "When it returns more than 100 items",
+          "When it uses POST",
+          "When the client is a mobile app",
+          "When its 99th percentile response time is over 1 second"
+        ],
+        "correctChoice": 3,
+        "explanation": "Use it when the 99th percentile response time is over 1 second. The client should also poll before it goes on."
+      },
+      "card": {
+        "text": "Some operations take too long for one request. Services do not want to keep long connections open, and load balancers time out. So the client starts the operation, and then polls another API call for its progress. Use this pattern when the 99th percentile response time is over 1 second. The client should also poll before it goes on. Validate as much as you can at the start, so clients see errors early. Do not build PATCH as a long-running operation.",
+        "example": "A client starts a reboot with POST on a VM action. It gets 202 Accepted and an operation-location URL. It polls that URL until the status is Succeeded.",
+        "source": {
+          "title": "Azure REST API Guidelines: Long-running operations",
+          "url": "https://github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md#long-running-operations--jobs"
+        }
+      },
+      "review": {
+        "question": "Why validate inputs before you start a long-running operation?",
+        "answer": "So clients see errors early, not only after they poll."
+      },
+      "workedExample": {
+        "problem": "An export call takes about 3 minutes. The load balancer drops the connection, and clients see timeouts.",
+        "steps": [
+          "The call takes far more than 1 second, and the client must wait for the result, so make it long-running.",
+          "Return 202 Accepted at once, with an operation-location header.",
+          "The client polls the status monitor until the status is Succeeded or Failed."
+        ],
+        "answer": "Make the export a long-running operation: return 202 fast, and let the client poll the status."
+      },
+      "moves": [
+        {
+          "id": "long-running.accepted",
+          "name": "202 Accepted",
+          "catch": {
+            "question": "What does a 202 Accepted response say about the work?",
+            "choices": [
+              "The work is done",
+              "The work will surely succeed later",
+              "The request was rejected",
+              "The request was accepted, but the processing is not complete"
+            ],
+            "correctChoice": 3,
+            "explanation": "202 means accepted for processing, but not completed. It might still not be acted upon."
+          },
+          "card": {
+            "text": "202 Accepted means the request was accepted for processing, but the processing is not complete. The request might never be done, because it can be disallowed when processing really happens. The response is noncommittal on purpose. The client does not need to keep the connection open until the work ends. The response should describe the current status and point to a status monitor.",
+            "example": "A batch process runs only once per day. The server answers 202 Accepted at once. The response links to a status monitor that estimates when the work will be done.",
+            "source": {
+              "title": "RFC 9110: 202 Accepted",
+              "url": "https://www.rfc-editor.org/rfc/rfc9110.html#name-202-accepted"
+            }
+          },
+          "review": {
+            "question": "Does 202 Accepted promise that the work will succeed?",
+            "answer": "No. It is noncommittal: the work might never be done."
+          }
+        },
+        {
+          "id": "long-running.status-monitor",
+          "name": "Status monitor",
+          "catch": {
+            "question": "A status monitor says Running. What should its GET response also include?",
+            "choices": [
+              "A retry-after header with the seconds to wait",
+              "A 202 status code",
+              "The final result",
+              "A nextLink field"
+            ],
+            "correctChoice": 0,
+            "explanation": "While the operation is not complete, the response includes retry-after with the seconds to wait before polling again."
+          },
+          "card": {
+            "text": "Each long-running operation creates a status monitor resource. It has an id and a status: NotStarted, Running, Succeeded, Failed or Canceled. If the status is Failed, the error field gives the reason. A GET on the monitor returns 200 OK with its current state. If the operation is not complete, the response has retry-after with the seconds to wait. Keep the monitor for at least 24 hours after the operation ends.",
+            "example": "A GET on the status monitor returns 200 OK, retry-after: 5 and status Running. A later GET returns status Succeeded.",
+            "source": {
+              "title": "Azure REST API Guidelines: The status monitor resource",
+              "url": "https://github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md#lro-status-monitor-structure"
+            }
+          },
+          "review": {
+            "question": "What are the five statuses of an Azure status monitor?",
+            "answer": "NotStarted, Running, Succeeded, Failed and Canceled."
+          }
+        },
+        {
+          "id": "long-running.operation-id",
+          "name": "Operation-Id",
+          "catch": {
+            "question": "A client retries the start of an operation with the same Operation-Id and an identical request. What should the service do?",
+            "choices": [
+              "Fail with 409 Conflict",
+              "Start a second operation",
+              "Treat it as a retry and return the same response",
+              "Return 404 Not Found"
+            ],
+            "correctChoice": 2,
+            "explanation": "An identical request with the same Operation-Id is a retry. Only a different request gets 409."
+          },
+          "card": {
+            "text": "The client may pass an Operation-Id header with an ID for the status monitor. If it does not, the service creates one, usually a GUID. The service returns it in the operation-id and operation-location headers. If the Operation-Id matches an existing operation, the service fails with 409 Conflict. The exception is an identical request, because that is a retry. An identical retried POST should get the same response as the first time.",
+            "example": "POST /vms/vm1:reboot with operation-id: op-77 returns 202 Accepted. An identical retry with op-77 gets the same response. A different request with op-77 gets 409 Conflict.",
+            "source": {
+              "title": "Azure REST API Guidelines: Long-running operations",
+              "url": "https://github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md#long-running-operations--jobs"
+            }
+          },
+          "review": {
+            "question": "When does a reused Operation-Id get 409 Conflict?",
+            "answer": "When the request is not identical to the earlier one. An identical request is a retry."
+          }
+        }
+      ]
+    },
+    {
+      "id": "openapi",
+      "name": "OpenAPI",
+      "catch": {
+        "question": "What is an OpenAPI Description?",
+        "choices": [
+          "A test suite that calls every endpoint",
+          "A server framework for Java",
+          "A standard description of an HTTP API that humans and tools can read",
+          "A list of the rate limits of an API"
+        ],
+        "correctChoice": 2,
+        "explanation": "OpenAPI defines a standard, language-agnostic description of HTTP APIs for humans and computers."
+      },
+      "card": {
+        "text": "The OpenAPI Specification defines a standard, language-agnostic description of HTTP APIs. Humans and computers can understand the service without its source code or extra documentation. Tools use an OpenAPI Description to show documentation, to generate servers and clients, and to test. The document is JSON or YAML. The openapi and info fields are required. At least one of paths, components or webhooks must exist.",
+        "example": "A description starts with openapi: 3.2.1 and an info object with the API title and version. Under paths, /pets lists the operations for pets.",
+        "source": {
+          "title": "OpenAPI Specification",
+          "url": "https://spec.openapis.org/oas/latest.html"
+        }
+      },
+      "review": {
+        "question": "Which two fields does every OpenAPI document need?",
+        "answer": "openapi, with the specification version, and info, with metadata about the API."
+      },
+      "workedExample": {
+        "problem": "The mobile team writes its API client by hand from a wiki page. The wiki is often out of date.",
+        "steps": [
+          "Describe the API in one OpenAPI document.",
+          "List each path and operation, with its parameters and responses.",
+          "Let tools generate the client and the documentation from that document."
+        ],
+        "answer": "Keep one OpenAPI description as the contract, and generate the client and the docs from it."
+      },
+      "moves": [
+        {
+          "id": "openapi.operation-id",
+          "name": "operationId",
+          "catch": {
+            "question": "What rule does OpenAPI set for operationId?",
+            "choices": [
+              "It must match the path",
+              "It must be unique among all operations in the API",
+              "It must be in upper case",
+              "It is the same for GET and POST on one path"
+            ],
+            "correctChoice": 1,
+            "explanation": "The id must be unique among all operations described in the API, and it is case-sensitive."
+          },
+          "card": {
+            "text": "Each operation can have an operationId: a string that identifies the operation. It must be unique among all operations in the API. It is case-sensitive. Tools and libraries may use it to identify the operation. So follow common programming naming conventions when you choose it.",
+            "example": "The operation that updates a pet with form data has operationId: updatePetWithForm. No other operation in the API may use that id.",
+            "source": {
+              "title": "OpenAPI Specification: Operation Object",
+              "url": "https://spec.openapis.org/oas/latest.html#operation-object"
+            }
+          },
+          "review": {
+            "question": "Is operationId case-sensitive?",
+            "answer": "Yes. It must also be unique among all operations in the API."
+          }
+        },
+        {
+          "id": "openapi.components",
+          "name": "Components",
+          "catch": {
+            "question": "You define a Pet schema under components, but nothing references it. What effect does it have on the API?",
+            "choices": [
+              "None, until something references it",
+              "It applies to every operation",
+              "It becomes the default response",
+              "It creates a new path"
+            ],
+            "correctChoice": 0,
+            "explanation": "Objects in components have no effect unless they are referenced from outside the Components Object."
+          },
+          "card": {
+            "text": "The Components Object holds reusable objects for the description. It has maps for schemas, responses, parameters, examples, request bodies, headers, security schemes and more. Objects in components have no effect on the API until something outside components references them. A Reference Object can point to one of them, so you define it once and use it in many places.",
+            "example": "components.schemas holds a Pet schema. Two operations point to it with $ref: '#/components/schemas/Pet', so both use the same Pet.",
+            "source": {
+              "title": "OpenAPI Specification: Components Object",
+              "url": "https://spec.openapis.org/oas/latest.html#components-object"
+            }
+          },
+          "review": {
+            "question": "When does an object in components affect the API?",
+            "answer": "Only when something outside components references it."
+          }
+        }
+      ]
+    },
+    {
+      "id": "versioning",
+      "name": "API versioning",
+      "catch": {
+        "question": "What two requirements do the Azure guidelines set for every service change?",
+        "choices": [
+          "Running customer workloads must not break, and customers can adopt a new version with no code changes",
+          "Every change needs a new URL path, and old versions stop at once",
+          "Clients must update within 90 days, and previews never end",
+          "Each change needs a major version, and minor versions are hidden"
+        ],
+        "correctChoice": 0,
+        "explanation": "Already-running workloads must not break, and customers can adopt a new version without code changes."
+      },
+      "card": {
+        "text": "Services change over time. Azure sets two requirements for a change. Running customer workloads must not break. And customers can adopt a new service version without code changes. So do not introduce breaking changes. A preview version ends in -preview. A preview feature must go GA, or be removed, within 1 year. When a new preview ships, older previews may retire after at least 90 days.",
+        "example": "A service has 2021-06-04-preview. Its GA version must use a later date. When a newer preview ships, customers on the old one get at least 90 days to upgrade.",
+        "source": {
+          "title": "Azure REST API Guidelines: API versioning",
+          "url": "https://github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md#versioning"
+        }
+      },
+      "review": {
+        "question": "How long may an Azure feature stay in preview?",
+        "answer": "At most 1 year. Then it must go GA or be removed."
+      },
+      "workedExample": {
+        "problem": "A partner calls your Azure-style API in production with a preview api-version from 14 months ago.",
+        "steps": [
+          "A preview feature must go GA, or be removed, within 1 year.",
+          "Older previews may retire after a new preview ships, with at least 90 days for customers to upgrade.",
+          "A 14-month-old preview is past the 1-year limit, so it may be removed."
+        ],
+        "answer": "Move the partner to a stable, date-based api-version, because previews are short-lived."
+      },
+      "moves": [
+        {
+          "id": "versioning.api-version",
+          "name": "api-version parameter",
+          "catch": {
+            "question": "How does a client choose the version of an Azure API?",
+            "choices": [
+              "With a v1 segment in the path",
+              "With the Accept header",
+              "It cannot, because the latest version is always used",
+              "With a required api-version query parameter"
+            ],
+            "correctChoice": 3,
+            "explanation": "Every Azure operation has a required api-version query parameter. Azure puts no version in the path."
+          },
+          "card": {
+            "text": "Every Azure operation has a required query parameter named api-version. The client sends it in every request, also on nextLink and operation-location URLs. Its values are dates in YYYY-MM-DD form. A missing api-version gets 400 with the error code MissingApiVersionParameter. An unknown value gets 400 with UnsupportedApiVersionValue. Azure puts no version number segment in the path.",
+            "example": "PUT https://service.azure.com/users/Jeff?api-version=2021-06-04 uses the 2021-06-04 version. The same call with no api-version gets 400 Bad Request.",
+            "source": {
+              "title": "Azure REST API Guidelines: API versioning",
+              "url": "https://github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md#versioning"
+            }
+          },
+          "review": {
+            "question": "What happens when an Azure client leaves out api-version?",
+            "answer": "400 Bad Request with the error code MissingApiVersionParameter."
+          }
+        },
+        {
+          "id": "versioning.major-version",
+          "name": "Major version only",
+          "catch": {
+            "question": "How do Google APIs show the version in a REST URI?",
+            "choices": [
+              "As v1.4.2 at the end of the path",
+              "As v1, the first part of the path",
+              "Only as an api-version query parameter",
+              "They never show a version"
+            ],
+            "correctChoice": 1,
+            "explanation": "Google APIs put the major version first in the URI path. They never show minor or patch numbers."
+          },
+          "card": {
+            "text": "Google APIs must have a major version number. For REST APIs, it is the first part of the URI path, like v1. They must not show minor or patch numbers: v1, not v1.4.2. Users get new features in place, with no migration. Alpha and beta channels add the level, like v1beta. Different versions must work side by side for a transition period. An old version needs a clear deprecation period before shutdown.",
+            "example": "/v1/publishers/123/books is the stable channel. /v1beta/publishers/123/books is the beta channel. Its features are a superset of v1.",
+            "source": {
+              "title": "Google AIP-185: API versioning",
+              "url": "https://google.aip.dev/185"
+            }
+          },
+          "review": {
+            "question": "Does a Google API use v1.1 for a small change?",
+            "answer": "No. It shows only the major version, v1, and updates it in place."
+          }
+        },
+        {
+          "id": "versioning.deprecation-header",
+          "name": "Deprecation notice",
+          "catch": {
+            "question": "What is the azure-deprecating response header for?",
+            "choices": [
+              "Client code parses it to switch versions",
+              "It turns off the old version at once",
+              "It tells humans what will stop working, when, and where to learn more",
+              "It replaces the api-version parameter"
+            ],
+            "correctChoice": 2,
+            "explanation": "It is for humans who read logs. It names what is deprecating, the date and a URL."
+          },
+          "card": {
+            "text": "Sometimes a breaking change to an API version is approved. Then callers must be told. The response gets an azure-deprecating header. It says what is deprecating, when it will stop working, and a URL with more information. It is for humans who debug or read logs. Client code is not expected to parse it. Send it only when the operation will stop working and the client must act.",
+            "example": "azure-deprecating: API version 2009-27-07 will retire on 2022-12-01 (https://azure.microsoft.com/updates/video-analyzer-retirement)",
+            "source": {
+              "title": "Azure REST API Guidelines: Deprecating behavior notification",
+              "url": "https://github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md#deprecation"
+            }
+          },
+          "review": {
+            "question": "When should a service send the azure-deprecating header?",
+            "answer": "Only when the operation will stop working and the client must act."
+          }
+        }
+      ]
+    },
+    {
+      "id": "breaking-change",
+      "name": "Backwards compatibility",
+      "catch": {
+        "question": "Which change breaks existing clients in the same major version?",
+        "choices": [
+          "Adding a new method",
+          "Adding a new required field to an existing request",
+          "Adding an optional field whose default keeps the old behavior",
+          "Adding a new resource"
+        ],
+        "correctChoice": 1,
+        "explanation": "New required fields must not be added to existing request messages or resources."
+      },
+      "card": {
+        "text": "APIs are contracts with users. Users write code against an API and expect it to keep working. Old clients must work with newer servers of the same major version. You may add new methods, messages, fields or enum values. But new required fields must not be added to existing requests. A new field that clients fill needs a default that keeps the old behavior. There are three kinds of compatibility: source, wire and semantic.",
+        "example": "A new page_size field is safe only if its default keeps the old behavior. If the default returns fewer items than before, old clients wrongly think they got all results.",
+        "source": {
+          "title": "Google AIP-180: Backwards compatibility",
+          "url": "https://google.aip.dev/180"
+        }
+      },
+      "review": {
+        "question": "May you add a new required field to an existing request?",
+        "answer": "No. New required fields must not be added to existing requests or resources."
+      },
+      "workedExample": {
+        "problem": "Your team wants to rename the field customer_name to buyer_name in the orders API.",
+        "steps": [
+          "AIP-180 says renaming is the same as removing and adding.",
+          "Removing a field breaks existing clients.",
+          "So add buyer_name, keep customer_name, and specify what happens when a client sends both."
+        ],
+        "answer": "Add the new field and keep the old one. Never just rename a field in the same major version."
+      },
+      "moves": [
+        {
+          "id": "breaking-change.rename",
+          "name": "Rename",
+          "catch": {
+            "question": "Why is renaming a field a breaking change?",
+            "choices": [
+              "It is the same as removing a field and adding a new one",
+              "New names need a new server",
+              "It changes the HTTP method",
+              "It is not a breaking change"
+            ],
+            "correctChoice": 0,
+            "explanation": "AIP-180 says renaming is semantically the same as remove and add, and removing breaks clients."
+          },
+          "card": {
+            "text": "Existing interfaces, methods, messages, fields and enum values must not be removed in the same major version. Removing is a backwards incompatible change. Renaming is the same as remove and add. So add the new name, but do not remove the old one. If clients can now send conflicting values for the same idea, clearly specify the behavior.",
+            "example": "To rename customer_name to buyer_name, add buyer_name and keep customer_name. Document which value wins when a client sends both.",
+            "source": {
+              "title": "Google AIP-180: Backwards compatibility",
+              "url": "https://google.aip.dev/180"
+            }
+          },
+          "review": {
+            "question": "How do you rename a field without breaking clients?",
+            "answer": "Add the new field, keep the old one, and specify the behavior when both are sent."
+          }
+        },
+        {
+          "id": "breaking-change.default-value",
+          "name": "Default values",
+          "catch": {
+            "question": "Your API sets genre to FICTION when the client sends none. A teammate wants NONFICTION instead. What does AIP-180 say?",
+            "choices": [
+              "It is fine, because defaults are not part of the contract",
+              "It is fine if you update the documentation",
+              "It is a breaking change and must not be done",
+              "It is fine for fields the server fills"
+            ],
+            "correctChoice": 2,
+            "explanation": "Changing a default value is a breaking change. The default behavior of a resource must not change."
+          },
+          "card": {
+            "text": "Default values are the values the server sets when the client does not send them. They decide the default behavior of a resource. Changing a default value is a breaking change, and it must not be done. Also do not change how a field with its default value is serialized. Clients may depend on a field being present or absent.",
+            "example": "A car has wheels with the default 2, so its JSON has no wheels field. A change that now sends wheels: 2 is not backwards compatible.",
+            "source": {
+              "title": "Google AIP-180: Backwards compatibility",
+              "url": "https://google.aip.dev/180"
+            }
+          },
+          "review": {
+            "question": "Is it safe to start sending a field that you used to leave out at its default value?",
+            "answer": "No. Clients may depend on the field being absent."
+          }
+        },
+        {
+          "id": "breaking-change.semantic",
+          "name": "Semantic change",
+          "catch": {
+            "question": "Your ip_address field held IPv4 values. You start to return IPv6 values in it. Is this compatible?",
+            "choices": [
+              "Yes, the field type is still a string",
+              "Yes, if the field is output only",
+              "Yes, if you add a note to the docs",
+              "No, a change of the value format needs a new API version"
+            ],
+            "correctChoice": 3,
+            "explanation": "APIs must not change the format of an existing field's value within an API version, even for output-only fields."
+          },
+          "card": {
+            "text": "Code often depends on API behavior, even when it is not documented. So APIs must not change visible behavior in ways that are likely to break reasonable user code. This needs judgment. Also do not change the format, or the way you build the value, of an existing field. This is true even for output-only fields that the service fills. Such a change needs a new API version.",
+            "example": "An ip_address field always held IPv4 values. Returning IPv6 values in it breaks clients that parse IPv4, so it needs a new API version.",
+            "source": {
+              "title": "Google AIP-180: Backwards compatibility",
+              "url": "https://google.aip.dev/180"
+            }
+          },
+          "review": {
+            "question": "Is a format change in an output-only field safe?",
+            "answer": "No. Changing the format of a field's value needs a new API version."
+          }
+        }
+      ]
+    },
+    {
+      "id": "llm-api",
+      "name": "LLM API calls",
+      "catch": {
+        "question": "Which Claude API error means the API is temporarily overloaded?",
+        "choices": [
+          "400 invalid_request_error",
+          "401 authentication_error",
+          "529 overloaded_error",
+          "429 rate_limit_error"
+        ],
+        "correctChoice": 2,
+        "explanation": "529 overloaded_error means the API is temporarily overloaded. It can happen with high traffic across all users."
+      },
+      "card": {
+        "text": "The Claude API uses HTTP status codes and returns each error as JSON with a type and a message. 400 invalid_request_error is a problem with your request. 401 authentication_error is a problem with your API key. 429 rate_limit_error means your organization hit a rate limit. 500 api_error is an unexpected internal error. 529 overloaded_error means the API is temporarily overloaded. Every response has a request-id header for support.",
+        "example": "An error body has type error, an error object with type not_found_error and a message, and request_id req_011CSHoEeqs5C35K2UUqR7Fy.",
+        "source": {
+          "title": "Claude API: Errors",
+          "url": "https://platform.claude.com/docs/en/api/errors"
+        }
+      },
+      "review": {
+        "question": "What should you send to support about one failed Claude API call?",
+        "answer": "Its request ID, from the request-id header or the request_id field."
+      },
+      "workedExample": {
+        "problem": "Your app calls the Claude API to summarize support tickets. On busy days, some calls fail with 529, and users see an error page.",
+        "steps": [
+          "529 overloaded_error means the API is temporarily overloaded.",
+          "A temporary error is worth a retry with exponential backoff.",
+          "The official SDK retries 5xx errors twice with backoff by default, and max_retries changes this."
+        ],
+        "answer": "Treat 529 as temporary, and retry with exponential backoff, for example with the SDK's built-in retries."
+      },
+      "moves": [
+        {
+          "id": "llm-api.retry",
+          "name": "Retries with backoff",
+          "catch": {
+            "question": "What does the official Claude SDK do by default after a rate limit or a 5xx error?",
+            "choices": [
+              "It fails at once",
+              "It retries forever",
+              "It switches to a smaller model",
+              "It retries twice with exponential backoff, and honors retry-after"
+            ],
+            "correctChoice": 3,
+            "explanation": "The SDK retries transient failures twice by default, with exponential backoff, and honors retry-after when present."
+          },
+          "card": {
+            "text": "The official SDK retries transient failures for you. These include connection errors, rate limits and 5xx server errors. It retries twice by default, with exponential backoff. It honors the retry-after header when the response has one. The max_retries setting changes or turns off this behavior. But a 429 for a tier spend cap has no retry-after header. It keeps failing until access resumes.",
+            "example": "A script gets 429 rate_limit_error with a retry-after header, so the SDK waits and retries. A 400 invalid_request_error is not a transient failure: fix the request instead.",
+            "source": {
+              "title": "Claude API: Errors",
+              "url": "https://platform.claude.com/docs/en/api/errors"
+            }
+          },
+          "review": {
+            "question": "How many times does the official SDK retry by default?",
+            "answer": "Twice, with exponential backoff, honoring retry-after when present."
+          }
+        },
+        {
+          "id": "llm-api.streaming",
+          "name": "Streaming",
+          "catch": {
+            "question": "With stream set to true, how does the Claude API send the response?",
+            "choices": [
+              "As one JSON body at the end",
+              "As server-sent events, step by step",
+              "As one WebSocket message",
+              "As a file to download"
+            ],
+            "correctChoice": 1,
+            "explanation": "Setting stream to true streams the response step by step with server-sent events."
+          },
+          "card": {
+            "text": "Set stream to true to get the response step by step as server-sent events. The flow is message_start, then content blocks with their deltas, then message_delta, then message_stop. Ping events can come at any point. The API may also send an error inside the stream, like an overloaded_error. New event types may be added, so your code should handle unknown types gracefully.",
+            "example": "A stream sends content_block_delta events with text_delta pieces like Hello and then !. The app shows the text as it arrives.",
+            "source": {
+              "title": "Claude API: Streaming messages",
+              "url": "https://platform.claude.com/docs/en/build-with-claude/streaming"
+            }
+          },
+          "review": {
+            "question": "Can an error arrive inside a stream?",
+            "answer": "Yes. The API may send an error event, like overloaded_error, in the event stream."
+          }
+        },
+        {
+          "id": "llm-api.long-request",
+          "name": "Long requests",
+          "catch": {
+            "question": "You need a very long answer with a large max_tokens. What do the Claude API docs advise?",
+            "choices": [
+              "Use a non-streaming call with a long timeout",
+              "Send the request twice in parallel",
+              "Use streaming or the Message Batches API",
+              "Split the answer into one call per sentence"
+            ],
+            "correctChoice": 2,
+            "explanation": "For long requests, use streaming or the Message Batches API, especially for requests over 10 minutes."
+          },
+          "card": {
+            "text": "Use streaming or the Message Batches API for long requests, especially those over 10 minutes. Avoid a large max_tokens without them. Some networks drop idle connections after a while, so a request can fail with no response. The Batches API lets you poll for results, so it needs no unbroken connection. The SDKs check that a non-streaming request will not exceed a 10-minute timeout.",
+            "example": "A report job asks for up to 128000 tokens. It calls messages.stream and then get_final_message, so it still gets the complete message at the end.",
+            "source": {
+              "title": "Claude API: Errors, long requests",
+              "url": "https://platform.claude.com/docs/en/api/errors#long-requests"
+            }
+          },
+          "review": {
+            "question": "Why can a long non-streaming request fail with no response?",
+            "answer": "Some networks drop idle connections after a while."
+          }
+        }
+      ]
+    }
+  ],
+  "placement": [
+    {
+      "creatureId": "resource-design",
+      "question": "In resource-oriented design, what do you design first: the resources or the methods?",
+      "answer": "The resources, the nouns. Then their relationships and schema. The methods come last."
+    },
+    {
+      "creatureId": "api-status-code",
+      "question": "What should a successful DELETE return in an Azure-style API?",
+      "answer": "204 No Content, with no body. It returns 204 also when the resource does not exist."
+    },
+    {
+      "creatureId": "problem-details",
+      "question": "What is the RFC 9457 problem details format?",
+      "answer": "A standard JSON error body, application/problem+json, with type, title, status, detail and instance."
+    },
+    {
+      "creatureId": "api-auth",
+      "question": "Where should a non-public REST API check access?",
+      "answer": "At every API endpoint, with a token from a central Identity Provider."
+    },
+    {
+      "creatureId": "rate-limit",
+      "question": "Which status code and header tell a client that it sends too many requests, and how long to wait?",
+      "answer": "429 Too Many Requests, with a Retry-After header."
+    },
+    {
+      "creatureId": "paging",
+      "question": "Why should a list endpoint have paging from its first version?",
+      "answer": "The list can grow very large, and adding paging later is a breaking change."
+    },
+    {
+      "creatureId": "conditional-request",
+      "question": "How does a client avoid overwriting another client's change with a PUT?",
+      "answer": "It sends If-Match with the ETag it read. If the resource changed, the server answers 412."
+    },
+    {
+      "creatureId": "idempotency-key",
+      "question": "What is an idempotency key?",
+      "answer": "A unique key the client sends with a request. A retry with the same key does not repeat the operation."
+    },
+    {
+      "creatureId": "client-token",
+      "question": "Why must a service save the client token and the changes in one atomic step?",
+      "answer": "So it never has a token without the changes, or changes without the token."
+    },
+    {
+      "creatureId": "repeatability",
+      "question": "Why do the Azure guidelines prefer PUT over POST to create a resource?",
+      "answer": "PUT is idempotent and the client names the resource, so a retry cannot create a second one."
+    }
+  ],
+  "confusablePairs": [
+    [
+      "api-status-code.created",
+      "long-running.accepted"
+    ],
+    [
+      "api-status-code.conflict",
+      "conditional-request.if-match"
+    ],
+    [
+      "problem-details.type",
+      "problem-details.extension"
+    ],
+    [
+      "api-auth.https-only",
+      "api-auth.key-not-in-url"
+    ],
+    [
+      "rate-limit.retry-after",
+      "long-running.status-monitor"
+    ],
+    [
+      "rate-limit.token-bucket",
+      "rate-limit.api-key-quota"
+    ],
+    [
+      "paging.next-link",
+      "paging.page-token"
+    ],
+    [
+      "conditional-request.if-match",
+      "conditional-request.if-none-match"
+    ],
+    [
+      "idempotency-key",
+      "client-token"
+    ],
+    [
+      "idempotency-key.key-expiry",
+      "client-token.retention"
+    ],
+    [
+      "idempotency-key.saved-response",
+      "repeatability.request-id"
+    ],
+    [
+      "client-token.same-meaning",
+      "repeatability.request-id"
+    ],
+    [
+      "repeatability.headers",
+      "long-running.operation-id"
+    ],
+    [
+      "versioning.api-version",
+      "versioning.major-version"
+    ],
+    [
+      "breaking-change.default-value",
+      "breaking-change.semantic"
+    ],
+    [
+      "llm-api.streaming",
+      "llm-api.long-request"
+    ],
+    [
+      "llm-api.retry",
+      "rate-limit.retry-after"
+    ],
+    [
+      "http-method.idempotent",
+      "idempotency-key"
+    ],
+    [
+      "status-code.client-error",
+      "api-status-code.unprocessable"
+    ]
+  ],
+  "scenarios": [
+    {
+      "id": "t02-first-endpoints",
+      "name": "The first endpoints",
+      "opponentType": "data",
+      "secondType": "traffic",
+      "problem": "Your team builds the first version of a library API. The mobile team starts to use it this week.",
+      "turns": [
+        {
+          "threatType": "data",
+          "threat": "The plan has endpoints like /getBook, /saveBook and /removeBookNow. Each one returns a different shape of book.",
+          "moves": [
+            {
+              "moveId": "resource-design.resource-name",
+              "damage": 1,
+              "counterattack": "Books now have clean names, but each endpoint still returns its own shape."
+            },
+            {
+              "moveId": "api-status-code.created",
+              "damage": 0,
+              "counterattack": "Creates now return 201, but the endpoints still disagree about what a book is."
+            },
+            {
+              "moveId": "resource-design.standard-methods",
+              "damage": 2,
+              "counterattack": "The standard methods share one book schema, but you must rewrite the first endpoints."
+            },
+            {
+              "moveId": "api-status-code.conflict",
+              "damage": 0,
+              "counterattack": "You add 409 answers, but the book shapes still differ."
+            }
+          ],
+          "modelAnswer": "Model books as a resource and use the standard methods: Get, List, Create, Update and Delete. The book schema must be the same in all of them. The cost: you rewrite the first endpoints before clients depend on them.",
+          "keyPoints": [
+            "Use the standard methods for most operations.",
+            "One resource schema across all methods.",
+            "Rewrite now, before clients depend on it."
+          ]
+        },
+        {
+          "threatType": "traffic",
+          "threat": "Create answers 200 OK with an empty body. So the app calls List every second until it finds the new book.",
+          "moves": [
+            {
+              "moveId": "api-status-code.created",
+              "damage": 2,
+              "counterattack": "The app reads Location and stops polling, but every create must now set Location correctly."
+            },
+            {
+              "moveId": "resource-design.custom-method",
+              "damage": 0,
+              "counterattack": "You add a :findNew method, and the app polls it every second instead."
+            },
+            {
+              "moveId": "api-status-code.conflict",
+              "damage": 0,
+              "counterattack": "You answer 409 for duplicate books, but the app still lists every second."
+            }
+          ],
+          "modelAnswer": "Answer a create with 201 Created and a Location header that names the new book. The app then reads that one book, with no search. The cost: every create path must set Location correctly.",
+          "keyPoints": [
+            "201 Created means a new resource exists.",
+            "The Location header names the new resource.",
+            "The client reads Location instead of searching."
+          ]
+        },
+        {
+          "threatType": "data",
+          "threat": "Product wants an archive action. A teammate adds an archived flag that any Update call can change by mistake.",
+          "moves": [
+            {
+              "moveId": "resource-design.resource-name",
+              "damage": 0,
+              "counterattack": "You rename the flag, but any Update can still archive a book by mistake."
+            },
+            {
+              "moveId": "api-status-code.created",
+              "damage": 0,
+              "counterattack": "Archive calls now return 201, but nothing new was created, so clients get confused."
+            },
+            {
+              "moveId": "resource-design.standard-methods",
+              "damage": 1,
+              "counterattack": "Update now has a special archive rule, but the rule hides inside a normal update."
+            },
+            {
+              "moveId": "resource-design.custom-method",
+              "damage": 2,
+              "counterattack": "POST with :archive is clear, but the team must document and test one more method."
+            }
+          ],
+          "modelAnswer": "Archiving does not fit a standard method cleanly, so add a custom method: POST on the book with :archive. Do not bend Update to make it sort of work. The cost: one more method to document and test.",
+          "keyPoints": [
+            "Use a custom method when no standard method fits.",
+            "It uses POST and a colon verb, like :archive.",
+            "Do not bend Update to do the job."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t02-confused-client",
+      "name": "The confused client",
+      "opponentType": "traffic",
+      "secondType": "data",
+      "problem": "A partner app calls your orders API. It cannot tell success from failure, so it guesses.",
+      "turns": [
+        {
+          "threatType": "data",
+          "threat": "The API answers 400 for broken JSON and also for a quantity of minus 3. The app shows Try again for both.",
+          "moves": [
+            {
+              "moveId": "api-status-code.conflict",
+              "damage": 0,
+              "counterattack": "You answer 409 for the quantity, but nothing conflicts, so the app is confused again."
+            },
+            {
+              "moveId": "api-status-code.unprocessable",
+              "damage": 2,
+              "counterattack": "The app can now tell a typo from a bad value, but the server must check each value."
+            },
+            {
+              "moveId": "api-status-code.created",
+              "damage": 0,
+              "counterattack": "Good orders get 201, but the two errors still look the same."
+            }
+          ],
+          "modelAnswer": "Keep 400 for broken syntax. Use 422 when the JSON is fine but the values cannot be processed. Then the app can show the right fix. The cost: the server must check each value and report it.",
+          "keyPoints": [
+            "400 is for a client error, like malformed syntax.",
+            "422 means correct syntax, but instructions that cannot be processed.",
+            "Different codes let the client show the right fix."
+          ]
+        },
+        {
+          "threatType": "traffic",
+          "threat": "Create answers 200 OK with an empty body. So the app lists all orders again and again to find the new one.",
+          "moves": [
+            {
+              "moveId": "resource-design.custom-method",
+              "damage": 0,
+              "counterattack": "You add a :findNewest method, and the app now polls that instead."
+            },
+            {
+              "moveId": "resource-design.resource-name",
+              "damage": 0,
+              "counterattack": "Orders get clean names, but the app still cannot learn the new one."
+            },
+            {
+              "moveId": "api-status-code.unprocessable",
+              "damage": 0,
+              "counterattack": "Bad orders are clearer now, but good orders still give no name back."
+            },
+            {
+              "moveId": "api-status-code.created",
+              "damage": 2,
+              "counterattack": "The app reads Location and stops listing, but each create path must set it."
+            }
+          ],
+          "modelAnswer": "Answer a new order with 201 Created and a Location header. The app learns at once that the order exists, and where it is. The cost: every create path must return the right Location.",
+          "keyPoints": [
+            "201 Created says a new resource exists.",
+            "Location names the new order.",
+            "No need to list everything to find it."
+          ]
+        },
+        {
+          "threatType": "data",
+          "threat": "Two staff members change the same order at once. The second PUT wins, and the first change is lost without a word.",
+          "moves": [
+            {
+              "moveId": "api-status-code.conflict",
+              "damage": 2,
+              "counterattack": "The second PUT now gets 409, but the staff must merge the two changes by hand."
+            },
+            {
+              "moveId": "api-status-code.created",
+              "damage": 0,
+              "counterattack": "You answer 201, but nothing new was created, and the change is still lost."
+            },
+            {
+              "moveId": "resource-design.custom-method",
+              "damage": 0,
+              "counterattack": "You add an :updateSafely method, but it also saves over the first change."
+            },
+            {
+              "moveId": "resource-design.standard-methods",
+              "damage": 0,
+              "counterattack": "Update returns the saved order now, but the first change is still lost."
+            }
+          ],
+          "modelAnswer": "Answer the conflicting PUT with 409 Conflict. Give enough detail, so the user can see the other change and merge. The cost: users must resolve the conflict themselves and send again.",
+          "keyPoints": [
+            "409 means a conflict with the current state.",
+            "The response shows the source of the conflict.",
+            "The user resolves it and sends the request again."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t02-unreadable-errors",
+      "name": "Errors nobody can read",
+      "opponentType": "data",
+      "secondType": "security",
+      "problem": "Your shop API returns errors, but the app and the support team cannot use them.",
+      "turns": [
+        {
+          "threatType": "data",
+          "threat": "The app decides what to do by reading the error title. A copy change in one title broke the top-up flow.",
+          "moves": [
+            {
+              "moveId": "problem-details.extension",
+              "damage": 1,
+              "counterattack": "The app reads a balance field now, but it still picks the action from the title."
+            },
+            {
+              "moveId": "problem-details.safe-detail",
+              "damage": 0,
+              "counterattack": "The errors are safer, but the app still matches on the title text."
+            },
+            {
+              "moveId": "problem-details.type",
+              "damage": 2,
+              "counterattack": "The app checks the type URI, so titles can change, but each type URI must stay stable."
+            },
+            {
+              "moveId": "api-status-code.unprocessable",
+              "damage": 0,
+              "counterattack": "The status code is better, but many errors share it, so the app still reads titles."
+            }
+          ],
+          "modelAnswer": "Give each problem a type URI, and let the app decide by type. The title is only a short summary for humans. The cost: you must keep each type URI stable and documented.",
+          "keyPoints": [
+            "The type URI is the main identifier of a problem.",
+            "The title is for humans, not for code.",
+            "A new type URI is a new problem identity."
+          ]
+        },
+        {
+          "threatType": "security",
+          "threat": "A failed payment returns the SQL error and a full stack trace to the browser.",
+          "moves": [
+            {
+              "moveId": "problem-details.safe-detail",
+              "damage": 2,
+              "counterattack": "The stack trace is gone, but your team needs another way to see the cause."
+            },
+            {
+              "moveId": "problem-details.extension",
+              "damage": 0,
+              "counterattack": "You move the stack trace into an extension, so attackers still read it."
+            },
+            {
+              "moveId": "problem-details.type",
+              "damage": 1,
+              "counterattack": "The error has a type now, but the stack trace is still in the body."
+            }
+          ],
+          "modelAnswer": "Remove implementation details, like stack dumps, from the response. The detail text should help the client fix the problem. The cost: developers need another way to see the cause.",
+          "keyPoints": [
+            "Error details can help attackers.",
+            "Do not show a stack dump through the HTTP interface.",
+            "The detail text helps the client fix the problem."
+          ]
+        },
+        {
+          "threatType": "data",
+          "threat": "The app parses the detail sentence to find the account balance. A new wording breaks it.",
+          "moves": [
+            {
+              "moveId": "api-status-code.conflict",
+              "damage": 0,
+              "counterattack": "You switch to 409, but the app still parses the sentence."
+            },
+            {
+              "moveId": "problem-details.type",
+              "damage": 1,
+              "counterattack": "The type is clear, but the balance still hides inside the sentence."
+            },
+            {
+              "moveId": "problem-details.safe-detail",
+              "damage": 0,
+              "counterattack": "The detail gets shorter, and the app's parser breaks again."
+            },
+            {
+              "moveId": "problem-details.extension",
+              "damage": 2,
+              "counterattack": "The balance is a field now, but old app versions still parse the sentence."
+            }
+          ],
+          "modelAnswer": "Put the balance in an extension member, like balance: 30. Clients should not parse the detail text. The cost: old app versions keep parsing until users update them.",
+          "keyPoints": [
+            "Extensions carry machine data.",
+            "Do not parse the detail text.",
+            "Clients ignore extensions they do not know."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t02-leaked-key",
+      "name": "The leaked key",
+      "opponentType": "security",
+      "secondType": "traffic",
+      "problem": "A partner reports strange calls made with its API key. Your team checks how keys and tokens travel.",
+      "turns": [
+        {
+          "threatType": "security",
+          "threat": "The partner shared a log file in a support ticket. It holds full URLs with apiKey= values.",
+          "moves": [
+            {
+              "moveId": "api-auth.https-only",
+              "damage": 1,
+              "counterattack": "Keys are safe on the network now, but the URLs in the logs still hold them."
+            },
+            {
+              "moveId": "api-auth.key-not-in-url",
+              "damage": 2,
+              "counterattack": "Keys move to a header and leave the logs, but every client must change its calls."
+            },
+            {
+              "moveId": "problem-details.safe-detail",
+              "damage": 0,
+              "counterattack": "Error bodies are cleaner, but the keys still sit in the URLs."
+            }
+          ],
+          "modelAnswer": "Move API keys out of the URL and into a header. Web server logs capture URLs, so keys there leak. The cost: every client must change how it sends the key.",
+          "keyPoints": [
+            "Never put keys or tokens in the URL.",
+            "Logs capture URLs.",
+            "Send keys in a header."
+          ]
+        },
+        {
+          "threatType": "traffic",
+          "threat": "Users with valid tokens get 401 for other teams' reports. The app signs in again and again, and floods the sign-in server.",
+          "moves": [
+            {
+              "moveId": "api-auth.key-not-in-url",
+              "damage": 0,
+              "counterattack": "Keys are out of the URL, but the app still loops on 401."
+            },
+            {
+              "moveId": "api-status-code.conflict",
+              "damage": 0,
+              "counterattack": "The app gets 409 now, and it retries the same request."
+            },
+            {
+              "moveId": "api-auth.https-only",
+              "damage": 0,
+              "counterattack": "The traffic is encrypted, but the sign-in loop goes on."
+            },
+            {
+              "moveId": "api-auth.unauthorized-vs-forbidden",
+              "damage": 2,
+              "counterattack": "The sign-in loop stops, but the app now needs a clear no-access screen."
+            }
+          ],
+          "modelAnswer": "The token is valid, so answer 403 Forbidden, not 401. A 401 tells the client to try new credentials. The client should not repeat a 403 with the same credentials. The cost: the app needs a no-access screen.",
+          "keyPoints": [
+            "401 means missing or invalid credentials.",
+            "403 means valid credentials, but no access.",
+            "Clients should not repeat a 403 with the same credentials."
+          ]
+        },
+        {
+          "threatType": "security",
+          "threat": "An old test endpoint still answers over plain http. One app version sends tokens to it.",
+          "moves": [
+            {
+              "moveId": "api-auth.https-only",
+              "damage": 2,
+              "counterattack": "The plain http endpoint closes, but the old app version stops working until users update."
+            },
+            {
+              "moveId": "api-auth.unauthorized-vs-forbidden",
+              "damage": 0,
+              "counterattack": "The codes are correct, but the tokens still travel in plain text."
+            },
+            {
+              "moveId": "api-auth.key-not-in-url",
+              "damage": 1,
+              "counterattack": "Tokens leave the URL, but plain http still shows the headers too."
+            },
+            {
+              "moveId": "resource-design.resource-name",
+              "damage": 0,
+              "counterattack": "The test endpoint gets a nicer name, but it is still plain http."
+            }
+          ],
+          "modelAnswer": "Serve the API only over HTTPS, and close the plain http endpoint. HTTPS protects tokens in transit and lets clients authenticate the service. The cost: the old app version breaks until users update.",
+          "keyPoints": [
+            "Secure REST services offer only HTTPS.",
+            "HTTPS protects credentials in transit.",
+            "Clients can check that they talk to the real service."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t02-greedy-partner",
+      "name": "The greedy partner",
+      "opponentType": "traffic",
+      "secondType": "outage",
+      "problem": "One partner's integration sends more requests than all the other partners together.",
+      "turns": [
+        {
+          "threatType": "traffic",
+          "threat": "One partner key sends 300 requests per second. Calls from the other partners slow down.",
+          "moves": [
+            {
+              "moveId": "rate-limit.retry-after",
+              "damage": 1,
+              "counterattack": "You send Retry-After, but with 200 OK answers the partner has no reason to wait."
+            },
+            {
+              "moveId": "api-auth.key-not-in-url",
+              "damage": 0,
+              "counterattack": "The key moves to a header, and it still sends 300 requests per second."
+            },
+            {
+              "moveId": "rate-limit.api-key-quota",
+              "damage": 2,
+              "counterattack": "The key gets 429 above its limit, but you must agree on a limit with each partner."
+            },
+            {
+              "moveId": "api-status-code.conflict",
+              "damage": 0,
+              "counterattack": "You answer 409, but nothing conflicts, and the partner retries at once."
+            }
+          ],
+          "modelAnswer": "Limit requests per API key, and answer 429 Too Many Requests when a key goes too fast. Revoke a key that keeps breaking the usage agreement. The cost: each partner needs a clear, agreed limit.",
+          "keyPoints": [
+            "Require an API key on every request.",
+            "Return 429 when a key sends too fast.",
+            "Revoke a key that breaks the agreement."
+          ]
+        },
+        {
+          "threatType": "outage",
+          "threat": "The partner's script gets 429, but it retries at once, again and again, all night.",
+          "moves": [
+            {
+              "moveId": "rate-limit.retry-after",
+              "damage": 2,
+              "counterattack": "The script now waits the time you send, but you must choose a fair wait."
+            },
+            {
+              "moveId": "rate-limit.token-bucket",
+              "damage": 1,
+              "counterattack": "Capacity refills smoothly, but the script still hits you between refills."
+            },
+            {
+              "moveId": "problem-details.extension",
+              "damage": 0,
+              "counterattack": "You add a wait field to the error body, but the script never reads error bodies."
+            }
+          ],
+          "modelAnswer": "Send a Retry-After header, so the client knows how long to wait. The value is seconds or an HTTP date. The cost: you must choose a wait that is fair and correct.",
+          "keyPoints": [
+            "Retry-After says how long to wait.",
+            "It is a number of seconds or an HTTP date.",
+            "The client waits before its next request."
+          ]
+        },
+        {
+          "threatType": "traffic",
+          "threat": "A nightly job sends 60 requests in the first second of each minute. It gets 429 under a limit of 60 per minute.",
+          "moves": [
+            {
+              "moveId": "rate-limit.api-key-quota",
+              "damage": 0,
+              "counterattack": "You give the job its own key, but its bursts still hit the limit."
+            },
+            {
+              "moveId": "rate-limit.retry-after",
+              "damage": 1,
+              "counterattack": "The job waits after each 429, but every new minute starts with a burst again."
+            },
+            {
+              "moveId": "api-auth.https-only",
+              "damage": 0,
+              "counterattack": "The calls are secure, but the bursts still fail."
+            },
+            {
+              "moveId": "rate-limit.token-bucket",
+              "damage": 2,
+              "counterattack": "The job spreads its calls over the minute, but each run now takes the whole minute."
+            }
+          ],
+          "modelAnswer": "With a token bucket, capacity refills all the time. A limit can also apply over shorter times, like 60 per minute as 1 per second. So spread the requests evenly. The cost: each run takes the whole minute.",
+          "keyPoints": [
+            "Capacity refills all the time, up to a maximum.",
+            "A limit can apply over shorter times.",
+            "Spread requests instead of sending bursts."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t02-endless-list",
+      "name": "The endless list",
+      "opponentType": "speed",
+      "secondType": "data",
+      "problem": "GET /orders was built for a small shop. Now the shop has 40,000 orders.",
+      "turns": [
+        {
+          "threatType": "speed",
+          "threat": "GET /orders returns all 40,000 orders in one response. Mobile apps wait 20 seconds for it.",
+          "moves": [
+            {
+              "moveId": "paging.page-size",
+              "damage": 1,
+              "counterattack": "Clients can ask for fewer orders, but nobody knows how to get the rest."
+            },
+            {
+              "moveId": "paging.next-link",
+              "damage": 2,
+              "counterattack": "Pages come fast with a nextLink, but old clients that expect every order break."
+            },
+            {
+              "moveId": "rate-limit.token-bucket",
+              "damage": 0,
+              "counterattack": "You limit the calls, but each call is still huge and slow."
+            },
+            {
+              "moveId": "resource-design.custom-method",
+              "damage": 0,
+              "counterattack": "You add an :exportAll method, but it still returns everything."
+            }
+          ],
+          "modelAnswer": "Return the list in pages, with a nextLink to the next page and no nextLink on the last one. The cost: adding paging later is a breaking change, so old clients must change.",
+          "keyPoints": [
+            "Lists that can grow need paging.",
+            "nextLink points to the next page.",
+            "Adding paging later breaks old clients."
+          ]
+        },
+        {
+          "threatType": "data",
+          "threat": "A partner decodes your base-64 page token and edits the offset in it. After you change the token, their app shows the wrong orders.",
+          "moves": [
+            {
+              "moveId": "paging.page-token",
+              "damage": 2,
+              "counterattack": "Tokens become truly opaque, but this partner must rewrite its paging code."
+            },
+            {
+              "moveId": "paging.next-link",
+              "damage": 0,
+              "counterattack": "You send a nextLink, but it carries the same readable token, so the partner keeps editing it."
+            },
+            {
+              "moveId": "api-auth.key-not-in-url",
+              "damage": 0,
+              "counterattack": "Keys leave the URL, but the token is still easy to edit."
+            }
+          ],
+          "modelAnswer": "Page tokens must be opaque. If users can take them apart, they will, and then you cannot change your paging. Base-64 encoding alone is not enough. The cost: partners who decoded tokens must change their code.",
+          "keyPoints": [
+            "Page tokens must be opaque.",
+            "Base-64 encoding alone is not enough.",
+            "Readable tokens freeze your paging design."
+          ]
+        },
+        {
+          "threatType": "speed",
+          "threat": "A client sends page_size 100000 to avoid paging. Each call still takes 20 seconds.",
+          "moves": [
+            {
+              "moveId": "paging.next-link",
+              "damage": 1,
+              "counterattack": "The client gets a nextLink, but its pages are still huge."
+            },
+            {
+              "moveId": "rate-limit.api-key-quota",
+              "damage": 0,
+              "counterattack": "You limit the key, but each giant page is still slow."
+            },
+            {
+              "moveId": "paging.page-size",
+              "damage": 2,
+              "counterattack": "The API lowers page_size to the maximum, but the client must follow more pages."
+            }
+          ],
+          "modelAnswer": "Set a maximum page size, and lower bigger values to it. Document the default size. The API may return fewer results than asked. The cost: the client must follow more pages.",
+          "keyPoints": [
+            "A page_size above the maximum is lowered to it.",
+            "A missing page_size gets a documented default.",
+            "A page can be shorter than asked."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t02-two-editors",
+      "name": "Two editors",
+      "opponentType": "data",
+      "secondType": "speed",
+      "problem": "Support agents edit customers in a web app. The app calls your customers API.",
+      "turns": [
+        {
+          "threatType": "data",
+          "threat": "Two agents edit one customer. The second save silently erases the first agent's change.",
+          "moves": [
+            {
+              "moveId": "api-status-code.conflict",
+              "damage": 1,
+              "counterattack": "You return 409 sometimes, but the server cannot tell which save used old data."
+            },
+            {
+              "moveId": "conditional-request.if-none-match",
+              "damage": 0,
+              "counterattack": "If-None-Match with an ETag guards reads, so saves still overwrite each other."
+            },
+            {
+              "moveId": "paging.page-token",
+              "damage": 0,
+              "counterattack": "The customer list pages well, but saves still overwrite each other."
+            },
+            {
+              "moveId": "conditional-request.if-match",
+              "damage": 2,
+              "counterattack": "Saves based on old data now fail with 412, but agents must reload and redo their change."
+            }
+          ],
+          "modelAnswer": "Send If-Match with the ETag the agent read. If the customer changed since, the server must not apply the save, and it answers 412. The cost: the agent must reload and redo the change.",
+          "keyPoints": [
+            "If-Match carries the ETag the client read.",
+            "A changed resource gets 412, not a silent overwrite.",
+            "This prevents the lost update problem."
+          ]
+        },
+        {
+          "threatType": "speed",
+          "threat": "The app downloads the same 2 MB customer list every minute, even when nothing changed.",
+          "moves": [
+            {
+              "moveId": "conditional-request.if-none-match",
+              "damage": 2,
+              "counterattack": "An unchanged list returns 304, but the ETag must change every time the list changes."
+            },
+            {
+              "moveId": "paging.page-size",
+              "damage": 1,
+              "counterattack": "Pages get smaller, but the app still downloads data that did not change."
+            },
+            {
+              "moveId": "conditional-request.if-match",
+              "damage": 0,
+              "counterattack": "If-Match guards changes, so the downloads stay the same."
+            },
+            {
+              "moveId": "rate-limit.retry-after",
+              "damage": 0,
+              "counterattack": "You ask the app to wait, but it still downloads the full list each time."
+            }
+          ],
+          "modelAnswer": "Send If-None-Match with the stored ETag on each GET. If nothing changed, the server answers 304 Not Modified, and the app uses its copy. The cost: the ETag must change whenever the list changes.",
+          "keyPoints": [
+            "If-None-Match carries the stored ETag.",
+            "No change means 304 Not Modified.",
+            "The app reuses its stored copy."
+          ]
+        },
+        {
+          "threatType": "data",
+          "threat": "Your ETag is a version number. An update worked, but its reply was lost. The identical retry is now rejected as a conflict.",
+          "moves": [
+            {
+              "moveId": "api-status-code.conflict",
+              "damage": 0,
+              "counterattack": "The retry gets a clearer 409, but it is still rejected."
+            },
+            {
+              "moveId": "conditional-request.etag",
+              "damage": 2,
+              "counterattack": "A hash of the resource helps retries, but you must hash the whole resource on each change."
+            },
+            {
+              "moveId": "conditional-request.if-none-match",
+              "damage": 0,
+              "counterattack": "If-None-Match does not help an update retry, so it still fails."
+            }
+          ],
+          "modelAnswer": "Azure prefers a hash of the whole resource as the ETag, not a version number. A version number can make a retried update look like a conflict. The cost: you compute a hash on each change.",
+          "keyPoints": [
+            "Return an ETag with each read and update.",
+            "Prefer a hash of the whole resource.",
+            "Version numbers can break retries."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t02-double-charge",
+      "name": "The double charge",
+      "opponentType": "outage",
+      "secondType": "data",
+      "problem": "Your payment service accepts idempotency keys from the shop apps. Customers still report strange charges.",
+      "turns": [
+        {
+          "threatType": "outage",
+          "threat": "A payment call times out. The shop app makes a new key for the retry, and the customer pays twice.",
+          "moves": [
+            {
+              "moveId": "idempotency-key.parameter-check",
+              "damage": 1,
+              "counterattack": "Mismatched retries now fail, but a new key still looks like a new payment."
+            },
+            {
+              "moveId": "idempotency-key.saved-response",
+              "damage": 2,
+              "counterattack": "A retry with the same key gets the saved first response, but a saved 500 also comes back."
+            },
+            {
+              "moveId": "conditional-request.if-match",
+              "damage": 0,
+              "counterattack": "A payment is not an update, so If-Match does not stop the second charge."
+            }
+          ],
+          "modelAnswer": "Keep the same key for every retry of one payment. The service saves the first response and returns it to retries. The cost: as in Stripe API v1, a saved error, even a 500, comes back to every retry.",
+          "keyPoints": [
+            "Retry with the same key, never a new one.",
+            "The first result is saved and returned.",
+            "In Stripe API v1, saved errors come back too."
+          ]
+        },
+        {
+          "threatType": "data",
+          "threat": "A bug in one shop app reuses one key for every order of the day. Later orders get the first order's receipt.",
+          "moves": [
+            {
+              "moveId": "idempotency-key.key-expiry",
+              "damage": 0,
+              "counterattack": "Keys expire after a day, but orders on the same day still share one receipt."
+            },
+            {
+              "moveId": "api-status-code.created",
+              "damage": 0,
+              "counterattack": "Each order says 201, but later orders still get the first receipt."
+            },
+            {
+              "moveId": "idempotency-key.saved-response",
+              "damage": 0,
+              "counterattack": "The saved response is exactly what returns the first receipt to later orders."
+            },
+            {
+              "moveId": "idempotency-key.parameter-check",
+              "damage": 2,
+              "counterattack": "A reused key with a new order now gets an error, but that shop app must fix its key bug."
+            }
+          ],
+          "modelAnswer": "Compare the parameters with the first request that used this key. Different parameters with the same key get an error, not a saved response. The cost: the app with the bug must create one key per order.",
+          "keyPoints": [
+            "Compare the parameters with the first request of the key.",
+            "Same key and different parameters: return an error.",
+            "A key recognizes retries of the same request."
+          ]
+        },
+        {
+          "threatType": "outage",
+          "threat": "A queue replays failed payments three days later with the old keys. Some customers now pay twice.",
+          "moves": [
+            {
+              "moveId": "idempotency-key.key-expiry",
+              "damage": 2,
+              "counterattack": "You know old keys are gone, but late retries now need a payment check first."
+            },
+            {
+              "moveId": "idempotency-key.saved-response",
+              "damage": 1,
+              "counterattack": "Saved responses help fast retries, but these keys were removed long ago."
+            },
+            {
+              "moveId": "rate-limit.retry-after",
+              "damage": 0,
+              "counterattack": "The queue waits even longer, so the keys get even older."
+            }
+          ],
+          "modelAnswer": "Stripe API v1 may remove keys that are at least 24 hours old. A reused key after that runs as a new request. So retry while the key is still saved, and check the payment state before a late retry. The cost: an extra check for old failures.",
+          "keyPoints": [
+            "Keys may be removed after 24 hours.",
+            "A removed key runs as a new request.",
+            "Check the state before a late retry."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t02-ghost-servers",
+      "name": "The ghost servers",
+      "opponentType": "outage",
+      "secondType": "data",
+      "problem": "Your cloud service creates servers for customers. Their scripts retry every failed call.",
+      "turns": [
+        {
+          "threatType": "outage",
+          "threat": "Your service saves the client token, then crashes before it creates the server. Retries now say success, but no server exists.",
+          "moves": [
+            {
+              "moveId": "idempotency-key.saved-response",
+              "damage": 1,
+              "counterattack": "You save the response too, but a crash can still split the token from the server."
+            },
+            {
+              "moveId": "idempotency-key.key-expiry",
+              "damage": 0,
+              "counterattack": "The broken token expires after a day, so customers wait a day for a server."
+            },
+            {
+              "moveId": "client-token.atomic-record",
+              "damage": 2,
+              "counterattack": "Token and server are saved together now, but every create runs in one transaction."
+            }
+          ],
+          "modelAnswer": "Save the token and all changes in one ACID operation, all or nothing. Then a crash leaves neither a token without a server nor a server without a token. The cost: each create runs inside one transaction.",
+          "keyPoints": [
+            "The token and the changes are saved together.",
+            "All or nothing, as one ACID operation.",
+            "No token without the resource."
+          ]
+        },
+        {
+          "threatType": "data",
+          "threat": "Retries get ResourceAlreadyExists. Customer scripts think someone else made the server, and they stop.",
+          "moves": [
+            {
+              "moveId": "api-status-code.conflict",
+              "damage": 0,
+              "counterattack": "You switch to 409, and the scripts still think someone else made it."
+            },
+            {
+              "moveId": "client-token.same-meaning",
+              "damage": 2,
+              "counterattack": "Retries get the same answer as the first call, but you must keep the data for that answer."
+            },
+            {
+              "moveId": "client-token.retention",
+              "damage": 1,
+              "counterattack": "You keep tokens longer, but retries still get ResourceAlreadyExists."
+            },
+            {
+              "moveId": "problem-details.type",
+              "damage": 0,
+              "counterattack": "The error now has a type, but it is still the wrong answer to a retry."
+            }
+          ],
+          "modelAnswer": "Return a semantically equivalent response to every retry with the same token. The script gets the same server ID, as if no retry happened. The cost: the service must keep enough data to rebuild that answer.",
+          "keyPoints": [
+            "Same token, same meaning of the response.",
+            "ResourceAlreadyExists confuses the caller.",
+            "Then SDKs can retry for you."
+          ]
+        },
+        {
+          "threatType": "data",
+          "threat": "A retry arrives a day after the customer deleted the server. Your service forgot the token and starts a new server.",
+          "moves": [
+            {
+              "moveId": "client-token.atomic-record",
+              "damage": 0,
+              "counterattack": "Saves are atomic, but the token is already gone."
+            },
+            {
+              "moveId": "idempotency-key.parameter-check",
+              "damage": 0,
+              "counterattack": "The parameters match, but the token is gone, so a new server starts."
+            },
+            {
+              "moveId": "client-token.retention",
+              "damage": 2,
+              "counterattack": "Tokens now live as long as the server plus a margin, but the token store grows."
+            }
+          ],
+          "modelAnswer": "Keep the token record for the life of the resource, plus time for late requests. Then a late retry gets the first answer, with the current state. The cost: you store more token records.",
+          "keyPoints": [
+            "Late retries can arrive after a delete.",
+            "Keep tokens for the life of the resource plus a margin.",
+            "Keeping them forever is not practical."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t02-twin-grants",
+      "name": "The twin grants",
+      "opponentType": "data",
+      "secondType": "traffic",
+      "problem": "Your services follow the Azure and Google API guidelines. Workers grant access and create books in parallel.",
+      "turns": [
+        {
+          "threatType": "data",
+          "threat": "A grant action uses POST. After a timeout, the retry grants access twice and writes two audit entries.",
+          "moves": [
+            {
+              "moveId": "repeatability.headers",
+              "damage": 2,
+              "counterattack": "A retry with the same Repeatability-Request-ID runs once, but you must track requests for 5 minutes."
+            },
+            {
+              "moveId": "idempotency-key.parameter-check",
+              "damage": 0,
+              "counterattack": "You compare parameters, but an exact retry still runs twice."
+            },
+            {
+              "moveId": "api-status-code.created",
+              "damage": 0,
+              "counterattack": "The grant returns 201, but it still runs twice."
+            },
+            {
+              "moveId": "conditional-request.if-match",
+              "damage": 1,
+              "counterattack": "If-Match blocks a second change of the same version, but actions with no ETag still repeat."
+            }
+          ],
+          "modelAnswer": "Support the repeatability headers on the POST action. A retry with the same Repeatability-Request-ID is recognized and runs once. The cost: the service must track requests for at least 5 minutes.",
+          "keyPoints": [
+            "POST actions are not naturally idempotent.",
+            "Repeatability-Request-ID marks the retry.",
+            "Track requests for at least 5 minutes."
+          ]
+        },
+        {
+          "threatType": "traffic",
+          "threat": "Parallel workers send the same CreateBook call to a Google-style API. The API creates one book per worker.",
+          "moves": [
+            {
+              "moveId": "repeatability.headers",
+              "damage": 1,
+              "counterattack": "The Azure headers would work, but this Google-style API has no support for them yet."
+            },
+            {
+              "moveId": "client-token.retention",
+              "damage": 0,
+              "counterattack": "Tokens live longer, but these calls have no token at all."
+            },
+            {
+              "moveId": "repeatability.request-id",
+              "damage": 2,
+              "counterattack": "Duplicates with one request_id create one book, but all workers must share that ID."
+            }
+          ],
+          "modelAnswer": "Add a request_id to CreateBook, and let all workers send the same ID for one book. The server returns the earlier success to duplicates. The cost: the workers must agree on one ID.",
+          "keyPoints": [
+            "A request_id makes the request idempotent.",
+            "Duplicates get the earlier success response.",
+            "A random UUID is recommended."
+          ]
+        },
+        {
+          "threatType": "traffic",
+          "threat": "The service has a short hiccup. Every worker retries at the same moment, and the service slows down even more.",
+          "moves": [
+            {
+              "moveId": "repeatability.request-id",
+              "damage": 0,
+              "counterattack": "Duplicates are safe, but the retries still arrive all at once."
+            },
+            {
+              "moveId": "rate-limit.retry-after",
+              "damage": 2,
+              "counterattack": "Workers wait the time you send, but some work now finishes later."
+            },
+            {
+              "moveId": "repeatability.headers",
+              "damage": 0,
+              "counterattack": "Retries are recognized, but they still flood the service."
+            },
+            {
+              "moveId": "rate-limit.api-key-quota",
+              "damage": 1,
+              "counterattack": "Each worker's key is limited, but they all still retry at the same moment."
+            }
+          ],
+          "modelAnswer": "Answer with 503 Service Unavailable and a Retry-After header, so workers wait before they retry. Safe retries can still overload a service. The cost: some work finishes later.",
+          "keyPoints": [
+            "A 503 means a temporary overload that should pass after a delay.",
+            "Retry-After tells clients how long to wait.",
+            "Send it with 503 when the service is unavailable."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t02-slow-export",
+      "name": "The slow export",
+      "opponentType": "speed",
+      "secondType": "traffic",
+      "problem": "Your API follows the Azure guidelines. Customers export their data with one call, and the export can take several minutes.",
+      "turns": [
+        {
+          "threatType": "speed",
+          "threat": "The export call takes 3 minutes. The load balancer drops it, and clients see timeouts.",
+          "moves": [
+            {
+              "moveId": "paging.next-link",
+              "damage": 1,
+              "counterattack": "The export comes in pages, but building each page is still slow."
+            },
+            {
+              "moveId": "long-running.accepted",
+              "damage": 2,
+              "counterattack": "The call returns 202 at once, but clients must now poll for the result."
+            },
+            {
+              "moveId": "rate-limit.retry-after",
+              "damage": 0,
+              "counterattack": "Clients wait before they retry, and each retry times out again."
+            },
+            {
+              "moveId": "long-running.operation-id",
+              "damage": 0,
+              "counterattack": "You accept an Operation-Id, but the call still blocks for 3 minutes."
+            }
+          ],
+          "modelAnswer": "Make the export a long-running operation. Return 202 Accepted at once, with a link to a status monitor. A 202 does not promise success. The cost: clients must poll for the result.",
+          "keyPoints": [
+            "Use it when the 99th percentile is over 1 second and the client must poll.",
+            "202 Accepted returns at once.",
+            "A 202 promises nothing about the result."
+          ]
+        },
+        {
+          "threatType": "traffic",
+          "threat": "Clients poll the status URL 50 times per second while the export runs.",
+          "moves": [
+            {
+              "moveId": "rate-limit.api-key-quota",
+              "damage": 1,
+              "counterattack": "Fast pollers get 429, but they still do not know a good poll rate."
+            },
+            {
+              "moveId": "long-running.accepted",
+              "damage": 0,
+              "counterattack": "Every poll gets 202 again, and clients keep asking."
+            },
+            {
+              "moveId": "long-running.status-monitor",
+              "damage": 2,
+              "counterattack": "Polls follow the retry-after value, but you must estimate it well."
+            }
+          ],
+          "modelAnswer": "Return the status monitor with 200 OK and a retry-after header while the work runs. Clients wait that many seconds before the next poll. The cost: you must choose a good wait time.",
+          "keyPoints": [
+            "The status monitor shows the status, like Running or Succeeded.",
+            "retry-after says when to poll again.",
+            "Keep the monitor for at least 24 hours after the end."
+          ]
+        },
+        {
+          "threatType": "traffic",
+          "threat": "A client retries the start call after a network error. Now two exports run for the same request.",
+          "moves": [
+            {
+              "moveId": "long-running.operation-id",
+              "damage": 2,
+              "counterattack": "A retry with the same Operation-Id gets the same answer, but clients must create and keep that ID."
+            },
+            {
+              "moveId": "repeatability.request-id",
+              "damage": 1,
+              "counterattack": "A request_id works in a Google-style API, but this Azure API uses Operation-Id."
+            },
+            {
+              "moveId": "long-running.status-monitor",
+              "damage": 0,
+              "counterattack": "Both exports report Running, and both use the servers."
+            },
+            {
+              "moveId": "paging.page-size",
+              "damage": 0,
+              "counterattack": "Pages get smaller, but two exports still run."
+            }
+          ],
+          "modelAnswer": "Let the client send an Operation-Id. An identical retry with that ID gets the same response, and no second export starts. A different request with the same ID gets 409. The cost: clients must create and keep the ID.",
+          "keyPoints": [
+            "The client may send an Operation-Id.",
+            "An identical retry gets the same response.",
+            "A different request with the same ID gets 409."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t02-shared-contract",
+      "name": "The shared contract",
+      "opponentType": "data",
+      "secondType": "speed",
+      "problem": "Three teams generate clients from your OpenAPI description. Each team finds a new surprise.",
+      "turns": [
+        {
+          "threatType": "data",
+          "threat": "Two operations in the description have the same operationId. The generated client calls the wrong one.",
+          "moves": [
+            {
+              "moveId": "openapi.components",
+              "damage": 0,
+              "counterattack": "Shared schemas do not touch the ids, so the clash remains."
+            },
+            {
+              "moveId": "resource-design.custom-method",
+              "damage": 0,
+              "counterattack": "You add a custom method, which is one more operation to name."
+            },
+            {
+              "moveId": "openapi.operation-id",
+              "damage": 2,
+              "counterattack": "Each operation has a unique id now, but the teams must regenerate their clients."
+            },
+            {
+              "moveId": "api-status-code.created",
+              "damage": 0,
+              "counterattack": "Creates return 201, but the client still calls the wrong operation."
+            }
+          ],
+          "modelAnswer": "Give each operation a unique operationId. It is case-sensitive, and tools use it to identify the operation. The cost: the teams must regenerate their clients after the fix.",
+          "keyPoints": [
+            "operationId must be unique in the API.",
+            "It is case-sensitive.",
+            "Tools use it to identify operations."
+          ]
+        },
+        {
+          "threatType": "speed",
+          "threat": "Every operation defines its own Order schema. One field change takes a week, across 30 places.",
+          "moves": [
+            {
+              "moveId": "openapi.components",
+              "damage": 2,
+              "counterattack": "One Order schema serves every operation, but a change to it now hits all of them at once."
+            },
+            {
+              "moveId": "openapi.operation-id",
+              "damage": 0,
+              "counterattack": "The ids are unique, but 30 copies of Order remain."
+            },
+            {
+              "moveId": "problem-details.extension",
+              "damage": 0,
+              "counterattack": "Errors get extensions, but the 30 Order copies remain."
+            }
+          ],
+          "modelAnswer": "Define Order once in components.schemas, and reference it with $ref from every operation. Objects in components do nothing until something references them. The cost: one change now affects every operation that uses it.",
+          "keyPoints": [
+            "components holds reusable objects.",
+            "A $ref points to them.",
+            "Unreferenced components have no effect."
+          ]
+        },
+        {
+          "threatType": "data",
+          "threat": "Both broken JSON and a negative quantity get 400. The generated clients show the same message for both.",
+          "moves": [
+            {
+              "moveId": "openapi.components",
+              "damage": 1,
+              "counterattack": "You add a shared error schema, but both errors still have the same status code."
+            },
+            {
+              "moveId": "api-status-code.unprocessable",
+              "damage": 2,
+              "counterattack": "Bad values get 422 and broken JSON gets 400, but the server must check every value."
+            },
+            {
+              "moveId": "api-auth.unauthorized-vs-forbidden",
+              "damage": 0,
+              "counterattack": "The auth errors are clear, but bad values still look like broken JSON."
+            }
+          ],
+          "modelAnswer": "Use 400 for broken syntax, and 422 for valid content that cannot be processed. Then clients can tell the two apart by the status code. The cost: the server must check every value.",
+          "keyPoints": [
+            "400 is for a client error, like malformed syntax.",
+            "422 is for correct syntax that cannot be processed.",
+            "With 422, the server understands the content type."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t02-version-mess",
+      "name": "The version mess",
+      "opponentType": "outage",
+      "secondType": "data",
+      "problem": "Your API has partners on three continents, and you change it every month.",
+      "turns": [
+        {
+          "threatType": "outage",
+          "threat": "A partner app sends no api-version. Your service picks the newest version for it, and the partner app breaks.",
+          "moves": [
+            {
+              "moveId": "versioning.api-version",
+              "damage": 2,
+              "counterattack": "Calls with no api-version now get 400, but every partner must add it to each call."
+            },
+            {
+              "moveId": "versioning.major-version",
+              "damage": 1,
+              "counterattack": "You add /v1 to the path, but the newest behavior still reaches the partner unasked."
+            },
+            {
+              "moveId": "openapi.operation-id",
+              "damage": 0,
+              "counterattack": "The ids are clean, but the partner still gets the newest behavior."
+            },
+            {
+              "moveId": "versioning.deprecation-header",
+              "damage": 0,
+              "counterattack": "You warn about old versions, but this partner sends no version at all."
+            }
+          ],
+          "modelAnswer": "Make api-version a required query parameter on every operation. A missing value gets 400 with MissingApiVersionParameter, not new behavior without warning. The cost: every client must send the version on every call.",
+          "keyPoints": [
+            "api-version is required on every call.",
+            "A missing version gets 400.",
+            "Clients choose when they move."
+          ]
+        },
+        {
+          "threatType": "data",
+          "threat": "Your Google-style API has the paths v1.1, v1.2 and v1.3. Clients must migrate their code for every small change.",
+          "moves": [
+            {
+              "moveId": "versioning.api-version",
+              "damage": 0,
+              "counterattack": "You add a date parameter too, and clients now track two version schemes."
+            },
+            {
+              "moveId": "versioning.major-version",
+              "damage": 2,
+              "counterattack": "Only v1 stays, updated in place, but every change to it must now be compatible."
+            },
+            {
+              "moveId": "versioning.deprecation-header",
+              "damage": 1,
+              "counterattack": "You warn before each removal, but clients still migrate every month."
+            }
+          ],
+          "modelAnswer": "Show only the major version, v1, and ship compatible changes in place. Users then get new features with no migration. The cost: every change in v1 must stay backwards compatible.",
+          "keyPoints": [
+            "Show only the major version, like v1.",
+            "No minor or patch numbers.",
+            "Compatible changes ship in place."
+          ]
+        },
+        {
+          "threatType": "outage",
+          "threat": "You will retire version 2023-01-01 next month. Partners do not know, because they never read your blog.",
+          "moves": [
+            {
+              "moveId": "versioning.major-version",
+              "damage": 0,
+              "counterattack": "You plan a v2 path, but nobody hears that the old version ends."
+            },
+            {
+              "moveId": "openapi.components",
+              "damage": 0,
+              "counterattack": "The description is tidy, but partners still miss the date."
+            },
+            {
+              "moveId": "versioning.api-version",
+              "damage": 1,
+              "counterattack": "Old calls still need a valid api-version, but partners get no warning."
+            },
+            {
+              "moveId": "versioning.deprecation-header",
+              "damage": 2,
+              "counterattack": "Responses now say what retires, when and where to read more, but only people who read logs see it."
+            }
+          ],
+          "modelAnswer": "Add the azure-deprecating header to the responses of the version that will stop. It names what retires, the date and a URL. Send it only when clients must act. The cost: it reaches only people who read responses or logs.",
+          "keyPoints": [
+            "The header says what, when and where to learn more.",
+            "It is for humans, not for code.",
+            "Send it only when clients must act."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t02-renamed-field",
+      "name": "The renamed field",
+      "opponentType": "outage",
+      "secondType": "data",
+      "problem": "A new developer cleans up the orders API. Three partner apps depend on it.",
+      "turns": [
+        {
+          "threatType": "outage",
+          "threat": "The developer renamed customer_name to buyer_name. All three partner apps crashed the same night.",
+          "moves": [
+            {
+              "moveId": "versioning.deprecation-header",
+              "damage": 1,
+              "counterattack": "Partners get a warning header, but the old field is already gone."
+            },
+            {
+              "moveId": "breaking-change.rename",
+              "damage": 2,
+              "counterattack": "Both names work again, but you must keep customer_name and define which one wins."
+            },
+            {
+              "moveId": "openapi.components",
+              "damage": 0,
+              "counterattack": "The schema is shared now, but it shares the broken name."
+            }
+          ],
+          "modelAnswer": "Renaming is remove plus add, so it breaks clients. Add buyer_name and keep customer_name in the same major version. The cost: you keep both names and must define the behavior when both are sent.",
+          "keyPoints": [
+            "Renaming is removing and adding.",
+            "Add the new name, and keep the old one.",
+            "Specify what happens when a client sends both."
+          ]
+        },
+        {
+          "threatType": "data",
+          "threat": "The developer changed the default genre from FICTION to NONFICTION. Old clients now save books with the wrong genre.",
+          "moves": [
+            {
+              "moveId": "breaking-change.default-value",
+              "damage": 2,
+              "counterattack": "FICTION is the default again, but the books saved this week need a fix."
+            },
+            {
+              "moveId": "breaking-change.rename",
+              "damage": 0,
+              "counterattack": "You rename the genre field, which breaks clients a second time."
+            },
+            {
+              "moveId": "versioning.api-version",
+              "damage": 1,
+              "counterattack": "The change hides behind a new api-version, but Azure says not to make breaking changes at all."
+            },
+            {
+              "moveId": "problem-details.type",
+              "damage": 0,
+              "counterattack": "Errors are clearer, but no request fails, so nobody sees them."
+            }
+          ],
+          "modelAnswer": "Changing a default value is a breaking change, so put FICTION back as the default. The cost: the books saved with the wrong genre must be fixed.",
+          "keyPoints": [
+            "Default values decide the default behavior.",
+            "Changing a default breaks clients.",
+            "Do not change how defaults are serialized either."
+          ]
+        },
+        {
+          "threatType": "data",
+          "threat": "The ip_address field now holds IPv6 values. A partner's parser fails on every new order.",
+          "moves": [
+            {
+              "moveId": "breaking-change.default-value",
+              "damage": 0,
+              "counterattack": "The defaults are stable, but the format still changed."
+            },
+            {
+              "moveId": "versioning.major-version",
+              "damage": 1,
+              "counterattack": "You plan a v2, but v1 still sends IPv6 today."
+            },
+            {
+              "moveId": "openapi.operation-id",
+              "damage": 0,
+              "counterattack": "The ids are clean, but the parser still fails."
+            },
+            {
+              "moveId": "breaking-change.semantic",
+              "damage": 2,
+              "counterattack": "IPv4 stays in this version and IPv6 waits for a new one, but a new version is more work."
+            }
+          ],
+          "modelAnswer": "Do not change the format of an existing field within an API version, even for output-only fields. Keep IPv4 here, and bring IPv6 in a new API version. The cost: you must build and run a new version.",
+          "keyPoints": [
+            "Code depends on value formats.",
+            "A format change needs a new API version.",
+            "This holds for output-only fields too."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t02-busy-model",
+      "name": "The busy model",
+      "opponentType": "outage",
+      "secondType": "speed",
+      "problem": "Your support app calls the Claude API to summarize long tickets for the agents.",
+      "turns": [
+        {
+          "threatType": "outage",
+          "threat": "On busy days, some calls fail with 529 overloaded_error. Agents see an error page and lose their work.",
+          "moves": [
+            {
+              "moveId": "llm-api.streaming",
+              "damage": 1,
+              "counterattack": "Answers stream now, but a 529 still shows the error page."
+            },
+            {
+              "moveId": "rate-limit.api-key-quota",
+              "damage": 0,
+              "counterattack": "You add your own limit, but the overload is on the API side."
+            },
+            {
+              "moveId": "llm-api.retry",
+              "damage": 2,
+              "counterattack": "The SDK retries with backoff, but some summaries now arrive a few seconds later."
+            },
+            {
+              "moveId": "problem-details.safe-detail",
+              "damage": 0,
+              "counterattack": "The error page is cleaner, but agents still lose their work."
+            }
+          ],
+          "modelAnswer": "A 529 is a temporary overload, so retry it with exponential backoff. The official SDK does this twice by default and honors retry-after. The cost: some summaries arrive later.",
+          "keyPoints": [
+            "529 means a temporary overload.",
+            "Retry with exponential backoff.",
+            "The SDK retries twice by default."
+          ]
+        },
+        {
+          "threatType": "speed",
+          "threat": "Agents stare at a spinner for 40 seconds before the whole summary appears at once.",
+          "moves": [
+            {
+              "moveId": "llm-api.long-request",
+              "damage": 1,
+              "counterattack": "The SDK collects the stream into one message, so agents still see the whole text at once."
+            },
+            {
+              "moveId": "llm-api.streaming",
+              "damage": 2,
+              "counterattack": "Text appears as it is written, but the app must handle events and errors in the stream."
+            },
+            {
+              "moveId": "llm-api.retry",
+              "damage": 0,
+              "counterattack": "Retries add more waiting to a slow answer."
+            }
+          ],
+          "modelAnswer": "Stream the response with server-sent events, so text shows as it arrives. Handle error events in the stream, and handle unknown event types gracefully. The cost: the app processes events, not one JSON body.",
+          "keyPoints": [
+            "Streaming sends the answer step by step.",
+            "Errors can come inside the stream.",
+            "Handle unknown event types gracefully."
+          ]
+        },
+        {
+          "threatType": "outage",
+          "threat": "A monthly report sets a very large max_tokens with no streaming. Some calls fail with no response at all.",
+          "moves": [
+            {
+              "moveId": "llm-api.retry",
+              "damage": 1,
+              "counterattack": "Retries try again, but the long, silent call can fail the same way."
+            },
+            {
+              "moveId": "rate-limit.token-bucket",
+              "damage": 0,
+              "counterattack": "You spread the calls, but each one is still a long, silent request."
+            },
+            {
+              "moveId": "problem-details.type",
+              "damage": 0,
+              "counterattack": "The errors are typed, but the calls still fail with no response."
+            },
+            {
+              "moveId": "llm-api.long-request",
+              "damage": 2,
+              "counterattack": "The report streams or runs as a batch now, but the code must handle events or polling."
+            }
+          ],
+          "modelAnswer": "For long requests, use streaming or the Message Batches API. Some networks drop idle connections, so a long, silent call can fail. The cost: the code must handle a stream or poll for batch results.",
+          "keyPoints": [
+            "Long requests need streaming or batches.",
+            "Networks can drop idle connections.",
+            "With batches, you poll for the result."
+          ]
+        }
+      ]
+    }
+  ]
+}
