@@ -5,6 +5,7 @@ import { checkCatchAnswer, type CatchAnswer, type CatchItem } from "@/core/catch
 import { postEvents } from "@/lib/events/post-events";
 import type { CatchEvent } from "@/lib/events/write-events";
 import { CONFIDENCE, type Confidence } from "./confidence";
+import { ReportWrong } from "./report-wrong";
 
 type Phase =
   | { name: "ask"; attempt: CatchEvent["phase"] }
@@ -102,6 +103,7 @@ export function CatchFlow({
           {item.name}
         </h2>
         <CardView card={item.card} />
+        <ReportWrong itemId={item.id} contentHash={item.hash} screen="catch-card" />
         {phase.caught ? (
           <button type="button" className="button-main" onClick={() => onDone(true)}>
             Done

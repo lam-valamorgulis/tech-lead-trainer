@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ReviewItem } from "@/content";
 import { gradeReview, type DueState, type Grade } from "@/core/review";
 import { postEvents } from "@/lib/events/post-events";
+import { ReportWrong } from "./report-wrong";
 
 export type DueReview = { state: DueState; item: ReviewItem };
 
@@ -128,6 +129,7 @@ function ReviewCard({
           <div className="card">
             <p>{item.review.answer}</p>
           </div>
+          <ReportWrong itemId={item.id} contentHash={item.hash} screen="review" />
           <fieldset className="choices grades">
             <legend>How well did you know it?</legend>
             {GRADES.map(({ grade: choice, label }) => {

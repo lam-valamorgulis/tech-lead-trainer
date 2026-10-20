@@ -10,13 +10,23 @@ const admin = createClient(local.url, local.secretKey, { auth: { persistSession:
 
 let users = 0;
 let rows = 0;
+let gone = 0;
 for (let page = 1; ; page += 1) {
   const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
   if (error) throw error;
   for (const user of data.users) {
-    rows += await rebuildReviewState(admin, user.id);
-    users += 1;
+    try {
+      rows += await rebuildReviewState(admin, user.id);
+      users += 1;
+    } catch (error) {
+      // 23503: the user was deleted while the script ran. Their cache went with them.
+      if (error?.code !== "23503") throw error;
+      gone += 1;
+    }
   }
   if (data.users.length < 1000) break;
 }
-console.log(`review_state: rebuilt ${rows} row(s) for ${users} user(s) on ${local.url}.`);
+console.log(
+  `review_state: rebuilt ${rows} row(s) for ${users} user(s) on ${local.url}.` +
+    (gone > 0 ? ` Skipped ${gone} user(s) deleted during the run.` : ""),
+);
