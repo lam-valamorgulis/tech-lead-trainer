@@ -152,7 +152,7 @@ describe("checkContent", () => {
     town.creatures[0].moves[0].card.example = "Send `max-age=3600` to keep the logo for one hour.";
     expect(check(town)).toEqual([
       {
-        where: "t99.creatures.0.moves.0.card.example",
+        where: "t99.cache.ttl.card.example",
         message: "The text has a backtick. The app shows plain text, so write the word without code marks.",
       },
     ]);
@@ -174,7 +174,7 @@ describe("checkContent", () => {
     const glossary = { words: [{ word: "header", definition: "A line like `Cache-Control` at the top of a message." }] };
     expect(check(fixtureTown(), fixtureLedger, glossary)).toEqual([
       {
-        where: "glossary.words.0.definition",
+        where: "glossary.header.definition",
         message: "The text has a backtick. The app shows plain text, so write the word without code marks.",
       },
     ]);

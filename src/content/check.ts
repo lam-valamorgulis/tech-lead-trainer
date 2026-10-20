@@ -28,10 +28,10 @@ export function checkContent(input: ContentInput): Problem[] {
 
   const glossary = glossarySchema.safeParse(input.glossary);
   if (glossary.success) {
-    for (const { word, definition } of glossary.data.words) {
-      problems.push(...sentenceProblems(`glossary.${word}`, definition));
+    for (const entry of glossary.data.words) {
+      problems.push(...sentenceProblems(`glossary.${entry.word}`, entry.definition));
+      problems.push(...plainTextProblems(`glossary.${entry.word}`, entry));
     }
-    problems.push(...plainTextProblems("glossary", glossary.data));
   } else {
     problems.push(...schemaProblems("glossary", glossary.error.issues));
   }
@@ -42,17 +42,17 @@ export function checkContent(input: ContentInput): Problem[] {
   problems.push(...idProblems(towns, input.ledger));
   for (const town of towns) {
     problems.push(...townProblems(town, towns));
-    problems.push(...plainTextProblems(town.id, town));
+    problems.push(...townPlainTextProblems(town));
   }
   return problems;
 }
 
-/** Every string in a value, with its path, for example ["creatures.0.card.text", "…"]. */
-function strings(value: unknown, path: string[] = []): [string, string][] {
+/** Every string in a value, with its path, for example ["card.text", "…"]. */
+function textsWithPaths(value: unknown, path: string[] = []): [string, string][] {
   if (typeof value === "string") return [[path.join("."), value]];
-  if (Array.isArray(value)) return value.flatMap((child, i) => strings(child, [...path, String(i)]));
+  if (Array.isArray(value)) return value.flatMap((child, i) => textsWithPaths(child, [...path, String(i)]));
   if (value !== null && typeof value === "object") {
-    return Object.entries(value).flatMap(([key, child]) => strings(child, [...path, key]));
+    return Object.entries(value).flatMap(([key, child]) => textsWithPaths(child, [...path, key]));
   }
   return [];
 }
@@ -63,10 +63,22 @@ const PLAIN_TEXT_RULES: { mark: RegExp; message: string }[] = [
   { mark: /\r|\n/, message: "The text has a line break. The app shows plain text, so keep it on one line." },
 ];
 
+/** Names each text by its item, like the other rules do: t01.cache.ttl.card.example. */
+function townPlainTextProblems(town: Town): Problem[] {
+  const { creatures, ...townTexts } = town;
+  return [
+    ...plainTextProblems(town.id, townTexts),
+    ...creatures.flatMap(({ moves, ...creature }) => [
+      ...plainTextProblems(itemLabel(town, creature), creature),
+      ...moves.flatMap((move) => plainTextProblems(itemLabel(town, move), move)),
+    ]),
+  ];
+}
+
 function plainTextProblems(prefix: string, value: unknown): Problem[] {
-  return strings(value).flatMap(([path, text]) =>
+  return textsWithPaths(value).flatMap(([path, text]) =>
     PLAIN_TEXT_RULES.filter(({ mark }) => mark.test(text)).map(({ message }) => ({
-      where: [prefix, path].filter(Boolean).join("."),
+      where: `${prefix}.${path}`,
       message,
     })),
   );
