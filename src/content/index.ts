@@ -28,13 +28,17 @@ export type ReviewItem = {
 };
 
 const reviewItems = new Map<string, ReviewItem>();
+const creatures = new Map<string, { id: string; name: string }>();
 for (const town of bundle.towns) {
   for (const creature of town.creatures) {
     if (creature.retired) continue;
     const { id, name, hash, review } = creature;
     reviewItems.set(id, { id, kind: "creature", name, hash, review });
+    creatures.set(id, { id, name });
     for (const move of creature.moves) {
-      if (!move.retired) reviewItems.set(move.id, { id: move.id, kind: "move", name: move.name, hash: move.hash, review: move.review });
+      if (move.retired) continue;
+      reviewItems.set(move.id, { id: move.id, kind: "move", name: move.name, hash: move.hash, review: move.review });
+      creatures.set(move.id, { id, name });
     }
   }
 }
@@ -42,6 +46,11 @@ for (const town of bundle.towns) {
 /** The review question of a creature or move in any town. Retired items are not reviewed. */
 export function reviewItem(id: string): ReviewItem | undefined {
   return reviewItems.get(id);
+}
+
+/** The creature a reviewed item belongs to: the creature itself, or the creature of a move. */
+export function creatureOf(itemId: string): { id: string; name: string } | undefined {
+  return creatures.get(itemId);
 }
 
 const cards = new Map<string, { name: string; card: Card }>();

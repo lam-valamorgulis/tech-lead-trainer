@@ -7,7 +7,8 @@ export type LearningDay = string;
 export const LEARNED_DAY_SECONDS = 180;
 export const RATE_WINDOW_DAYS = 30;
 
-const HOUR_MS = 60 * 60 * 1000;
+const MINUTE_MS = 60 * 1000;
+const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
 
 /**
@@ -16,6 +17,15 @@ const DAY_MS = 24 * HOUR_MS;
  * The database computes the same rule in `private.learning_day`.
  */
 export function learningDay(at: Date, timeZone: string, cutoffHour: number): LearningDay {
+  // The wall-clock time in the home time zone, moved back by the cutoff hour.
+  return new Date(homeWallClock(at, timeZone) - cutoffHour * HOUR_MS).toISOString().slice(0, 10);
+}
+
+/**
+ * The wall-clock time in `timeZone` at the moment `at`, to the minute, written as if it were UTC.
+ * For example 00:30 on 21 Oct in Ho Chi Minh City gives Date.UTC(2026, 9, 21, 0, 30).
+ */
+export function homeWallClock(at: Date, timeZone: string): number {
   const parts = Object.fromEntries(
     new Intl.DateTimeFormat("en-US", {
       timeZone,
@@ -29,9 +39,16 @@ export function learningDay(at: Date, timeZone: string, cutoffHour: number): Lea
       .formatToParts(at)
       .map((part) => [part.type, Number(part.value)]),
   );
-  // The wall-clock time in the home time zone, moved back by the cutoff hour.
-  const wallClock = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute);
-  return new Date(wallClock - cutoffHour * HOUR_MS).toISOString().slice(0, 10);
+  return Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute);
+}
+
+/** The moment the wall clock in `timeZone` shows `minuteOfDay` (0 to 1439) on `day`. */
+export function homeTimeToInstant(day: LearningDay, minuteOfDay: number, timeZone: string): Date {
+  const wanted = dayStart(day) + minuteOfDay * MINUTE_MS;
+  // The time zone offset at a first guess, then again at the corrected guess, for summer time.
+  const offsetAt = (at: number) => homeWallClock(new Date(at), timeZone) - Math.floor(at / MINUTE_MS) * MINUTE_MS;
+  const guess = wanted - offsetAt(wanted);
+  return new Date(wanted - offsetAt(guess));
 }
 
 export function isLearnedDay(activeSeconds: number): boolean {
