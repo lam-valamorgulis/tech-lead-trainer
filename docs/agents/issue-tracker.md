@@ -49,7 +49,7 @@ Used by `/wayfinder`. The **map** is a single issue with **child** issues as tic
 
 ## Sprints and the project board
 
-- **Sprints are milestones:** `Sprint 1` to `Sprint 4`. Put every ticket in one: `gh issue create --milestone "Sprint 1" ...` or `gh issue edit <n> --milestone "Sprint 2"`. Size tickets so a sprint holds at most 7–14 of them (the budget is 1–2 tickets a day).
+- **Sprints are milestones:** `Sprint 1` to `Sprint 4`. Put every ticket in one: `gh issue create --milestone "Sprint 1" ...` or `gh issue edit <n> --milestone "Sprint 2"`. Size tickets so a sprint holds at most 7–14 of them. There is no daily ticket limit.
 - **Board:** GitHub project #2, "Tech Lead Trainer", owner `lam-valamorgulis` (https://github.com/users/lam-valamorgulis/projects/2). View: "Sprint board".
 - **Add every new ticket to the board:** `gh project item-add 2 --owner lam-valamorgulis --url <issue-url>`.
 - **Status column**, moved by the agent doing the work:

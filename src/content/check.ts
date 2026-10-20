@@ -1,4 +1,5 @@
-import { glossarySchema, townSchema, type Creature, type Move, type Town } from "./schema.ts";
+import { OPPONENT_HP } from "../core/battle.ts";
+import { glossarySchema, townSchema, type Creature, type Move, type Scenario, type Town } from "./schema.ts";
 
 export type ContentInput = {
   /** The parsed JSON of each town file. Not trusted yet. */
@@ -28,8 +29,9 @@ export function checkContent(input: ContentInput): Problem[] {
 
   const glossary = glossarySchema.safeParse(input.glossary);
   if (glossary.success) {
-    for (const { word, definition } of glossary.data.words) {
-      problems.push(...sentenceProblems(`glossary.${word}`, definition));
+    for (const entry of glossary.data.words) {
+      problems.push(...sentenceProblems(`glossary.${entry.word}`, entry.definition));
+      problems.push(...plainTextProblems(`glossary.${entry.word}`, entry));
     }
   } else {
     problems.push(...schemaProblems("glossary", glossary.error.issues));
@@ -41,13 +43,55 @@ export function checkContent(input: ContentInput): Problem[] {
   problems.push(...idProblems(towns, input.ledger));
   for (const town of towns) {
     problems.push(...townProblems(town, towns));
+    problems.push(...townPlainTextProblems(town));
   }
   return problems;
 }
 
-/** Every id in the content, in file order: towns, creatures and moves. */
+/** Every string in a value, with its path, for example ["card.text", "…"]. */
+function textsWithPaths(value: unknown, path: string[] = []): [string, string][] {
+  if (typeof value === "string") return [[path.join("."), value]];
+  if (Array.isArray(value)) return value.flatMap((child, i) => textsWithPaths(child, [...path, String(i)]));
+  if (value !== null && typeof value === "object") {
+    return Object.entries(value).flatMap(([key, child]) => textsWithPaths(child, [...path, key]));
+  }
+  return [];
+}
+
+// The app shows content as plain text: a backtick shows as a backtick, and a line break collapses.
+const PLAIN_TEXT_RULES: { mark: RegExp; message: string }[] = [
+  { mark: /`/, message: "The text has a backtick. The app shows plain text, so write the word without code marks." },
+  { mark: /\r|\n/, message: "The text has a line break. The app shows plain text, so keep it on one line." },
+];
+
+/** Names each text by its item, like the other rules do: t01.cache.ttl.card.example. */
+function townPlainTextProblems(town: Town): Problem[] {
+  const { creatures, ...townTexts } = town;
+  return [
+    ...plainTextProblems(town.id, townTexts),
+    ...creatures.flatMap(({ moves, ...creature }) => [
+      ...plainTextProblems(itemLabel(town, creature), creature),
+      ...moves.flatMap((move) => plainTextProblems(itemLabel(town, move), move)),
+    ]),
+  ];
+}
+
+function plainTextProblems(prefix: string, value: unknown): Problem[] {
+  return textsWithPaths(value).flatMap(([path, text]) =>
+    PLAIN_TEXT_RULES.filter(({ mark }) => mark.test(text)).map(({ message }) => ({
+      where: `${prefix}.${path}`,
+      message,
+    })),
+  );
+}
+
+/** Every id in the content, in file order: towns, creatures, moves and battle scenarios. */
 export function contentIds(towns: Town[]): string[] {
-  return towns.flatMap((town) => [town.id, ...town.creatures.flatMap((c) => [c.id, ...c.moves.map((m) => m.id)])]);
+  return towns.flatMap((town) => [
+    town.id,
+    ...town.creatures.flatMap((c) => [c.id, ...c.moves.map((m) => m.id)]),
+    ...town.scenarios.map((s) => s.id),
+  ]);
 }
 
 function idProblems(towns: Town[], ledger: string[]): Problem[] {
@@ -57,6 +101,7 @@ function idProblems(towns: Town[], ledger: string[]): Problem[] {
   for (const town of towns) {
     where.set(town.id, town.id);
     for (const item of items(town)) where.set(item.id, itemLabel(town, item));
+    for (const scenario of town.scenarios) where.set(scenario.id, `${town.id}.${scenario.id}`);
   }
 
   const seen = new Set<string>();
@@ -108,6 +153,7 @@ function townProblems(town: Town, allTowns: Town[]): Problem[] {
     for (const [field, value] of proseFields(item)) {
       problems.push(...sentenceProblems(`${at}.${field}`, value));
     }
+    problems.push(...catchChoiceProblems(`${at}.catch.choices`, item.catch.choices));
   }
 
   const placementNeeded = Math.min(PLACEMENT_QUESTIONS, town.creatures.filter((c) => !c.retired).length);
@@ -140,6 +186,77 @@ function townProblems(town: Town, allTowns: Town[]): Problem[] {
     }
   });
 
+  // A move table can use the moves of any town, like a confusable pair.
+  const moves = new Map(allTowns.flatMap((t) => t.creatures.flatMap((c) => c.moves)).map((m) => [m.id, m]));
+  for (const scenario of town.scenarios) {
+    problems.push(...scenarioProblems(town, scenario, moves));
+  }
+
+  return problems;
+}
+
+/** The rules that keep every battle playable and its best-move rate measurable (design 12.3). */
+function scenarioProblems(town: Town, scenario: Scenario, moves: Map<string, Move>): Problem[] {
+  const problems: Problem[] = [];
+  const scenarioAt = `${town.id}.${scenario.id}`;
+  if (!scenario.id.startsWith(`${town.id}-`)) {
+    problems.push({ where: scenarioAt, message: `A scenario of ${town.id} must have an id that starts with ${town.id}-.` });
+  }
+  problems.push(...sentenceProblems(`${scenarioAt}.problem`, scenario.problem));
+
+  const bestTotal = scenario.turns.reduce((sum, turn) => sum + Math.max(...turn.moves.map((row) => row.damage)), 0);
+  if (bestTotal < OPPONENT_HP) {
+    problems.push({
+      where: scenarioAt,
+      message: `The best moves do ${bestTotal} damage in total. A perfect battle must bring the opponent's HP ${OPPONENT_HP} to 0.`,
+    });
+  }
+
+  scenario.turns.forEach((turn, index) => {
+    const at = `${scenarioAt}.turns.${index}`;
+    problems.push(...sentenceProblems(`${at}.threat`, turn.threat));
+    problems.push(...sentenceProblems(`${at}.modelAnswer`, turn.modelAnswer));
+    turn.keyPoints.forEach((point, i) => problems.push(...sentenceProblems(`${at}.keyPoints.${i}`, point)));
+    const top = Math.max(...turn.moves.map((row) => row.damage));
+    const best = turn.moves.filter((row) => row.damage === top).length;
+    if (best !== 1) {
+      problems.push({
+        where: at,
+        message: `The turn has ${best} moves with the top damage ${top}. It needs exactly one best move.`,
+      });
+    }
+    const seen = new Set<string>();
+    turn.moves.forEach(({ moveId, counterattack }, row) => {
+      if (seen.has(moveId)) problems.push({ where: at, message: `${moveId} is in the move table more than once.` });
+      seen.add(moveId);
+      const count = sentences(counterattack).length;
+      if (count !== 1) {
+        problems.push({
+          where: `${at}.moves.${row}.counterattack`,
+          message: `A counterattack is one sentence. This has ${count}.`,
+        });
+      }
+      problems.push(...sentenceProblems(`${at}.moves.${row}.counterattack`, counterattack));
+      const move = moves.get(moveId);
+      if (!move) problems.push({ where: at, message: `${moveId} is not a move in any town.` });
+      else if (move.retired) problems.push({ where: at, message: `${moveId} is retired, so it cannot be in a move table.` });
+    });
+  });
+  return problems;
+}
+
+// The catch screen checks the answer by its text, so two equal choices would both count as right.
+// Choices that differ only in capital letters or spaces look the same to a learner, so they count as equal.
+function catchChoiceProblems(where: string, choices: string[]): Problem[] {
+  const seen = new Set<string>();
+  const problems: Problem[] = [];
+  for (const choice of choices) {
+    const key = choice.toLowerCase().split(/\s+/).join(" ");
+    if (seen.has(key)) {
+      problems.push({ where, message: `Two choices are the same: "${choice}". Every choice must be different.` });
+    }
+    seen.add(key);
+  }
   return problems;
 }
 

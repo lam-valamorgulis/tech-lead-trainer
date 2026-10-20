@@ -16,7 +16,7 @@ const answer = (itemId: string, correct: boolean, learningDay = TODAY): Placemen
 
 describe("placementProgress", () => {
   it("starts with the first question of the town", () => {
-    expect(placementProgress(town(), [])).toMatchObject({ done: false, answered: 0, total: 2, correct: 0 });
+    expect(placementProgress(town(), [])).toMatchObject({ done: false, answered: 0, total: 3, correct: 0 });
     expect(placementProgress(town(), []).next?.creatureId).toBe("cache");
   });
 
@@ -25,10 +25,10 @@ describe("placementProgress", () => {
   });
 
   it("is done when every question has an answer, and counts the right ones", () => {
-    expect(placementProgress(town(), [answer("cache", true), answer("cookie", false)])).toMatchObject({
+    expect(placementProgress(town(), [answer("cache", true), answer("cookie", false), answer("proxy", false)])).toMatchObject({
       done: true,
       next: null,
-      answered: 2,
+      answered: 3,
       correct: 1,
     });
   });

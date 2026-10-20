@@ -332,6 +332,24 @@ h2[tabindex="-1"]:focus {
   align-items: center;
 }
 
+/* The Sunday summary on home: one tap target (UI rule 6) that opens the saved numbers. */
+.week-summary {
+  margin-top: var(--space);
+}
+
+.week-summary > summary {
+  min-height: var(--tap-min);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.week-summary ul {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}
+
 /* At most two lines per plan, so a long plan never pushes the commit buttons off screen. */
 .plan-lines p {
   margin: 0;
@@ -353,4 +371,34 @@ h2[tabindex="-1"]:focus {
 
 .report [tabindex="-1"]:focus {
   outline: none;
+}
+
+/* Battle. UI rule 4: the opponent type has a colour, an icon and a word. */
+.opponent-type {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 3px solid;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.opponent-icon {
+  font-size: 24px;
+}
+
+/* UI rule 3: "Strong hit · 2 ●●". */
+.damage {
+  font-family: var(--font-heading);
+  color: var(--color-accent);
+}
+
+/* UI rule 7: lets the why box scroll to the top of a phone screen, above the keyboard. */
+.why-form {
+  scroll-margin-top: 8px;
+}
+
+.keyboard-room {
+  height: 50dvh;
 }

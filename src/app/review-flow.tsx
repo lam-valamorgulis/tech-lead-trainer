@@ -6,7 +6,10 @@ import { gradeReview, type DueState, type Grade } from "@/core/review";
 import { postEvents } from "@/lib/events/post-events";
 import { ReportWrong } from "./report-wrong";
 
-export type DueReview = { state: DueState; item: ReviewItem };
+/** The 2 sentences the learner wrote after a battle about this item (design 10), if they still wait. */
+export type TeachBack = { scenarioName: string; sentences: [string, string] };
+
+export type DueReview = { state: DueState; item: ReviewItem; teachBack?: TeachBack | null };
 
 const GRADES: { grade: Grade; label: string }[] = [
   { grade: "again", label: "Again" },
@@ -51,7 +54,7 @@ export function ReviewFlow({
 }
 
 function ReviewCard({
-  review: { state, item },
+  review: { state, item, teachBack },
   position,
   today,
   sessionId,
@@ -129,6 +132,17 @@ function ReviewCard({
           <div className="card">
             <p>{item.review.answer}</p>
           </div>
+          {/* After Reveal only: the learner's own words hold the answer too. */}
+          {teachBack && (
+            <div className="notice">
+              <p>
+                <strong>Your own words after the battle {teachBack.scenarioName}:</strong>
+              </p>
+              {teachBack.sentences.map((sentence, index) => (
+                <p key={index}>{sentence}</p>
+              ))}
+            </div>
+          )}
           <fieldset className="choices grades">
             <legend>How well did you know it?</legend>
             {GRADES.map(({ grade: choice, label }) => {

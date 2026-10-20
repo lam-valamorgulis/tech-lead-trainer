@@ -27,6 +27,8 @@ test("the commit screen has three big buttons in the lower half, and one tap sta
 
     await page.getByRole("button", { name: "Finish" }).click();
     await expect(page.getByText("0 of 30 days")).toBeVisible();
+    // Design 3: after each session, the minutes of this week against the weekly goal.
+    await expect(page.getByText("This week: 0 min of 5 h 15 min")).toBeVisible();
     await expect(page.locator("body")).not.toContainText(/streak/i);
   } finally {
     await user.forget();

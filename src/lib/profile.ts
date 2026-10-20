@@ -76,3 +76,16 @@ export async function savePlans(
     .eq("user_id", userId);
   if (error) throw error;
 }
+
+/** Saves both reminder times, "HH:MM" in the home time zone (design 2). */
+export async function saveReminderTimes(
+  client: SupabaseClient,
+  userId: string,
+  times: { morning: string; evening: string },
+): Promise<void> {
+  const { error } = await client
+    .from("profiles")
+    .update({ morning_reminder_time: times.morning, evening_reminder_time: times.evening })
+    .eq("user_id", userId);
+  if (error) throw error;
+}

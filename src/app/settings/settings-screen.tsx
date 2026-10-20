@@ -6,6 +6,8 @@ import { fetchMyData, saveFile, shareFile, usesShareSheet } from "@/lib/download
 import { browserClient } from "@/lib/supabase/browser";
 import { PlanForm } from "../plan-form";
 import type { SignedIn } from "../auth-gate";
+import { LastBackup } from "./last-backup";
+import { RemindersSection } from "./reminders-section";
 
 export function SettingsScreen({ userId, email, profile, setProfile }: SignedIn) {
   const [error, setError] = useState<string | null>(null);
@@ -57,14 +59,9 @@ export function SettingsScreen({ userId, email, profile, setProfile }: SignedIn)
           submitLabel="Save plans"
           onSaved={setProfile}
         />
-        <p className="lead">
-          Reminders: {profile.morningReminderTime} and {profile.eveningReminderTime}
-        </p>
-        <p className="lead">
-          Keep the same reminder time for your first 12 weeks. One fixed cue every day helps the habit grow.
-        </p>
       </section>
-      <DataSection />
+      <RemindersSection userId={userId} profile={profile} setProfile={setProfile} />
+      <DataSection homeTimeZone={profile.homeTimeZone} />
       <section className="stack" aria-labelledby="program-title">
         <h2 id="program-title">Program</h2>
         <p>Day 1 of your program: {formatDay(profile.programStartDate)}</p>
@@ -103,7 +100,7 @@ const DOWNLOAD_MESSAGES: Record<DownloadStatus["name"], string> = {
   failed: "The download failed. Check your connection and try again.",
 };
 
-function DataSection() {
+function DataSection({ homeTimeZone }: { homeTimeZone: string }) {
   const [status, setStatus] = useState<DownloadStatus>({ name: "idle" });
 
   async function prepare() {
@@ -149,6 +146,7 @@ function DataSection() {
       <p role="alert" className="error">
         {status.name === "failed" ? DOWNLOAD_MESSAGES.failed : ""}
       </p>
+      <LastBackup homeTimeZone={homeTimeZone} />
     </section>
   );
 }

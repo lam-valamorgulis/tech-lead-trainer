@@ -6,6 +6,12 @@ function check(town: unknown = fixtureTown(), ledger = fixtureLedger, glossary: 
   return checkContent({ towns: [town], ledger, glossary });
 }
 
+/** The fixture town with no battle scenario, for rules about items that a move table uses. */
+function townWithoutScenarios() {
+  return { ...fixtureTown(), scenarios: [] };
+}
+const ledgerWithoutScenarios = fixtureLedger.filter((id) => id !== "t99-sale-day");
+
 const words = (count: number) => Array.from({ length: count }, (_, i) => `word${i}`).join(" ");
 
 describe("checkContent", () => {
@@ -31,16 +37,17 @@ describe("checkContent", () => {
 
   it("fails when an id that shipped is missing", () => {
     const town = fixtureTown();
-    town.creatures[0].moves = [];
-    expect(check(town)).toEqual([
-      { where: "ledger", message: "cache.ttl shipped before, but it is missing. Mark it retired instead of deleting it." },
-    ]);
+    town.creatures[0].moves.splice(0, 1);
+    expect(check(town)).toContainEqual({
+      where: "ledger",
+      message: "cache.ttl shipped before, but it is missing. Mark it retired instead of deleting it.",
+    });
   });
 
   it("allows a retired item, which stays in the file", () => {
-    const town = fixtureTown();
+    const town = townWithoutScenarios();
     Object.assign(town.creatures[0].moves[0], { retired: true });
-    expect(check(town)).toEqual([]);
+    expect(check(town, ledgerWithoutScenarios)).toEqual([]);
   });
 
   it("fails when an id is not in the ledger yet", () => {
@@ -61,9 +68,9 @@ describe("checkContent", () => {
   });
 
   it("fails when a move id does not start with its creature id", () => {
-    const town = fixtureTown();
+    const town = townWithoutScenarios();
     town.creatures[0].moves[0].id = "cookie.ttl";
-    expect(check(town, [...fixtureLedger.filter((id) => id !== "cache.ttl"), "cookie.ttl"])).toEqual([
+    expect(check(town, [...ledgerWithoutScenarios.filter((id) => id !== "cache.ttl"), "cookie.ttl"])).toEqual([
       { where: "t99.cookie.ttl", message: "A move of cache must have an id that starts with cache." },
     ]);
   });
@@ -136,7 +143,7 @@ describe("checkContent", () => {
     const town = fixtureTown();
     town.placement.pop();
     expect(check(town)).toEqual([
-      { where: "t99.placement", message: "The town has 1 placement question(s). It needs 2: one per creature, up to 10." },
+      { where: "t99.placement", message: "The town has 2 placement question(s). It needs 3: one per creature, up to 10." },
     ]);
   });
 
@@ -146,11 +153,193 @@ describe("checkContent", () => {
     expect(check(town)).toEqual([]);
   });
 
+  // The app shows content as plain text: a backtick shows as a backtick.
+  it("fails when a text has a backtick", () => {
+    const town = fixtureTown();
+    town.creatures[0].moves[0].card.example = "Send `max-age=3600` to keep the logo for one hour.";
+    expect(check(town)).toEqual([
+      {
+        where: "t99.cache.ttl.card.example",
+        message: "The text has a backtick. The app shows plain text, so write the word without code marks.",
+      },
+    ]);
+  });
+
+  // A line break collapses into a space on screen, so the text reads wrong.
+  it("fails when a text has a line break", () => {
+    const town = fixtureTown();
+    town.placement[1].answer = "Small data.\nThe browser sends it back.";
+    expect(check(town)).toEqual([
+      {
+        where: "t99.placement.1.answer",
+        message: "The text has a line break. The app shows plain text, so keep it on one line.",
+      },
+    ]);
+  });
+
+  it("checks the glossary for plain text too", () => {
+    const glossary = { words: [{ word: "header", definition: "A line like `Cache-Control` at the top of a message." }] };
+    expect(check(fixtureTown(), fixtureLedger, glossary)).toEqual([
+      {
+        where: "glossary.header.definition",
+        message: "The text has a backtick. The app shows plain text, so write the word without code marks.",
+      },
+    ]);
+  });
+
+  // The catch screen checks the answer by its text, so two equal choices would both count as right.
+  it("fails when two choices of a catch question are the same", () => {
+    const town = fixtureTown();
+    town.creatures[0].moves[0].catch.choices = ["A time to live", "A cookie", "A time to live"];
+    expect(check(town)).toEqual([
+      {
+        where: "t99.cache.ttl.catch.choices",
+        message: 'Two choices are the same: "A time to live". Every choice must be different.',
+      },
+    ]);
+  });
+
+  it("counts choices as the same when only capital letters or spaces differ", () => {
+    const town = fixtureTown();
+    town.creatures[1].catch.choices = ["It sends a cookie", "It reads your screen", "it sends  a Cookie"];
+    expect(check(town)).toEqual([
+      {
+        where: "t99.cookie.catch.choices",
+        message: 'Two choices are the same: "it sends  a Cookie". Every choice must be different.',
+      },
+    ]);
+  });
+
   it("does not end a sentence at e.g. or i.e.", () => {
     const town = fixtureTown();
     town.creatures[0].review.answer = `Use a cache, e.g. ${words(12)} i.e. ${words(10)}.`;
     expect(check(town)).toEqual([
       { where: "t99.cache.review.answer", message: 'A sentence has 27 words. The limit is 20: "Use a cache, …"' },
     ]);
+  });
+
+  describe("battle scenarios", () => {
+    it("fails when a turn has two best moves", () => {
+      const town = fixtureTown();
+      town.scenarios[0].turns[1].moves[1].damage = 2;
+      expect(check(town)).toEqual([
+        {
+          where: "t99.t99-sale-day.turns.1",
+          message: "The turn has 2 moves with the top damage 2. It needs exactly one best move.",
+        },
+      ]);
+    });
+
+    it("fails when a scenario id does not start with its town id", () => {
+      const town = fixtureTown();
+      town.scenarios[0].id = "t05-sale-day";
+      expect(check(town, [...ledgerWithoutScenarios, "t05-sale-day"])).toEqual([
+        { where: "t99.t05-sale-day", message: "A scenario of t99 must have an id that starts with t99-." },
+      ]);
+    });
+
+    it("fails when a move table names a move that does not exist", () => {
+      const town = fixtureTown();
+      town.scenarios[0].turns[0].moves[2].moveId = "cookie.secure";
+      expect(check(town)).toEqual([
+        { where: "t99.t99-sale-day.turns.0", message: "cookie.secure is not a move in any town." },
+      ]);
+    });
+
+    it("fails when a move table names a retired move, because nobody can catch it any more", () => {
+      const town = fixtureTown();
+      Object.assign(town.creatures[1].moves[0], { retired: true });
+      expect(check(town)).toEqual([
+        { where: "t99.t99-sale-day.turns.0", message: "cookie.http-only is retired, so it cannot be in a move table." },
+        { where: "t99.t99-sale-day.turns.2", message: "cookie.http-only is retired, so it cannot be in a move table." },
+      ]);
+    });
+
+    it("fails when even the best move on every turn cannot bring HP 4 to 0", () => {
+      const town = fixtureTown();
+      for (const turn of town.scenarios[0].turns) {
+        turn.moves = turn.moves.map((row, i) => ({ ...row, damage: i === 0 ? 1 : 0 }));
+      }
+      expect(check(town)).toEqual([
+        {
+          where: "t99.t99-sale-day",
+          message: "The best moves do 3 damage in total. A perfect battle must bring the opponent's HP 4 to 0.",
+        },
+      ]);
+    });
+
+    it("fails when a turn names the same move twice", () => {
+      const town = fixtureTown();
+      town.scenarios[0].turns[2].moves[2].moveId = "cache.no-store";
+      expect(check(town)).toEqual([
+        { where: "t99.t99-sale-day.turns.2", message: "cache.no-store is in the move table more than once." },
+      ]);
+    });
+
+    it("fails when a counterattack is more than one sentence", () => {
+      const town = fixtureTown();
+      town.scenarios[0].turns[0].moves[0].counterattack = "The logo is fast. A new logo takes an hour.";
+      expect(check(town)).toEqual([
+        { where: "t99.t99-sale-day.turns.0.moves.0.counterattack", message: "A counterattack is one sentence. This has 2." },
+      ]);
+    });
+
+    it("checks sentence length in the problem, the threats and the counterattacks", () => {
+      const town = fixtureTown();
+      town.scenarios[0].problem = `${words(21)}.`;
+      town.scenarios[0].turns[1].threat = `${words(21)}.`;
+      expect(check(town).map((problem) => problem.where)).toEqual([
+        "t99.t99-sale-day.problem",
+        "t99.t99-sale-day.turns.1.threat",
+      ]);
+    });
+
+    describe("the model answer of a turn", () => {
+      it("is required, with its key points", () => {
+        const town = fixtureTown();
+        delete (town.scenarios[0].turns[0] as { modelAnswer?: unknown }).modelAnswer;
+        delete (town.scenarios[0].turns[1] as { keyPoints?: unknown }).keyPoints;
+        expect(check(town).map((problem) => problem.where)).toEqual([
+          "t99.scenarios.0.turns.0.modelAnswer",
+          "t99.scenarios.0.turns.1.keyPoints",
+        ]);
+      });
+
+      it("fails when a turn does not have exactly 3 key points", () => {
+        const town = fixtureTown();
+        town.scenarios[0].turns[0].keyPoints.pop();
+        town.scenarios[0].turns[1].keyPoints.push("A fourth point.");
+        expect(check(town)).toEqual([
+          { where: "t99.scenarios.0.turns.0.keyPoints", message: "A turn has exactly 3 key points." },
+          { where: "t99.scenarios.0.turns.1.keyPoints", message: "A turn has exactly 3 key points." },
+        ]);
+      });
+
+      it("fails when a key point is empty", () => {
+        const town = fixtureTown();
+        town.scenarios[0].turns[2].keyPoints[1] = " ";
+        expect(check(town).map((problem) => problem.where)).toEqual(["t99.scenarios.0.turns.2.keyPoints.1"]);
+      });
+
+      it("checks sentence length in the model answer and the key points", () => {
+        const town = fixtureTown();
+        town.scenarios[0].turns[0].modelAnswer = `Short first sentence. ${words(21)}.`;
+        town.scenarios[0].turns[2].keyPoints[2] = `${words(21)}.`;
+        expect(check(town).map((problem) => problem.where)).toEqual([
+          "t99.t99-sale-day.turns.0.modelAnswer",
+          "t99.t99-sale-day.turns.2.keyPoints.2",
+        ]);
+      });
+
+      it("must be plain text", () => {
+        const town = fixtureTown();
+        town.scenarios[0].turns[1].modelAnswer = "Send the header `no-store` with every price.";
+        town.scenarios[0].turns[1].keyPoints[0] = "Prices change often.\nOld prices lose trust.";
+        expect(check(town).map((problem) => problem.where)).toEqual([
+          "t99.scenarios.0.turns.1.modelAnswer",
+          "t99.scenarios.0.turns.1.keyPoints.0",
+        ]);
+      });
+    });
   });
 });

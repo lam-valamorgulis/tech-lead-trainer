@@ -1768,5 +1768,1477 @@
       "client-server.user-agent",
       "proxy.forward"
     ]
+  ],
+  "scenarios": [
+    {
+      "id": "t01-empty-sign-up",
+      "name": "The empty sign-up",
+      "opponentType": "data",
+      "problem": "New sign-ups arrive empty or wrong. You open the Network tab to read the raw HTTP messages.",
+      "turns": [
+        {
+          "threat": "The form posts a name and an email, but the server saves an empty user.",
+          "moves": [
+            {
+              "moveId": "http-message.request-line",
+              "damage": 1,
+              "counterattack": "You confirm the method is POST, but a POST form sends its data in the body."
+            },
+            {
+              "moveId": "http-message.headers-and-body",
+              "damage": 2,
+              "counterattack": "You find the empty body, but you still must find the code that dropped the data."
+            },
+            {
+              "moveId": "http-message.status-line",
+              "damage": 0,
+              "counterattack": "You read the server's reply, but the data was lost in the request."
+            },
+            {
+              "moveId": "client-server.user-agent",
+              "damage": 0,
+              "counterattack": "You switch the user agent to a debugging program, but the form bug is still there."
+            }
+          ],
+          "modelAnswer": "A POST form sends its data in the request body, after the headers and one empty line. Check that the body is there. Reading raw messages takes time, but it shows what was really sent.",
+          "keyPoints": [
+            "A POST form sends its data in the request body.",
+            "The body comes after the headers and an empty line.",
+            "The raw message shows what was really sent."
+          ]
+        },
+        {
+          "threat": "The server now rejects bad emails, but the app shows Welcome for every sign-up.",
+          "moves": [
+            {
+              "moveId": "client-server.web-server",
+              "damage": 0,
+              "counterattack": "You look at the servers behind the address, but the app still ignores the reply."
+            },
+            {
+              "moveId": "http-message.headers-and-body",
+              "damage": 1,
+              "counterattack": "The app reads the error text in the body, but it must guess what each text means."
+            },
+            {
+              "moveId": "http-message.request-line",
+              "damage": 0,
+              "counterattack": "The request line is correct, so the wrong Welcome screen stays."
+            },
+            {
+              "moveId": "http-message.status-line",
+              "damage": 2,
+              "counterattack": "The app reads the status code now, but you must write a message for each failure."
+            }
+          ],
+          "modelAnswer": "Read the status line of the response. Its status code says if the request succeeded or failed. The reason phrase is only text for humans. The cost: the app needs a message for each failure code.",
+          "keyPoints": [
+            "The status line is the first line of the response.",
+            "The status code says success or failure.",
+            "The reason phrase is optional text for humans."
+          ]
+        },
+        {
+          "threat": "Each refresh of the profile page shows different data. Support thinks users lost their data.",
+          "moves": [
+            {
+              "moveId": "client-server.web-server",
+              "damage": 2,
+              "counterattack": "You find three servers behind one address, but now each one must give the same data."
+            },
+            {
+              "moveId": "http-message.status-line",
+              "damage": 0,
+              "counterattack": "Every reply says 200 OK, so the status line hides the problem."
+            },
+            {
+              "moveId": "client-server.user-agent",
+              "damage": 0,
+              "counterattack": "You test in another browser, but the data still changes on each refresh."
+            },
+            {
+              "moveId": "http-message.headers-and-body",
+              "damage": 1,
+              "counterattack": "You see the bodies differ, but you still do not know which machine sent each one."
+            }
+          ],
+          "modelAnswer": "One server address can hide many servers that share the load. Each refresh can reach a different one. Find the server that gives different data. The cost: every server must now serve the same data.",
+          "keyPoints": [
+            "One address can be many servers.",
+            "Load balancing sends each request to one of them.",
+            "Every server behind the address must give the same data."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t01-live-prices",
+      "name": "Live prices",
+      "opponentType": "speed",
+      "problem": "The product manager wants open pages to show new prices at once. The site uses plain HTTP.",
+      "turns": [
+        {
+          "threat": "The plan says the server sends each new price to every open page by itself.",
+          "moves": [
+            {
+              "moveId": "client-server.web-server",
+              "damage": 0,
+              "counterattack": "You add servers to send prices, but in plain HTTP no server starts a message."
+            },
+            {
+              "moveId": "http-message.status-line",
+              "damage": 0,
+              "counterattack": "You plan a new status code for prices, but the server still cannot send first."
+            },
+            {
+              "moveId": "client-server.user-agent",
+              "damage": 2,
+              "counterattack": "The page now asks for prices itself, but each check is one more request."
+            },
+            {
+              "moveId": "http-message.headers-and-body",
+              "damage": 1,
+              "counterattack": "You put the price in a response body, but the browser must still ask for it."
+            }
+          ],
+          "modelAnswer": "In HTTP, the browser always starts the request, never the server. So the page must ask for the new price. The cost: more requests reach the server.",
+          "keyPoints": [
+            "The client always starts the request.",
+            "The server only answers requests.",
+            "Asking again means more requests to the server."
+          ]
+        },
+        {
+          "threat": "A teammate builds the price check as POST /price, because it runs every few seconds.",
+          "moves": [
+            {
+              "moveId": "http-method.post",
+              "damage": 0,
+              "counterattack": "POST stays, so each price check looks like a request that may change the server."
+            },
+            {
+              "moveId": "http-message.request-line",
+              "damage": 1,
+              "counterattack": "You see POST in the request line, but you have not picked a better method yet."
+            },
+            {
+              "moveId": "http-method.safe",
+              "damage": 2,
+              "counterattack": "The check becomes a read-only GET, but the server code must really change nothing."
+            }
+          ],
+          "modelAnswer": "Reading a price does not change the server, so use GET, a safe method. Safe methods are read-only in meaning. The cost: the server code must keep GET free of changes.",
+          "keyPoints": [
+            "Reading a price is a read-only action.",
+            "GET is a safe method.",
+            "The server code must keep GET free of changes."
+          ]
+        },
+        {
+          "threat": "The price GET sends the product id in a JSON body. Some servers drop it.",
+          "moves": [
+            {
+              "moveId": "http-message.request-line",
+              "damage": 2,
+              "counterattack": "The id moves into the URL as /price?product=42, but every caller must change its URL."
+            },
+            {
+              "moveId": "http-message.headers-and-body",
+              "damage": 1,
+              "counterattack": "You move the id into a custom header, but the URL query is the usual place for it."
+            },
+            {
+              "moveId": "http-method.post",
+              "damage": 0,
+              "counterattack": "You switch back to POST to keep the body, so the check is no longer safe."
+            },
+            {
+              "moveId": "http-method.idempotent",
+              "damage": 0,
+              "counterattack": "GET is idempotent, but the body is still dropped on some servers."
+            }
+          ],
+          "modelAnswer": "Only PATCH, POST and PUT requests have a body, so a GET body can get lost. Put the product id in the request target, for example GET /price?product=42. The cost: every caller must change its URL.",
+          "keyPoints": [
+            "Only PATCH, POST and PUT requests have a body.",
+            "The request target can carry a query string.",
+            "Every caller must change to the new URL."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t01-crawler-deletes",
+      "name": "The crawler deletes posts",
+      "opponentType": "data",
+      "problem": "Blog posts disappear at night. The logs show a web crawler on the admin pages.",
+      "turns": [
+        {
+          "threat": "Each admin page has links like GET /posts/7/delete. The crawler follows every link.",
+          "moves": [
+            {
+              "moveId": "http-method.safe",
+              "damage": 2,
+              "counterattack": "Delete moves off GET, but every delete link must become a button or a form."
+            },
+            {
+              "moveId": "http-method.idempotent",
+              "damage": 1,
+              "counterattack": "Deleting twice has the same effect, but the crawler still deletes each post once."
+            },
+            {
+              "moveId": "http-message.request-line",
+              "damage": 0,
+              "counterattack": "You see GET in the request line, but the posts still disappear."
+            },
+            {
+              "moveId": "client-server.user-agent",
+              "damage": 0,
+              "counterattack": "You learn the crawler is a user agent too, but it keeps deleting posts."
+            }
+          ],
+          "modelAnswer": "Crawlers call safe methods, because safe methods should not change the server's state. A GET that deletes breaks this rule. Move the delete off GET. The cost: every delete link needs a new button or form.",
+          "keyPoints": [
+            "Crawlers and browsers call safe methods freely.",
+            "GET should not change the server's state.",
+            "Every delete link must change."
+          ]
+        },
+        {
+          "threat": "The new delete uses DELETE /posts/7. On a slow network the admin app sends it twice.",
+          "moves": [
+            {
+              "moveId": "http-method.post",
+              "damage": 0,
+              "counterattack": "You switch to POST, which is not idempotent, so a second call can act again."
+            },
+            {
+              "moveId": "http-message.status-line",
+              "damage": 1,
+              "counterattack": "You see two different status codes, but you cannot explain them yet."
+            },
+            {
+              "moveId": "http-method.idempotent",
+              "damage": 2,
+              "counterattack": "The second DELETE has no new effect, but the app must accept a 404 reply."
+            },
+            {
+              "moveId": "http-method.safe",
+              "damage": 0,
+              "counterattack": "You call DELETE safe, but it changes the server, so the review misses the risk."
+            }
+          ],
+          "modelAnswer": "DELETE is idempotent. Two identical calls have the same intended effect as one, so a retry does no harm. The cost: the second call can return 404.",
+          "keyPoints": [
+            "DELETE is idempotent.",
+            "A retry of DELETE does no extra harm.",
+            "The second reply can be 404."
+          ]
+        },
+        {
+          "threat": "Admins create posts with POST /posts. The slow network sends that request twice too.",
+          "moves": [
+            {
+              "moveId": "http-method.idempotent",
+              "damage": 0,
+              "counterattack": "You treat POST like DELETE, so the retry creates a second post."
+            },
+            {
+              "moveId": "http-message.headers-and-body",
+              "damage": 0,
+              "counterattack": "The second request has the same body, so the server creates the same post again."
+            },
+            {
+              "moveId": "http-method.post",
+              "damage": 2,
+              "counterattack": "The app stops blind retries of POST, but admins must check for a lost post."
+            }
+          ],
+          "modelAnswer": "POST is not idempotent. Identical POST requests may create the same item twice. Do not resend it blindly. The cost: after a lost reply, the admin must check the post list.",
+          "keyPoints": [
+            "POST is not safe and not idempotent.",
+            "A repeated POST can create a second post.",
+            "The app must not resend POST blindly."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t01-account-errors",
+      "name": "Confusing account errors",
+      "opponentType": "security",
+      "problem": "Customers complain about the account pages. The API answers with the wrong status codes.",
+      "turns": [
+        {
+          "threat": "A customer who is not signed in opens /account and gets 403 Forbidden.",
+          "moves": [
+            {
+              "moveId": "status-code.server-error",
+              "damage": 0,
+              "counterattack": "You return 500, so monitoring shows a server crash that did not happen."
+            },
+            {
+              "moveId": "status-code.redirect",
+              "damage": 1,
+              "counterattack": "You redirect strangers to the sign-in page, but API clients still get no clear 401."
+            },
+            {
+              "moveId": "http-message.status-line",
+              "damage": 0,
+              "counterattack": "You change the reason phrase, but the code is still 403."
+            },
+            {
+              "moveId": "status-code.client-error",
+              "damage": 2,
+              "counterattack": "The API sends 401 to strangers now, but the app must show a sign-in step for it."
+            }
+          ],
+          "modelAnswer": "401 really means unauthenticated: the client must prove who it is. 403 means the server knows the client, but it has no rights. Send 401 here. The cost: the app needs a sign-in step for 401.",
+          "keyPoints": [
+            "401 means the client must sign in.",
+            "403 means the client is known but has no rights.",
+            "The app must answer 401 with a sign-in step."
+          ]
+        },
+        {
+          "threat": "The sign-up API answers 200 OK with an empty body. The app cannot find the new user.",
+          "moves": [
+            {
+              "moveId": "status-code.success",
+              "damage": 2,
+              "counterattack": "The API sends 201 Created with the new user's URL, but old apps still expect 200."
+            },
+            {
+              "moveId": "status-code.redirect",
+              "damage": 1,
+              "counterattack": "You redirect to the new user page, but each sign-up now makes one more request."
+            },
+            {
+              "moveId": "http-message.headers-and-body",
+              "damage": 1,
+              "counterattack": "You put the user in the body, but the code still does not say a user was created."
+            },
+            {
+              "moveId": "http-method.post",
+              "damage": 0,
+              "counterattack": "You resend the POST to get the data, so a second user is created."
+            }
+          ],
+          "modelAnswer": "201 Created says the request succeeded and made a new resource. Servers typically send it after POST. Add the new user's URL in the Location header. The cost: old apps that expect 200 must change.",
+          "keyPoints": [
+            "201 Created means a new resource was made.",
+            "It typically answers a POST.",
+            "The Location header can point to the new resource."
+          ]
+        },
+        {
+          "threat": "During tonight's database work, the API will answer 500 Internal Server Error for one hour.",
+          "moves": [
+            {
+              "moveId": "status-code.client-error",
+              "damage": 0,
+              "counterattack": "You send 400, so clients think their own requests are wrong."
+            },
+            {
+              "moveId": "status-code.server-error",
+              "damage": 2,
+              "counterattack": "Clients get 503 with a Retry-After time, but you should usually keep that reply out of caches."
+            },
+            {
+              "moveId": "status-code.success",
+              "damage": 0,
+              "counterattack": "You send 200 with an error text, so monitoring sees no problem at all."
+            },
+            {
+              "moveId": "status-code.redirect",
+              "damage": 1,
+              "counterattack": "You redirect to a status page, but API clients get no clear error code."
+            }
+          ],
+          "modelAnswer": "Use 503 Service Unavailable for maintenance. It is meant for temporary conditions. Add Retry-After with the expected recovery time. The cost: the 503 reply should usually not be cached.",
+          "keyPoints": [
+            "503 means the server is not ready for now.",
+            "Retry-After tells clients when to come back.",
+            "Temporary error replies should usually not be cached."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t01-moved-shop",
+      "name": "The moved shop",
+      "opponentType": "traffic",
+      "problem": "Your shop moves all product pages to new URLs. Many other sites still link to the old ones.",
+      "turns": [
+        {
+          "threat": "Next week the old URLs will answer 404 Not Found. Search engines and bookmarks still use them.",
+          "moves": [
+            {
+              "moveId": "status-code.client-error",
+              "damage": 0,
+              "counterattack": "404 says the server cannot find the page, so old links and search visits break."
+            },
+            {
+              "moveId": "status-code.success",
+              "damage": 1,
+              "counterattack": "You serve each page on both URLs, but every page now has two locations."
+            },
+            {
+              "moveId": "status-code.redirect",
+              "damage": 2,
+              "counterattack": "Old URLs answer 301 with the new Location, but each old link costs one extra request."
+            }
+          ],
+          "modelAnswer": "Answer the old URLs with 301 Moved Permanently and a Location header. Browsers load the new URL at once, and search engines update the old one. The cost: one extra round trip.",
+          "keyPoints": [
+            "301 means the move is permanent.",
+            "The Location header holds the new URL.",
+            "Each redirect costs one extra request."
+          ]
+        },
+        {
+          "threat": "Some old products are gone for good. Their old URLs now redirect to the home page.",
+          "moves": [
+            {
+              "moveId": "status-code.success",
+              "damage": 0,
+              "counterattack": "The home page answers 200, so shoppers on old links never learn the product is gone."
+            },
+            {
+              "moveId": "status-code.redirect",
+              "damage": 0,
+              "counterattack": "Old links still land on the home page, so shoppers still look for the product."
+            },
+            {
+              "moveId": "status-code.server-error",
+              "damage": 0,
+              "counterattack": "You send 500, so monitoring reports a crash that did not happen."
+            },
+            {
+              "moveId": "status-code.client-error",
+              "damage": 2,
+              "counterattack": "Gone products answer 410 Gone, but shoppers on old links see an error page."
+            }
+          ],
+          "modelAnswer": "When a product is gone for good, answer with a 4xx client error. 410 Gone means the content was deleted for good. 404 means the server cannot find it. The cost: shoppers on old links see an error page.",
+          "keyPoints": [
+            "A gone product gets a 4xx client error.",
+            "410 Gone means the content was deleted for good.",
+            "Shoppers on old links now see an error page."
+          ]
+        },
+        {
+          "threat": "After a config change for the redirects, every new URL answers 500 Internal Server Error.",
+          "moves": [
+            {
+              "moveId": "client-server.user-agent",
+              "damage": 0,
+              "counterattack": "You clear your own browser data, but every visitor still sees the error."
+            },
+            {
+              "moveId": "status-code.server-error",
+              "damage": 2,
+              "counterattack": "You check the new server config, find a redirect loop, and roll the change back."
+            },
+            {
+              "moveId": "status-code.client-error",
+              "damage": 0,
+              "counterattack": "You check the shoppers' requests, but the error comes from the server."
+            },
+            {
+              "moveId": "http-message.headers-and-body",
+              "damage": 0,
+              "counterattack": "You read the error body, but it only says something went wrong."
+            }
+          ],
+          "modelAnswer": "5xx codes are server errors, and 500 is the generic one. So look at what changed on the server. A 500 soon after a config change is likely a redirect loop. The cost: you roll the change back.",
+          "keyPoints": [
+            "5xx means the server failed, not the client.",
+            "500 is a generic server error.",
+            "A 500 after a config change can be a redirect loop."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t01-broken-styles",
+      "name": "Broken styles",
+      "opponentType": "outage",
+      "problem": "After a move to a new server, the shop shows plain text with no design. All files are there.",
+      "turns": [
+        {
+          "threat": "The new server sends style.css with Content-Type: text/plain, and browsers ignore the styles.",
+          "moves": [
+            {
+              "moveId": "content-type.negotiation",
+              "damage": 0,
+              "counterattack": "You tune the Accept header, but the server still labels the CSS as text/plain."
+            },
+            {
+              "moveId": "http-message.headers-and-body",
+              "damage": 1,
+              "counterattack": "You find the wrong header line, but you do not know the right value yet."
+            },
+            {
+              "moveId": "status-code.success",
+              "damage": 0,
+              "counterattack": "The file already answers 200 OK, so the status code is not the problem."
+            },
+            {
+              "moveId": "content-type.mime-type",
+              "damage": 2,
+              "counterattack": "The server sends text/css now, but you must check every other file type too."
+            }
+          ],
+          "modelAnswer": "Browsers use the MIME type, not the file extension. CSS must be sent as text/css, or most browsers ignore it. Fix the server config. The cost: you must check every file type it serves.",
+          "keyPoints": [
+            "Browsers trust the MIME type, not the file extension.",
+            "CSS must be sent as text/css.",
+            "Check the types of all served files."
+          ]
+        },
+        {
+          "threat": "Product photo uploads now fail with 415 Unsupported Media Type.",
+          "moves": [
+            {
+              "moveId": "http-method.post",
+              "damage": 2,
+              "counterattack": "The upload sends multipart/form-data now, but every upload client must send it."
+            },
+            {
+              "moveId": "status-code.client-error",
+              "damage": 1,
+              "counterattack": "You read 415 as a client error and check the request, but not yet its type."
+            },
+            {
+              "moveId": "content-type.negotiation",
+              "damage": 0,
+              "counterattack": "You change the Accept header, but it only says what the client can read."
+            },
+            {
+              "moveId": "status-code.server-error",
+              "damage": 0,
+              "counterattack": "You restart the server, but it still rejects the photos."
+            }
+          ],
+          "modelAnswer": "In a POST, the Content-Type header says the type of the request body. A strict server answers 415 for a type it does not take. Forms with files use multipart/form-data. The cost: every upload client must send it.",
+          "keyPoints": [
+            "Content-Type in a request says the body's type.",
+            "415 means the server does not take that type.",
+            "File uploads use multipart/form-data."
+          ]
+        },
+        {
+          "threat": "The mobile app asks for product data and gets an HTML page instead of JSON.",
+          "moves": [
+            {
+              "moveId": "content-type.mime-type",
+              "damage": 1,
+              "counterattack": "You see the reply says text/html, but the app still asks for the same thing."
+            },
+            {
+              "moveId": "content-type.negotiation",
+              "damage": 2,
+              "counterattack": "The app sends Accept: application/json now, but the server must keep both formats working."
+            },
+            {
+              "moveId": "client-server.user-agent",
+              "damage": 0,
+              "counterattack": "You test in a browser, but the browser also asks for HTML first."
+            },
+            {
+              "moveId": "http-method.safe",
+              "damage": 0,
+              "counterattack": "The GET is already safe, so the reply is still HTML."
+            }
+          ],
+          "modelAnswer": "The client lists the types it understands in the Accept header. The server picks one and names it in Content-Type. Ask for application/json. The cost: the server must keep each format it offers working.",
+          "keyPoints": [
+            "Accept lists the types the client can read.",
+            "The server picks one and names it in Content-Type.",
+            "The server must support each type it offers."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t01-lost-cart",
+      "name": "The lost cart",
+      "opponentType": "data",
+      "problem": "Shoppers add items, but the cart page is often empty. The shop runs on plain HTTP requests.",
+      "turns": [
+        {
+          "threat": "The add-to-cart request and the cart page request share nothing that links them.",
+          "moves": [
+            {
+              "moveId": "http-version.persistent-connection",
+              "damage": 0,
+              "counterattack": "You keep one connection open, but HTTP still has no link between the requests."
+            },
+            {
+              "moveId": "stateless-http.no-memory",
+              "damage": 1,
+              "counterattack": "You see that HTTP has no link between requests, but the cart is still empty."
+            },
+            {
+              "moveId": "stateless-http.session",
+              "damage": 2,
+              "counterattack": "Each request carries a session cookie now, but the server must store every cart."
+            },
+            {
+              "moveId": "http-message.headers-and-body",
+              "damage": 0,
+              "counterattack": "You put the cart in the page body, but the next request forgets it."
+            }
+          ],
+          "modelAnswer": "HTTP is stateless, even on one connection. A cookie adds a session on top of it. Each request carries the cookie, so the server finds the cart. The cost: the server must store every cart.",
+          "keyPoints": [
+            "HTTP has no link between two requests.",
+            "A session cookie links the requests.",
+            "The server must keep each session's state."
+          ]
+        },
+        {
+          "threat": "Shoppers close the browser at lunch. In the evening, their cart is gone.",
+          "moves": [
+            {
+              "moveId": "cookie.set-cookie",
+              "damage": 0,
+              "counterattack": "You send the same Set-Cookie again, but it still ends when the browser closes."
+            },
+            {
+              "moveId": "cookie.secure-httponly",
+              "damage": 0,
+              "counterattack": "The cookie is safer now, but it still ends with the session."
+            },
+            {
+              "moveId": "stateless-http.no-memory",
+              "damage": 0,
+              "counterattack": "You explain that HTTP has no memory, but the cart is still lost."
+            },
+            {
+              "moveId": "cookie.lifetime",
+              "damage": 2,
+              "counterattack": "The cart cookie has a Max-Age of 30 days now, so it stays on that browser longer."
+            }
+          ],
+          "modelAnswer": "A cookie with no Expires and no Max-Age is a session cookie. The browser removes it when the session ends. Give the cart cookie a Max-Age. The cost: the cookie stays on the device longer.",
+          "keyPoints": [
+            "A session cookie has no Expires and no Max-Age.",
+            "Max-Age keeps the cookie for a set time.",
+            "A longer lifetime keeps the cookie on the device longer."
+          ]
+        },
+        {
+          "threat": "A tester shows that a script on the page can read the session cookie with document.cookie.",
+          "moves": [
+            {
+              "moveId": "cookie.secure-httponly",
+              "damage": 2,
+              "counterattack": "Scripts cannot read the cookie now, but your own front-end code cannot read it either."
+            },
+            {
+              "moveId": "cookie.lifetime",
+              "damage": 1,
+              "counterattack": "The cookie ends sooner, so a stolen copy works for less time."
+            },
+            {
+              "moveId": "cookie.samesite",
+              "damage": 0,
+              "counterattack": "Cross-site requests stop carrying the cookie, but the script on your page still reads it."
+            },
+            {
+              "moveId": "stateless-http.session",
+              "damage": 0,
+              "counterattack": "You start a new session, but scripts can read the new cookie too."
+            }
+          ],
+          "modelAnswer": "Set HttpOnly on the session cookie. JavaScript then cannot read it, so a bad script cannot steal it. Only the server uses it. The cost: your front-end code cannot read it either.",
+          "keyPoints": [
+            "HttpOnly hides the cookie from JavaScript.",
+            "Session cookies should be HttpOnly.",
+            "Front-end code also loses access to the cookie."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t01-partner-widget",
+      "name": "The partner widget",
+      "opponentType": "security",
+      "problem": "Your chat widget runs inside partner sites. Users sign in to the widget there.",
+      "turns": [
+        {
+          "threat": "The widget's session cookie has no SameSite attribute. Inside partner sites, users are signed out.",
+          "moves": [
+            {
+              "moveId": "cookie.lifetime",
+              "damage": 0,
+              "counterattack": "The cookie lives longer, but the browser still holds it back inside partner sites."
+            },
+            {
+              "moveId": "cookie.samesite",
+              "damage": 2,
+              "counterattack": "SameSite=None keeps users signed in, but the cookie loses its cross-site protection."
+            },
+            {
+              "moveId": "cookie.set-cookie",
+              "damage": 1,
+              "counterattack": "You check that Set-Cookie arrives, but the browser still holds the cookie back."
+            },
+            {
+              "moveId": "stateless-http.session",
+              "damage": 0,
+              "counterattack": "You build a new session system, but it still uses a cookie with the same rules."
+            }
+          ],
+          "modelAnswer": "Some browsers treat a cookie with no SameSite as Lax. Lax does not go with requests from embedded content on other sites. Set SameSite=None with Secure. The cost: the cookie loses its cross-site protection.",
+          "keyPoints": [
+            "No SameSite can mean Lax in some browsers.",
+            "SameSite=None sends the cookie on cross-site requests.",
+            "SameSite=None gives up some protection against cross-site attacks."
+          ]
+        },
+        {
+          "threat": "On the test site, which uses plain http, the browser rejects the new cookie.",
+          "moves": [
+            {
+              "moveId": "cookie.samesite",
+              "damage": 0,
+              "counterattack": "You switch back to Lax, so users are signed out inside partner sites again."
+            },
+            {
+              "moveId": "cookie.set-cookie",
+              "damage": 0,
+              "counterattack": "You send the Set-Cookie header again, but it still cannot work on plain http."
+            },
+            {
+              "moveId": "cookie.secure-httponly",
+              "damage": 2,
+              "counterattack": "The test site moves to HTTPS, so the Secure cookie works, but the test setup grows."
+            }
+          ],
+          "modelAnswer": "SameSite=None needs the Secure attribute. A Secure cookie goes only over HTTPS, and an http site cannot set it. Run the test site on HTTPS. The cost: the test setup gets bigger.",
+          "keyPoints": [
+            "SameSite=None needs Secure.",
+            "Secure cookies travel only over HTTPS.",
+            "A plain http site cannot set a Secure cookie."
+          ]
+        },
+        {
+          "threat": "Partner sites ask for the user's whole profile inside one large widget cookie.",
+          "moves": [
+            {
+              "moveId": "stateless-http.session",
+              "damage": 2,
+              "counterattack": "The cookie holds only a session id now, but the server must look up each profile."
+            },
+            {
+              "moveId": "cookie.set-cookie",
+              "damage": 1,
+              "counterattack": "You split the profile over many Set-Cookie headers, but each cookie still goes with every request."
+            },
+            {
+              "moveId": "cookie.lifetime",
+              "damage": 0,
+              "counterattack": "The profile cookie lasts longer, so more old data stays in every browser."
+            },
+            {
+              "moveId": "cookie.samesite",
+              "damage": 0,
+              "counterattack": "You tighten SameSite, so users are signed out inside partner sites, and the cookie is still large."
+            }
+          ],
+          "modelAnswer": "Cookies go with every request, and one cookie is usually at most 4KB. Keep only a session id in the cookie. The server looks up the profile. The cost: one lookup per request.",
+          "keyPoints": [
+            "Cookies are sent with every request.",
+            "A cookie is usually at most 4KB.",
+            "Store a session id and look up the data on the server."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t01-busy-night",
+      "name": "The busy night",
+      "opponentType": "traffic",
+      "problem": "A TV advert brings many visitors tonight. Your shop runs on one web server.",
+      "turns": [
+        {
+          "threat": "Tonight one server must answer every visitor. It cannot handle that load.",
+          "moves": [
+            {
+              "moveId": "proxy.forward",
+              "damage": 0,
+              "counterattack": "A forward proxy works for clients, so your one server still gets every request."
+            },
+            {
+              "moveId": "client-server.web-server",
+              "damage": 1,
+              "counterattack": "You plan more servers behind one address, but nothing shares the requests between them yet."
+            },
+            {
+              "moveId": "status-code.server-error",
+              "damage": 1,
+              "counterattack": "You prepare a 503 page, but many visitors see it instead of the shop."
+            },
+            {
+              "moveId": "proxy.reverse",
+              "damage": 2,
+              "counterattack": "A reverse proxy shares the requests over three servers, but you pay for three servers."
+            }
+          ],
+          "modelAnswer": "Put a reverse proxy in front of several web servers. It sends each request to one of them, so they share the load. The cost: you run and pay for more servers.",
+          "keyPoints": [
+            "A reverse proxy sits in front of the servers.",
+            "It shares the load across several servers.",
+            "More servers cost more to run."
+          ]
+        },
+        {
+          "threat": "The new servers have a new IP address, but some visitors still reach the old server.",
+          "moves": [
+            {
+              "moveId": "dns.domain-name",
+              "damage": 0,
+              "counterattack": "You add a new subdomain, but visitors still type the old name."
+            },
+            {
+              "moveId": "dns.lookup",
+              "damage": 2,
+              "counterattack": "You keep the old server running until old DNS answers expire, so you pay for both."
+            },
+            {
+              "moveId": "client-server.web-server",
+              "damage": 0,
+              "counterattack": "You add another new server, but visitors with the old address never reach it."
+            },
+            {
+              "moveId": "proxy.forward",
+              "damage": 0,
+              "counterattack": "A forward proxy helps clients, so the old address still sends visitors to the old server."
+            }
+          ],
+          "modelAnswer": "Computers and DNS servers keep a domain's data for some time. Then it expires, and they fetch the new IP address. Keep the old server answering until then. The cost: you run both servers for a while.",
+          "keyPoints": [
+            "DNS answers are kept for some time.",
+            "Old copies expire and are refreshed later.",
+            "Run the old server until the change has spread."
+          ]
+        },
+        {
+          "threat": "At the peak, all servers are full. New visitors wait and then see a timeout.",
+          "moves": [
+            {
+              "moveId": "status-code.server-error",
+              "damage": 2,
+              "counterattack": "Visitors see a friendly 503 page with a retry time, but some of them leave."
+            },
+            {
+              "moveId": "status-code.client-error",
+              "damage": 0,
+              "counterattack": "You answer with a 4xx code, so visitors think they did something wrong."
+            },
+            {
+              "moveId": "status-code.redirect",
+              "damage": 1,
+              "counterattack": "You redirect visitors to a waiting page, so each one makes another request to busy servers."
+            },
+            {
+              "moveId": "proxy.forward",
+              "damage": 0,
+              "counterattack": "A forward proxy works for clients, so the visitors still wait."
+            }
+          ],
+          "modelAnswer": "Answer with 503 Service Unavailable when the servers are overloaded. Send a friendly page with it, and a Retry-After header if you can. The cost: some visitors leave.",
+          "keyPoints": [
+            "503 means the server is overloaded or down for now.",
+            "Send a friendly page with the 503.",
+            "Retry-After says when to try again."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t01-office-network",
+      "name": "The office network",
+      "opponentType": "speed",
+      "problem": "Your team of 40 works in one office. The internet line is slow, and staff also work on trains.",
+      "turns": [
+        {
+          "threat": "Every laptop downloads the same large web pages and files again and again.",
+          "moves": [
+            {
+              "moveId": "proxy.reverse",
+              "damage": 0,
+              "counterattack": "A reverse proxy protects servers, so the laptops still download everything."
+            },
+            {
+              "moveId": "proxy.forward",
+              "damage": 2,
+              "counterattack": "The office proxy stores and forwards pages, but it is one more machine to run."
+            },
+            {
+              "moveId": "http-version.multiplexing",
+              "damage": 1,
+              "counterattack": "Requests share one connection now, but the same files still cross the line many times."
+            },
+            {
+              "moveId": "dns.lookup",
+              "damage": 0,
+              "counterattack": "Lookups come from the cache, but the same large files still cross the line."
+            }
+          ],
+          "modelAnswer": "A forward proxy works for a group of clients. It stores and forwards pages, so the group uses less bandwidth. The cost: one more machine to run.",
+          "keyPoints": [
+            "A forward proxy acts for the clients.",
+            "It stores and forwards pages for the group.",
+            "The proxy is one more machine to run."
+          ]
+        },
+        {
+          "threat": "A new app on the laptops sends Connection: close, so each request needs a new TCP handshake.",
+          "moves": [
+            {
+              "moveId": "dns.lookup",
+              "damage": 0,
+              "counterattack": "Lookups come from the cache, but each request still waits for a new handshake."
+            },
+            {
+              "moveId": "proxy.reverse",
+              "damage": 0,
+              "counterattack": "A reverse proxy stands in front of servers, so the laptops still open new connections."
+            },
+            {
+              "moveId": "http-version.persistent-connection",
+              "damage": 2,
+              "counterattack": "The app reuses open connections now, but idle connections still use server resources."
+            }
+          ],
+          "modelAnswer": "In HTTP/1.1, connections are persistent by default. Connection: close ends the connection after each response. Remove it, so requests reuse one connection. The cost: idle connections still use resources.",
+          "keyPoints": [
+            "HTTP/1.1 keeps connections open by default.",
+            "Connection: close forces a new handshake each time.",
+            "Idle open connections still use resources."
+          ]
+        },
+        {
+          "threat": "Staff on the train use the app on a weak phone network. One lost packet stops every image.",
+          "moves": [
+            {
+              "moveId": "http-version.multiplexing",
+              "damage": 1,
+              "counterattack": "HTTP/2 sends requests in parallel, but one lost TCP packet still blocks all streams."
+            },
+            {
+              "moveId": "http-version.persistent-connection",
+              "damage": 0,
+              "counterattack": "The connection stays open, but a lost packet still blocks the images."
+            },
+            {
+              "moveId": "proxy.forward",
+              "damage": 0,
+              "counterattack": "The office proxy cannot help staff on the train."
+            },
+            {
+              "moveId": "http-version.quic",
+              "damage": 2,
+              "counterattack": "With HTTP/3 a lost packet blocks only its own stream, but your servers must support HTTP/3."
+            }
+          ],
+          "modelAnswer": "HTTP/2 runs over one TCP connection, so a lost packet can block all streams. HTTP/3 uses QUIC over UDP. A lost packet then blocks only its own stream. The cost: your servers must support HTTP/3.",
+          "keyPoints": [
+            "In HTTP/2, a lost TCP packet can block all streams.",
+            "HTTP/3 uses QUIC over UDP.",
+            "In QUIC, a lost packet blocks only its stream."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t01-public-wifi",
+      "name": "Public Wi-Fi",
+      "opponentType": "security",
+      "problem": "Many customers shop on cafe and airport Wi-Fi. Someone on the same network may watch the traffic.",
+      "turns": [
+        {
+          "threat": "The sign-in page still works over plain http. An attacker on the Wi-Fi can read passwords.",
+          "moves": [
+            {
+              "moveId": "hsts.max-age",
+              "damage": 0,
+              "counterattack": "Browsers ignore HSTS sent over plain http, so nothing changes."
+            },
+            {
+              "moveId": "cookie.secure-httponly",
+              "damage": 1,
+              "counterattack": "Secure keeps the cookie off plain http, but the password still travels in plain text."
+            },
+            {
+              "moveId": "tls.handshake",
+              "damage": 2,
+              "counterattack": "Every header and body now travel encrypted, but each new connection starts with a handshake."
+            },
+            {
+              "moveId": "status-code.redirect",
+              "damage": 0,
+              "counterattack": "You redirect to another http page, so the password is still in plain text."
+            }
+          ],
+          "modelAnswer": "Serve the sign-in page over HTTPS. The TLS handshake agrees on a secret key, and then every header and body is encrypted. The cost: each new connection begins with a handshake.",
+          "keyPoints": [
+            "HTTPS is HTTP over TLS.",
+            "After the handshake, headers and bodies are encrypted.",
+            "Each new TLS connection starts with a handshake."
+          ]
+        },
+        {
+          "threat": "Customers who type http://shop.example.com reach the plain site first. An attacker can stop the switch to HTTPS.",
+          "moves": [
+            {
+              "moveId": "hsts.max-age",
+              "damage": 2,
+              "counterattack": "Browsers now go straight to HTTPS until max-age ends, but the very first visit is still open."
+            },
+            {
+              "moveId": "status-code.redirect",
+              "damage": 1,
+              "counterattack": "The 301 to HTTPS works, but an attacker can still catch that first plain request."
+            },
+            {
+              "moveId": "tls.certificate",
+              "damage": 0,
+              "counterattack": "You renew the certificate, but the first plain http request is still open."
+            },
+            {
+              "moveId": "mixed-content.upgradable",
+              "damage": 0,
+              "counterattack": "Browsers upgrade images, but the page request itself is still plain http."
+            }
+          ],
+          "modelAnswer": "A 301 to HTTPS alone leaves the first plain request open. Also send Strict-Transport-Security over HTTPS with a long max-age. Later visits then use HTTPS directly. The cost: the first visit can still be attacked.",
+          "keyPoints": [
+            "A 301 alone leaves the first request open.",
+            "HSTS makes the browser use HTTPS directly.",
+            "HSTS works only after one HTTPS visit."
+          ]
+        },
+        {
+          "threat": "A security review says the very first visit of a new customer is still open to attack.",
+          "moves": [
+            {
+              "moveId": "tls.version",
+              "damage": 0,
+              "counterattack": "TLS 1.3 is current, but the first plain http request is still open."
+            },
+            {
+              "moveId": "hsts.max-age",
+              "damage": 0,
+              "counterattack": "A longer max-age helps later visits, but the first visit is still open."
+            },
+            {
+              "moveId": "hsts.preload",
+              "damage": 2,
+              "counterattack": "Your domain joins the preload list, but every subdomain must now work over HTTPS."
+            }
+          ],
+          "modelAnswer": "Join the HSTS preload list. Browsers then use HTTPS for your domain even on the first visit. The header needs a max-age of at least one year, includeSubDomains and preload. The cost: every subdomain must serve HTTPS.",
+          "keyPoints": [
+            "Preloading protects the very first visit.",
+            "Preload needs a one-year max-age, includeSubDomains and preload.",
+            "Every subdomain must then work over HTTPS."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t01-certificate-warning",
+      "name": "The certificate warning",
+      "opponentType": "security",
+      "problem": "After a server move, some customers see a certificate warning. A few of them click through it.",
+      "turns": [
+        {
+          "threat": "The new server's certificate is for old.example.com, not for shop.example.com.",
+          "moves": [
+            {
+              "moveId": "tls.version",
+              "damage": 0,
+              "counterattack": "You turn on TLS 1.3, but the name on the certificate is still wrong."
+            },
+            {
+              "moveId": "tls.handshake",
+              "damage": 1,
+              "counterattack": "You trace where the server proves its identity, but the name is still wrong."
+            },
+            {
+              "moveId": "dns.lookup",
+              "damage": 0,
+              "counterattack": "The name points to the right IP address, but the certificate still names another site."
+            },
+            {
+              "moveId": "tls.certificate",
+              "damage": 2,
+              "counterattack": "The new certificate names shop.example.com, but someone must keep it up to date."
+            }
+          ],
+          "modelAnswer": "A website certificate names the site it is for, and a CA signs it. The browser checks the name and the chain back to a root. Get a certificate for shop.example.com. The cost: someone must manage it.",
+          "keyPoints": [
+            "The certificate must name the site.",
+            "The browser checks the chain back to a root certificate.",
+            "Someone must manage the certificate from now on."
+          ]
+        },
+        {
+          "threat": "Some customers still click through certificate warnings. An attacker could use a fake certificate the same way.",
+          "moves": [
+            {
+              "moveId": "tls.certificate",
+              "damage": 1,
+              "counterattack": "The right certificate is in place, but users can still click through a future warning."
+            },
+            {
+              "moveId": "hsts.max-age",
+              "damage": 2,
+              "counterattack": "Browsers stop click-through on certificate errors, but a broken certificate now stops every visitor."
+            },
+            {
+              "moveId": "mixed-content.blockable",
+              "damage": 0,
+              "counterattack": "Scripts over http are blocked, but users still click through the warning."
+            }
+          ],
+          "modelAnswer": "Send the HSTS header. For an HSTS host, the browser does not let users click through certificate errors. The cost: a broken certificate now stops every visitor.",
+          "keyPoints": [
+            "HSTS blocks click-through on certificate errors.",
+            "Users can no longer accept a fake certificate.",
+            "A broken certificate now stops every visitor."
+          ]
+        },
+        {
+          "threat": "A scan shows the server still allows TLS 1.0 and TLS 1.1.",
+          "moves": [
+            {
+              "moveId": "tls.handshake",
+              "damage": 0,
+              "counterattack": "You read the handshake steps, but the old versions are still allowed."
+            },
+            {
+              "moveId": "tls.version",
+              "damage": 2,
+              "counterattack": "Only TLS 1.2 and 1.3 are allowed now, so clients that know only old versions cannot connect."
+            },
+            {
+              "moveId": "tls.certificate",
+              "damage": 0,
+              "counterattack": "You get a new certificate, but the old TLS versions are still on."
+            },
+            {
+              "moveId": "hsts.preload",
+              "damage": 0,
+              "counterattack": "Preloading forces HTTPS, but the old TLS versions are still allowed."
+            }
+          ],
+          "modelAnswer": "TLS 1.0 and 1.1 should no longer be used. TLS 1.3 is the current version, and some sites still use 1.2. Turn off the old versions in the server config. The cost: clients that know only the old versions cannot connect.",
+          "keyPoints": [
+            "TLS 1.0 and 1.1 should no longer be used.",
+            "TLS 1.3 is current, and 1.2 is still in use.",
+            "The server config decides the allowed versions."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t01-broken-menu",
+      "name": "The broken menu",
+      "opponentType": "security",
+      "problem": "The shop moved to HTTPS. Now the menu does not work, and the browser console shows warnings.",
+      "turns": [
+        {
+          "threat": "The HTTPS page loads its menu script from http://cdn.example.com/menu.js.",
+          "moves": [
+            {
+              "moveId": "mixed-content.upgradable",
+              "damage": 0,
+              "counterattack": "You wait for the browser to upgrade it, but scripts are blocked, not upgraded."
+            },
+            {
+              "moveId": "tls.handshake",
+              "damage": 0,
+              "counterattack": "The page itself is encrypted, but the browser still blocks the http script."
+            },
+            {
+              "moveId": "mixed-content.blockable",
+              "damage": 2,
+              "counterattack": "The script loads over HTTPS now, but you must find every other http script."
+            },
+            {
+              "moveId": "status-code.redirect",
+              "damage": 0,
+              "counterattack": "The CDN redirects http to https, but the browser blocks the http request first."
+            }
+          ],
+          "modelAnswer": "A script over http on an HTTPS page is blockable mixed content. Browsers block it, so the menu breaks. Load it over HTTPS. The cost: you must find every http link.",
+          "keyPoints": [
+            "Scripts over http are blockable mixed content.",
+            "Browsers block them on HTTPS pages.",
+            "Every http link must change to https."
+          ]
+        },
+        {
+          "threat": "Product photos use img with src on http URLs. The team plans a week of photo fixes first.",
+          "moves": [
+            {
+              "moveId": "mixed-content.blockable",
+              "damage": 0,
+              "counterattack": "You treat the photos as blocked, so the team spends a week on the wrong fix first."
+            },
+            {
+              "moveId": "mixed-content.upgradable",
+              "damage": 2,
+              "counterattack": "The browser upgrades these photos itself, but photos from an IP address host are still blocked."
+            },
+            {
+              "moveId": "tls.certificate",
+              "damage": 0,
+              "counterattack": "You check the certificate, but the photo links still use http."
+            }
+          ],
+          "modelAnswer": "Images set with src are upgradable. The browser requests them over HTTPS by itself. Fix the blocked scripts first. The cost: images from an IP address host are still blocked.",
+          "keyPoints": [
+            "Images set with src are upgradable.",
+            "The browser asks for them over HTTPS itself.",
+            "Images from an IP address host are still blocked."
+          ]
+        },
+        {
+          "threat": "Visitors who type http://shop.example.com still get the old plain http pages.",
+          "moves": [
+            {
+              "moveId": "mixed-content.upgradable",
+              "damage": 0,
+              "counterattack": "Upgrades work only inside HTTPS pages, so the plain page stays plain."
+            },
+            {
+              "moveId": "status-code.client-error",
+              "damage": 0,
+              "counterattack": "You answer plain http with 403, so old links stop working."
+            },
+            {
+              "moveId": "tls.version",
+              "damage": 0,
+              "counterattack": "The TLS versions are fine, but this visitor never starts TLS."
+            },
+            {
+              "moveId": "status-code.redirect",
+              "damage": 2,
+              "counterattack": "Plain http visits get a 301 to HTTPS, but each one costs an extra request."
+            }
+          ],
+          "modelAnswer": "Listen for plain http requests and answer 301 Moved Permanently to the HTTPS URL. The cost: one extra request on each plain visit. Add HSTS later to skip it.",
+          "keyPoints": [
+            "Answer plain http with a 301 to HTTPS.",
+            "The Location header holds the https URL.",
+            "Each plain visit costs one extra request."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t01-new-blog",
+      "name": "The new blog",
+      "opponentType": "security",
+      "problem": "You launch a blog for the shop. It must be as safe as the shop itself.",
+      "turns": [
+        {
+          "threat": "Marketing says you must buy a new domain name before the blog can start.",
+          "moves": [
+            {
+              "moveId": "dns.domain-name",
+              "damage": 2,
+              "counterattack": "The blog becomes blog.shop.example.com, but the new subdomain needs its own setup."
+            },
+            {
+              "moveId": "dns.lookup",
+              "damage": 0,
+              "counterattack": "You test a lookup for a new name, but nobody has picked the name yet."
+            },
+            {
+              "moveId": "proxy.reverse",
+              "damage": 0,
+              "counterattack": "A reverse proxy can share the blog's load, but you still have no name for it."
+            }
+          ],
+          "modelAnswer": "Read a domain name from right to left. In shop.example.com, com is the TLD. You can create subdomains of a domain you control. The cost: the new subdomain needs its own setup.",
+          "keyPoints": [
+            "Domain names are read from right to left.",
+            "You can create subdomains of a domain you control.",
+            "No new domain name is needed."
+          ]
+        },
+        {
+          "threat": "The shop sends HSTS, but blog.shop.example.com still loads over plain http.",
+          "moves": [
+            {
+              "moveId": "hsts.preload",
+              "damage": 1,
+              "counterattack": "You plan to preload, but the header needs includeSubDomains first."
+            },
+            {
+              "moveId": "mixed-content.upgradable",
+              "damage": 0,
+              "counterattack": "Upgrades work only inside HTTPS pages, so the plain blog stays plain."
+            },
+            {
+              "moveId": "hsts.max-age",
+              "damage": 2,
+              "counterattack": "The header adds includeSubDomains next to max-age, but every subdomain must now support HTTPS."
+            },
+            {
+              "moveId": "tls.version",
+              "damage": 0,
+              "counterattack": "The TLS versions are fine, but the blog still loads over plain http."
+            }
+          ],
+          "modelAnswer": "Add includeSubDomains to the shop's HSTS header. The rule then also covers blog.shop.example.com. The blog should send its own HSTS header too. The cost: every subdomain must support HTTPS.",
+          "keyPoints": [
+            "includeSubDomains covers the names under the host.",
+            "Each subdomain should send its own HSTS header.",
+            "Every subdomain must then support HTTPS."
+          ]
+        },
+        {
+          "threat": "The blog shows the shop logo with img and has a form that posts to the shop. Security asks if this is allowed.",
+          "moves": [
+            {
+              "moveId": "same-origin-policy.origin",
+              "damage": 1,
+              "counterattack": "You see the blog is a different origin, but you do not know what is still allowed."
+            },
+            {
+              "moveId": "cookie.samesite",
+              "damage": 0,
+              "counterattack": "You change the cookie rules, but the question was about images and forms."
+            },
+            {
+              "moveId": "cors.preflight",
+              "damage": 0,
+              "counterattack": "You plan a preflight check, but a plain form post does not need one."
+            },
+            {
+              "moveId": "same-origin-policy.cross-origin-read",
+              "damage": 2,
+              "counterattack": "The logo and the form keep working, but blog scripts still cannot read shop replies."
+            }
+          ],
+          "modelAnswer": "Cross-origin writes, like form posts, are typically allowed. Embedding, like img, is typically allowed too. Reads are typically blocked. The cost: blog scripts cannot read shop data without CORS.",
+          "keyPoints": [
+            "Cross-origin form posts are typically allowed.",
+            "Embedding with img is typically allowed.",
+            "Cross-origin reads are typically blocked."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t01-new-front-end",
+      "name": "The new front end",
+      "opponentType": "security",
+      "problem": "The new front end runs on https://app.example.com. It calls the API on https://api.example.com.",
+      "turns": [
+        {
+          "threat": "Every fetch() to the API fails, and the console says the read was blocked.",
+          "moves": [
+            {
+              "moveId": "dns.domain-name",
+              "damage": 0,
+              "counterattack": "Both names end in example.com, but the policy compares the whole host."
+            },
+            {
+              "moveId": "same-origin-policy.origin",
+              "damage": 2,
+              "counterattack": "You see the hosts differ, so the origins differ, and the API must now opt in."
+            },
+            {
+              "moveId": "same-origin-policy.cross-origin-read",
+              "damage": 1,
+              "counterattack": "You know cross-origin reads are blocked, but not yet why these calls are cross-origin."
+            },
+            {
+              "moveId": "cookie.samesite",
+              "damage": 0,
+              "counterattack": "You change SameSite, but the same-origin policy still blocks the read."
+            }
+          ],
+          "modelAnswer": "An origin is the protocol, host and port. app.example.com and api.example.com have different hosts, so they are different origins. Scripts cannot read cross-origin replies without CORS. The cost: the API must send CORS headers.",
+          "keyPoints": [
+            "An origin is protocol, host and port.",
+            "Different subdomains are different origins.",
+            "A cross-origin read needs CORS from the server."
+          ]
+        },
+        {
+          "threat": "The front end sends a GET with the user's cookie, using credentials set to include. The API answers Access-Control-Allow-Origin: *.",
+          "moves": [
+            {
+              "moveId": "cors.simple-request",
+              "damage": 0,
+              "counterattack": "The GET is already a simple request, so the wildcard still blocks the reply."
+            },
+            {
+              "moveId": "cors.allow-origin",
+              "damage": 1,
+              "counterattack": "You name the exact origin, but the browser still blocks the reply without Access-Control-Allow-Credentials."
+            },
+            {
+              "moveId": "cookie.samesite",
+              "damage": 0,
+              "counterattack": "You change SameSite, but the wildcard still blocks the reply."
+            },
+            {
+              "moveId": "cors.credentials",
+              "damage": 2,
+              "counterattack": "The API names the exact origin and allows credentials, but it must keep that list exact."
+            }
+          ],
+          "modelAnswer": "With credentials, the wildcard does not work. The API must name the exact origin and send Access-Control-Allow-Credentials: true. The cost: the API must keep a list of allowed origins.",
+          "keyPoints": [
+            "The wildcard fails for requests with credentials.",
+            "Name the exact origin in Access-Control-Allow-Origin.",
+            "Send Access-Control-Allow-Credentials: true."
+          ]
+        },
+        {
+          "threat": "A JSON POST to the API fails, but a GET works. The console shows a failed OPTIONS request.",
+          "moves": [
+            {
+              "moveId": "cors.preflight",
+              "damage": 2,
+              "counterattack": "The API answers OPTIONS with the allowed methods and headers, but each preflight costs a request."
+            },
+            {
+              "moveId": "cors.simple-request",
+              "damage": 1,
+              "counterattack": "You see that JSON makes the request not simple, but the API still ignores OPTIONS."
+            },
+            {
+              "moveId": "http-method.safe",
+              "damage": 0,
+              "counterattack": "OPTIONS is safe, so you ignore it, and the POST still never goes out."
+            },
+            {
+              "moveId": "cors.allow-origin",
+              "damage": 0,
+              "counterattack": "The origin header is already right, so the POST still fails."
+            }
+          ],
+          "modelAnswer": "Content-Type: application/json makes the request not simple. So the browser first sends an OPTIONS preflight. The API must answer with Access-Control-Allow-Methods and Access-Control-Allow-Headers. With cookies, it also needs Access-Control-Allow-Credentials: true. The cost: an extra request, unless Access-Control-Max-Age caches the answer.",
+          "keyPoints": [
+            "JSON content makes a request not simple.",
+            "The browser sends an OPTIONS preflight first.",
+            "The API must allow the method and the headers."
+          ]
+        }
+      ]
+    }
   ]
 }
