@@ -11,7 +11,10 @@ import type { StoredSubscription } from "./push-subscriptions";
 export type PushResult = "sent" | "gone" | "failed";
 export type PushSender = (subscription: StoredSubscription, payload: string) => Promise<PushResult>;
 
-/** What one run did. `errors` counts users whose reminder hit a database error. */
+/**
+ * What one run did. `errors` counts reminders that hit a database error while being sent.
+ * A failed read before any send throws instead: the timer runs again 5 minutes later.
+ */
 export type ReminderRun = { due: number; sent: number; failed: number; gone: number; errors: number };
 
 type SubscriptionRow = { id: number; user_id: string; endpoint: string; p256dh: string; auth: string };
@@ -28,8 +31,14 @@ const KINDS: readonly ReminderKind[] = ["morning", "evening"];
 /** The kinds in the reminders table: the daily ones, and the ADR outcome check. */
 type StoredReminderKind = ReminderKind | "adr-outcome";
 
+/** A daily reminder whose time has come for one user, before the check that it is needed. */
+type Due = { userId: string; learningDay: LearningDay; kind: ReminderKind };
+
 /** A reminder that is due and needed for one user. */
-type Planned = { userId: string; learningDay: LearningDay; kind: StoredReminderKind; message: ReminderMessage };
+type Planned = Omit<Due, "kind"> & { kind: StoredReminderKind; message: ReminderMessage };
+
+/** A reminder looks at its own learning day and the 2 days before it, plus 1 (see `recentActiveSeconds`). */
+const LOOK_BACK_DAYS = 3;
 
 /**
  * One run of the 5-minute timer. For each user with a device, it checks in the home time zone
@@ -57,7 +66,7 @@ export async function sendDueReminders(admin: SupabaseClient, now: Date, send: P
   );
 
   for (const reminder of await planReminders(admin, profiles, now)) {
-    // One user's database error must not cost every later user their reminder.
+    // One reminder's database error must not cost every later user their reminder.
     try {
       await sendOnce(admin, reminder, devices.get(reminder.userId) ?? [], send, now, run);
     } catch (error) {
@@ -70,8 +79,8 @@ export async function sendDueReminders(admin: SupabaseClient, now: Date, send: P
 
 /** Every reminder that is due now and needed, for all users, from one read per table. */
 async function planReminders(admin: SupabaseClient, profiles: ProfileRow[], now: Date): Promise<Planned[]> {
-  const daily: { userId: string; learningDay: LearningDay; kind: ReminderKind }[] = [];
-  const adrDays = new Map<string, LearningDay>();
+  const daily: Due[] = [];
+  const morningDayByUser = new Map<string, LearningDay>();
   for (const profile of profiles) {
     const settings = {
       homeTimeZone: profile.home_time_zone,
@@ -85,18 +94,19 @@ async function planReminders(admin: SupabaseClient, profiles: ProfileRow[], now:
       if (!due.due) continue;
       daily.push({ userId: profile.user_id, learningDay: due.learningDay, kind });
       // The ADR outcome check (#33) comes at the morning reminder time of its check date.
-      if (kind === "morning") adrDays.set(profile.user_id, due.learningDay);
+      if (kind === "morning") morningDayByUser.set(profile.user_id, due.learningDay);
     }
   }
   if (daily.length === 0) return [];
 
-  const [sessions, adrs] = await Promise.all([recentSessions(admin, daily), adrsToCheck(admin, adrDays)]);
+  const [sessions, adrTowns] = await Promise.all([recentSessions(admin, daily), adrTownsToCheck(admin, morningDayByUser)]);
   const planned: Planned[] = [];
   for (const { userId, learningDay, kind } of daily) {
-    const message = reminderToSend(kind, learningDay, secondsBefore(sessions.get(userId) ?? [], learningDay));
+    const message = reminderToSend(kind, learningDay, recentActiveSeconds(sessions.get(userId) ?? [], learningDay));
     if (message !== null) planned.push({ userId, learningDay, kind, message });
-    const town = kind === "morning" ? adrs.get(userId) : undefined;
-    if (town) planned.push({ userId, learningDay, kind: "adr-outcome", message: adrReminderMessage(town) });
+  }
+  for (const [userId, town] of adrTowns) {
+    planned.push({ userId, learningDay: morningDayByUser.get(userId)!, kind: "adr-outcome", message: adrReminderMessage(town) });
   }
   return planned;
 }
@@ -125,11 +135,13 @@ async function sendOnce(
   if (error) throw error;
 }
 
+/** A session snapshot row, with its user, because one read holds the rows of every due user. */
 type SessionRow = SnapshotRow & { user_id: string };
+/** An ADR row of any due user. */
 type AdrRow = { user_id: string; document_key: string; outcome_check_date: string; sections: Record<string, unknown> };
 
 /** Per user, the town of an ADR whose outcome check is on that user's day and not written yet. */
-async function adrsToCheck(admin: SupabaseClient, days: Map<string, LearningDay>): Promise<Map<string, string>> {
+async function adrTownsToCheck(admin: SupabaseClient, days: Map<string, LearningDay>): Promise<Map<string, string>> {
   const towns = new Map<string, string>();
   if (days.size === 0) return towns;
   const rows = await selectAll((from, to) =>
@@ -153,18 +165,18 @@ async function adrsToCheck(admin: SupabaseClient, days: Map<string, LearningDay>
 }
 
 /**
- * The session rows of every due user, for the earliest reminder day minus 3 up to the latest one.
- * Users in other time zones can be on another learning day, so `secondsBefore` keeps each
+ * The session rows of every due user, from the earliest reminder day minus 3 to the latest one.
+ * Users in other time zones can be on another learning day, so `recentActiveSeconds` keeps each
  * reminder's own days.
  */
-async function recentSessions(admin: SupabaseClient, due: { userId: string; learningDay: LearningDay }[]): Promise<Map<string, SessionRow[]>> {
+async function recentSessions(admin: SupabaseClient, due: Due[]): Promise<Map<string, SessionRow[]>> {
   const days = due.map((d) => d.learningDay).sort();
   const rows = await selectAll((from, to) =>
     admin
       .from("session_events")
       .select("user_id, session_id, occurred_at, learning_day, active_seconds")
       .in("user_id", [...new Set(due.map((d) => d.userId))])
-      .gte("learning_day", addDays(days[0], -3))
+      .gte("learning_day", addDays(days[0], -LOOK_BACK_DAYS))
       .lte("learning_day", days[days.length - 1])
       .order("id")
       .range(from, to)
@@ -177,8 +189,8 @@ async function recentSessions(admin: SupabaseClient, due: { userId: string; lear
  * Active seconds per learning day for the reminder's day and the 2 days before it. One more
  * day is used, because a session counts for the day it started (see `activeSecondsByDay`).
  */
-function secondsBefore(rows: SessionRow[], day: LearningDay): Map<LearningDay, number> {
-  const own = rows.filter((row) => row.learning_day >= addDays(day, -3) && row.learning_day <= day);
+function recentActiveSeconds(rows: SessionRow[], day: LearningDay): Map<LearningDay, number> {
+  const own = rows.filter((row) => row.learning_day >= addDays(day, -LOOK_BACK_DAYS) && row.learning_day <= day);
   return activeSecondsByDay(own.map(toSnapshot));
 }
 
