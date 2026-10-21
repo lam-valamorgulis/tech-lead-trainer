@@ -77,6 +77,29 @@ describe("GET /api/export", () => {
     expect(file.weekendDocuments).toMatchObject([{ document_key: "t01-boss", sections: { problem: "Slow page." } }]);
   });
 
+  it("holds the old typed why and the v2 battle fields side by side", async () => {
+    const turn = {
+      type: "battle-turn" as const,
+      sessionId: crypto.randomUUID(),
+      occurredAt: new Date().toISOString(),
+      battleId: crypto.randomUUID(),
+      scenarioId: "t99-sale-day",
+      contentHash: "0123456789abcdef",
+      moveId: "cache.ttl",
+      damage: 2 as const,
+      bestMove: true,
+    };
+    await writeEvents(a.client, [
+      { ...turn, clientEventId: crypto.randomUUID(), turnNumber: 1, whyText: "A copy is fine for an hour." },
+      { ...turn, clientEventId: crypto.randomUUID(), turnNumber: 2, battleKind: "battle", reasonIndex: 1, reasonCorrect: true, hpLost: 0, skillIds: [3], constraintVariant: "main" },
+    ]);
+    const file = await exportOf(a);
+    expect(file.events.battle_turn_events).toMatchObject([
+      { turn_number: 1, why_text: "A copy is fine for an hour.", battle_kind: null, reason_index: null, hp_lost: null, skill_ids: null },
+      { turn_number: 2, why_text: null, battle_kind: "battle", reason_index: 1, reason_correct: true, hp_lost: 0, skill_ids: [3], constraint_variant: "main" },
+    ]);
+  });
+
   it("holds only the signed-in user's rows", async () => {
     const file = await exportOf(b);
 

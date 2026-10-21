@@ -203,3 +203,73 @@ describe("the review state cache after a battle", () => {
     expect(await stateOf(user.client)).toEqual(live);
   });
 });
+
+describe("the review state cache after a v2 battle (#102)", () => {
+  type User = { id: string; email: string; client: SupabaseClient; token: string };
+  let old: User;
+  let v2: User;
+
+  async function learner(label: string): Promise<User> {
+    const user = await signedInUser(label);
+    await ensureProfile(user.client);
+    return { ...user, token: (await user.client.auth.getSession()).data.session!.access_token };
+  }
+
+  /** The same caught moves and the same lost battle. Only the shape of the battle events differs. */
+  async function playLostBattle(user: User, v2Fields: Record<string, unknown> | null) {
+    const caughtAt = daysAgo(3);
+    await post(user.token, ["cache.ttl", "proxy.cdn"].map((itemId) => catchEvent(itemId, caughtAt)));
+    const battle = { sessionId, battleId: crypto.randomUUID(), scenarioId: "t99-sale-day", contentHash: "0123456789abcdef" };
+    const now = new Date().toISOString();
+    const turn = (turnNumber: number, moveId: string) => ({
+      type: "battle-turn",
+      clientEventId: crypto.randomUUID(),
+      occurredAt: now,
+      ...battle,
+      turnNumber,
+      moveId,
+      damage: 0,
+      bestMove: false,
+      ...(v2Fields ?? { whyText: "Old copies are fine." }),
+    });
+    await post(user.token, [
+      turn(1, "cache.ttl"),
+      turn(2, "proxy.cdn"),
+      turn(3, "cache.ttl"),
+      {
+        type: "battle",
+        clientEventId: crypto.randomUUID(),
+        occurredAt: now,
+        ...battle,
+        team: ["cache", "proxy"],
+        result: "lost",
+        turnsUsed: 3,
+        ...(v2Fields ? { battleKind: "battle", faints: 1 } : {}),
+      },
+    ]);
+  }
+
+  beforeAll(async () => {
+    old = await learner("state-v1-shape");
+    v2 = await learner("state-v2-shape");
+    await playLostBattle(old, null);
+    await playLostBattle(v2, { battleKind: "battle", reasonIndex: 1, reasonCorrect: false, hpLost: 2, skillIds: [3], constraintVariant: "main" });
+  });
+
+  afterAll(async () => {
+    await forgetEmail(old.email);
+    await forgetEmail(v2.email);
+  });
+
+  it("brings back the same moves from a v2 battle as from an old one, and a rebuild gives the same rows", async () => {
+    const fromOld = await stateOf(old.client);
+    expect(fromOld!.map((row) => row.item_id)).toEqual(["cache.ttl", "proxy.cdn"]);
+    expect(await stateOf(v2.client)).toEqual(fromOld);
+
+    for (const user of [old, v2]) {
+      const live = await stateOf(user.client);
+      await rebuildReviewState(adminClient(), user.id);
+      expect(await stateOf(user.client)).toEqual(live);
+    }
+  });
+});

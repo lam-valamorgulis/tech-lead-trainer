@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { KEY_POINTS } from "@/content/schema";
+import { KEY_POINTS, REASONS, SCENARIO_KINDS } from "@/content/schema";
+import { SKILLS } from "@/content/skills";
 import { REVIEW_STEPS } from "@/core/review";
 
 // The one write path for learning events (spec: "Interfaces and contracts").
@@ -72,22 +73,48 @@ export const placementEventSchema = z.object({
 
 const scenarioId = z.string().regex(/^t\d{2}-[a-z0-9]+(-[a-z0-9]+)*$/);
 
-/** One played battle turn. `bestMove` is decided at play time and never recomputed. */
-export const battleTurnEventSchema = z.object({
-  type: z.literal("battle-turn"),
-  ...base,
-  battleId: z.uuid(),
-  scenarioId,
-  contentHash: z.string().regex(/^[0-9a-f]{16}$/),
-  turnNumber: z.int().min(1).max(3),
-  /** Null when the team had no move for this threat. */
-  moveId: z.string().min(1).max(100).nullable(),
-  damage: z.union([z.literal(0), z.literal(1), z.literal(2)]),
-  bestMove: z.boolean(),
-  whyText: z.string().trim().min(1).max(1000),
-});
+const damageValue = z.union([z.literal(0), z.literal(1), z.literal(2)]);
 
-/** The end of a battle. */
+/**
+ * One played battle turn. `bestMove` and `reasonCorrect` are decided at play time and never
+ * recomputed. The v2 fields (ADR 0001) are optional, so the v1 screen and events still waiting
+ * in an old outbox keep the old shape: a move, its damage and a typed why.
+ */
+export const battleTurnEventSchema = z
+  .object({
+    type: z.literal("battle-turn"),
+    ...base,
+    battleId: z.uuid(),
+    scenarioId,
+    contentHash: z.string().regex(/^[0-9a-f]{16}$/),
+    turnNumber: z.int().min(1).max(3),
+    /** Null when the team had no move for this threat. */
+    moveId: z.string().min(1).max(100).nullable(),
+    /** The hit on the opponent. In v2 a wrong Reason has already made it 1 weaker. */
+    damage: damageValue,
+    bestMove: z.boolean(),
+    /** Optional from v2 on. When given, it has words in it. */
+    whyText: z.string().trim().min(1).max(1000).optional(),
+    battleKind: z.enum(SCENARIO_KINDS).optional(),
+    /** The Reason picked, by its index in the content file. */
+    reasonIndex: z.int().min(0).max(REASONS - 1).optional(),
+    reasonCorrect: z.boolean().optional(),
+    /** The HP the learner's side lost this turn. */
+    hpLost: damageValue.optional(),
+    skillIds: z
+      .array(z.int().min(1).max(SKILLS.length))
+      .min(1)
+      .max(SKILLS.length)
+      .refine((ids) => new Set(ids).size === ids.length, "A Skill is listed once.")
+      .optional(),
+    /** Which Constraint the turn showed: "main" is the turn's own line. */
+    constraintVariant: z.string().max(50).regex(/^[a-z0-9]+(-[a-z0-9]+)*$/).optional(),
+  })
+  .refine((turn) => (turn.reasonIndex === undefined) === (turn.reasonCorrect === undefined), {
+    message: "A Reason and whether it was right come together.",
+  });
+
+/** The end of a battle. The v2 fields are optional, like those of a turn. */
 export const battleEventSchema = z.object({
   type: z.literal("battle"),
   ...base,
@@ -97,6 +124,9 @@ export const battleEventSchema = z.object({
   team: z.array(z.string().min(1).max(100)).min(1).max(3),
   result: z.enum(["won", "lost"]),
   turnsUsed: z.int().min(1).max(3),
+  battleKind: z.enum(SCENARIO_KINDS).optional(),
+  /** How many team members Fainted. */
+  faints: z.int().min(0).max(3).optional(),
 });
 
 /**
@@ -282,7 +312,13 @@ function toRow(event: LearningEvent) {
         move_id: event.moveId,
         damage: event.damage,
         best_move: event.bestMove,
-        why_text: event.whyText,
+        why_text: event.whyText ?? null,
+        battle_kind: event.battleKind ?? null,
+        reason_index: event.reasonIndex ?? null,
+        reason_correct: event.reasonCorrect ?? null,
+        hp_lost: event.hpLost ?? null,
+        skill_ids: event.skillIds ?? null,
+        constraint_variant: event.constraintVariant ?? null,
       };
     case "battle":
       return {
@@ -295,6 +331,8 @@ function toRow(event: LearningEvent) {
         team: event.team,
         result: event.result,
         turns_used: event.turnsUsed,
+        battle_kind: event.battleKind ?? null,
+        faints: event.faints ?? null,
       };
     case "battle-check":
       return {
