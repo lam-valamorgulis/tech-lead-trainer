@@ -6,6 +6,7 @@
     {
       "id": "client-server",
       "name": "Client and server",
+      "sprite": 2,
       "catch": {
         "question": "In plain HTTP, which side sends the first message?",
         "choices": [
@@ -98,6 +99,7 @@
     {
       "id": "http-message",
       "name": "HTTP message",
+      "sprite": 6,
       "catch": {
         "question": "What are the two types of HTTP messages?",
         "choices": [
@@ -217,6 +219,7 @@
     {
       "id": "http-method",
       "name": "HTTP method",
+      "sprite": 18,
       "catch": {
         "question": "What does the method in a request tell the server?",
         "choices": [
@@ -336,6 +339,7 @@
     {
       "id": "status-code",
       "name": "Status code",
+      "sprite": 22,
       "catch": {
         "question": "A response has the status code 429. Without looking it up, what do you know?",
         "choices": [
@@ -482,6 +486,7 @@
     {
       "id": "content-type",
       "name": "Content type",
+      "sprite": 4,
       "catch": {
         "question": "In a POST request, what does the Content-Type header describe?",
         "choices": [
@@ -574,6 +579,7 @@
     {
       "id": "stateless-http",
       "name": "Stateless HTTP",
+      "sprite": 10,
       "catch": {
         "question": "Your browser sends two requests on the same connection. What does HTTP itself link between them?",
         "choices": [
@@ -666,6 +672,7 @@
     {
       "id": "cookie",
       "name": "Cookie",
+      "sprite": 21,
       "catch": {
         "question": "Who stores a cookie and sends it back to the server?",
         "choices": [
@@ -812,6 +819,7 @@
     {
       "id": "proxy",
       "name": "Proxy",
+      "sprite": 31,
       "catch": {
         "question": "What is a proxy in HTTP?",
         "choices": [
@@ -904,6 +912,7 @@
     {
       "id": "dns",
       "name": "DNS",
+      "sprite": 24,
       "catch": {
         "question": "You type shop.example.com. What must be found before your browser can reach the server?",
         "choices": [
@@ -996,6 +1005,7 @@
     {
       "id": "http-version",
       "name": "HTTP versions",
+      "sprite": 5,
       "catch": {
         "question": "What changed most from HTTP/1.1 to HTTP/2 to HTTP/3?",
         "choices": [
@@ -1115,6 +1125,7 @@
     {
       "id": "tls",
       "name": "TLS",
+      "sprite": 41,
       "catch": {
         "question": "HTTPS protects your shop's traffic with TLS. What does TLS give the connection?",
         "choices": [
@@ -1235,6 +1246,7 @@
     {
       "id": "hsts",
       "name": "HSTS",
+      "sprite": 1,
       "catch": {
         "question": "A user types http://example.com after an earlier HTTPS visit. What makes the browser go straight to HTTPS?",
         "choices": [
@@ -1327,6 +1339,7 @@
     {
       "id": "mixed-content",
       "name": "Mixed content",
+      "sprite": 28,
       "catch": {
         "question": "Your page loads over HTTPS, but one script loads from an http URL. What is this called?",
         "choices": [
@@ -1419,6 +1432,7 @@
     {
       "id": "same-origin-policy",
       "name": "Same-origin policy",
+      "sprite": 13,
       "catch": {
         "question": "A script on https://shop.example.com fetches JSON from https://api.example.net. By default, what can the script do?",
         "choices": [
@@ -1511,6 +1525,7 @@
     {
       "id": "cors",
       "name": "CORS",
+      "sprite": 27,
       "catch": {
         "question": "Your front end on another origin cannot read your API's response. Who must change something to allow it?",
         "choices": [

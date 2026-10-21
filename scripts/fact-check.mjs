@@ -7,7 +7,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { factCheckList, factReportProblem, formatFactCheckReport, quoteOnPage } from "../src/content/fact-check.ts";
+import { claimsDiffer, factCheckList, factReportProblem, formatFactCheckReport, quoteOnPage } from "../src/content/fact-check.ts";
 import { townSchema } from "../src/content/schema.ts";
 
 const { values: args, positionals } = parseArgs({
@@ -21,7 +21,25 @@ if (mode === "pr-rule") {
   const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"));
   const base = event.pull_request.base.sha;
   const changed = execFileSync("git", ["diff", "--name-only", `${base}...HEAD`], { encoding: "utf8" }).split("\n").filter(Boolean);
-  const problem = factReportProblem(changed, event.pull_request.body ?? "");
+  // A town file whose claims did not change (a sprite number, say) needs no report.
+  const readTown = (text) => townSchema.parse(JSON.parse(text));
+  const changedTowns = changed
+    .filter((file) => /^content\/towns\/[^/]+\.json$/.test(file))
+    .filter((file) => {
+      let before = null;
+      try {
+        before = readTown(execFileSync("git", ["show", `${base}:${file}`], { encoding: "utf8" }));
+      } catch {
+        // A new town file: every claim is new.
+      }
+      try {
+        return claimsDiffer(before, readTown(readFileSync(file, "utf8")));
+      } catch {
+        // A deleted or broken file: the content check fails on it; ask for the report too.
+        return true;
+      }
+    });
+  const problem = factReportProblem(changedTowns, event.pull_request.body ?? "");
   if (problem) {
     console.error(problem);
     process.exit(1);

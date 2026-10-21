@@ -16,6 +16,8 @@ export type CatchItem = {
   card: BundledCreature["card"];
   /** Read before the question (design 6.3). Old content has none yet. */
   lesson?: BundledCreature["lesson"];
+  /** The species of the creature, or of the move's creature (#99). Content without art has none. */
+  sprite?: number;
 };
 
 /** What the rules need from a saved catch event, or from a right placement answer. */
@@ -32,13 +34,13 @@ export function catchQueue(town: BundledTown): CatchItem[] {
   return town.creatures
     .filter((creature) => !creature.retired)
     .flatMap((creature) => [
-      toItem(creature, "creature", creature.id),
-      ...creature.moves.filter((move) => !move.retired).map((move) => toItem(move, "move", creature.id)),
+      toItem(creature, "creature", creature.id, creature.sprite),
+      ...creature.moves.filter((move) => !move.retired).map((move) => toItem(move, "move", creature.id, creature.sprite)),
     ]);
 }
 
-function toItem(item: BundledCreature | BundledMove, kind: ItemKind, creatureId: string): CatchItem {
-  return { id: item.id, kind, creatureId, name: item.name, hash: item.hash, catch: item.catch, card: item.card, lesson: item.lesson };
+function toItem(item: BundledCreature | BundledMove, kind: ItemKind, creatureId: string, sprite?: number): CatchItem {
+  return { id: item.id, kind, creatureId, name: item.name, hash: item.hash, catch: item.catch, card: item.card, lesson: item.lesson, sprite };
 }
 
 export function caughtIds(records: CatchRecord[]): Set<string> {
@@ -84,6 +86,8 @@ export type FieldGuideProgress = {
   creatures: {
     id: string;
     name: string;
+    /** The species of its art (#99), when the content has one. */
+    sprite?: number;
     status: CreatureStatus;
     /** 1 when caught, then 2 and 3 as reviews pass (design 5). */
     stage: Stage | null;
@@ -110,6 +114,7 @@ export function fieldGuideProgress(
       return {
         id: creature.id,
         name: creature.name,
+        sprite: creature.sprite,
         status,
         stage: status === "caught" ? (states.get(creature.id)?.stage ?? 1) : null,
         movesCaught: moves.filter((move) => caught.has(move.id)).length,

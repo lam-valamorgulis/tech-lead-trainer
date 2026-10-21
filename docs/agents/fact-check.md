@@ -1,6 +1,6 @@
 # Content fact check
 
-Every content PR gets an independent fact check before it merges (design 8, ticket #96). The agent that wrote the content never checks it. Fresh reviewer agents open every cited page and check each claim against it. A content PR does not merge without the report: the "Content PR" CI check fails until the PR body has it.
+Every content PR gets an independent fact check before it merges (design 8, ticket #96). The agent that wrote the content never checks it. Fresh reviewer agents open every cited page and check each claim against it. A content PR does not merge without the report: the "Content PR" CI check fails until the PR body has it. A change to a display-only field, such as a creature's `sprite` number, needs no report; any other change to a town file does.
 
 The `fact-check` skill (`.claude/skills/fact-check/SKILL.md`) runs every step below. Start it with `/fact-check content/towns/t01.json <PR number>`.
 

@@ -7,6 +7,7 @@ import { postEvents } from "@/lib/events/post-events";
 import { CONFIDENCE, type Confidence } from "./confidence";
 import { Fx } from "./effects";
 import { ReportWrong } from "./report-wrong";
+import { CreatureSprite } from "./creature-sprite";
 import { GlossaryText } from "./glossary-text";
 import { useMermaidSvg } from "./use-mermaid-svg";
 import { playSound } from "./sound";
@@ -94,6 +95,7 @@ export function CatchFlow({
           <h2 id="lesson-title" ref={heading} tabIndex={-1}>
             {phase.screen === 0 ? `A new ${item.kind}: ${item.name}` : `${item.name}, ${phase.screen + 1} of ${lesson.screens.length}`}
           </h2>
+          {phase.screen === 0 && <CreatureSprite species={item.sprite} />}
           <LessonCard screen={screen} source={lesson.source} />
           <ReportWrong itemId={item.id} contentHash={item.hash} screen="catch-card" />
           <button type="button" className="button-main" onClick={() => turn(phase.screen + 1)}>
@@ -128,6 +130,7 @@ export function CatchFlow({
       <h2 id="result-title" ref={heading} tabIndex={-1}>
         {phase.name === "caught" ? <Caught name={item.name} /> : <Fx sound="wrong">Not this time</Fx>}
       </h2>
+      {phase.name === "caught" && <CreatureSprite species={item.sprite} />}
       <p>
         {phase.name === "caught"
           ? phase.answer.explanation
@@ -165,6 +168,7 @@ function AskStep({
       <h2 id="catch-title" ref={heading} tabIndex={-1}>
         {attempt === 1 ? `Catch ${item.name}` : "Not yet. Look again"}
       </h2>
+      {attempt === 1 && <CreatureSprite species={item.sprite} />}
       {attempt === 2 && (
         <div className="look-back stack">
           <p className="pixel-label">

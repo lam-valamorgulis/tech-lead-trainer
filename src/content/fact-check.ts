@@ -237,16 +237,29 @@ function lettersAndDigits(text: string): string {
     .replace(/[^a-z0-9]/g, "");
 }
 
+/** Town fields that only change how the app draws content, never what it says. */
+const DISPLAY_ONLY_FIELDS = new Set(["sprite"]);
+
 /**
- * The CI rule for content PRs (#96): a PR that changes a town file must carry the fact-check
- * report section with a link to the report comment. Null when the PR passes.
+ * Whether a change to a town file needs a new fact check: any change except to display-only
+ * fields, such as a sprite number. A new field is checked by default. `before` is null for a new file.
  */
-export function factReportProblem(changedFiles: string[], body: string): string | null {
-  const town = changedFiles.find((file) => /^content\/towns\/[^/]+\.json$/.test(file));
+export function claimsDiffer(before: Town | null, after: Town): boolean {
+  const said = (town: Town) => JSON.stringify(town, (key, value) => (DISPLAY_ONLY_FIELDS.has(key) ? undefined : value));
+  return before === null || said(before) !== said(after);
+}
+
+/**
+ * The CI rule for content PRs (#96): a PR that changes the claims of a town file must carry the
+ * fact-check report section with a link to the report comment. `changedTowns` lists the town files
+ * whose claims differ from the PR's base. Null when the PR passes.
+ */
+export function factReportProblem(changedTowns: string[], body: string): string | null {
+  const town = changedTowns.find((file) => /^content\/towns\/[^/]+\.json$/.test(file));
   if (!town) return null;
   const section = body.split(/^## /m).find((part) => part.startsWith("Fact check report"));
   if (section && /#issuecomment-\d+/.test(section)) return null;
-  return `This PR changes ${town}. Its body needs a "## Fact check report" section with a link to the report comment (docs/agents/fact-check.md).`;
+  return `This PR changes the claims of ${town}. Its body needs a "## Fact check report" section with a link to the report comment (docs/agents/fact-check.md).`;
 }
 
 const oneLine = (text: string) => text.replace(/\s+/g, " ").trim();

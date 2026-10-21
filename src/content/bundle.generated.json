@@ -200,6 +200,7 @@
         {
           "id": "client-server",
           "name": "Client and server",
+          "sprite": 2,
           "catch": {
             "question": "In plain HTTP, which side sends the first message?",
             "choices": [
@@ -295,6 +296,7 @@
         {
           "id": "http-message",
           "name": "HTTP message",
+          "sprite": 6,
           "catch": {
             "question": "What are the two types of HTTP messages?",
             "choices": [
@@ -418,6 +420,7 @@
         {
           "id": "http-method",
           "name": "HTTP method",
+          "sprite": 18,
           "catch": {
             "question": "What does the method in a request tell the server?",
             "choices": [
@@ -541,6 +544,7 @@
         {
           "id": "status-code",
           "name": "Status code",
+          "sprite": 22,
           "catch": {
             "question": "A response has the status code 429. Without looking it up, what do you know?",
             "choices": [
@@ -692,6 +696,7 @@
         {
           "id": "content-type",
           "name": "Content type",
+          "sprite": 4,
           "catch": {
             "question": "In a POST request, what does the Content-Type header describe?",
             "choices": [
@@ -787,6 +792,7 @@
         {
           "id": "stateless-http",
           "name": "Stateless HTTP",
+          "sprite": 10,
           "catch": {
             "question": "Your browser sends two requests on the same connection. What does HTTP itself link between them?",
             "choices": [
@@ -882,6 +888,7 @@
         {
           "id": "cookie",
           "name": "Cookie",
+          "sprite": 21,
           "catch": {
             "question": "Who stores a cookie and sends it back to the server?",
             "choices": [
@@ -1033,6 +1040,7 @@
         {
           "id": "proxy",
           "name": "Proxy",
+          "sprite": 31,
           "catch": {
             "question": "What is a proxy in HTTP?",
             "choices": [
@@ -1128,6 +1136,7 @@
         {
           "id": "dns",
           "name": "DNS",
+          "sprite": 24,
           "catch": {
             "question": "You type shop.example.com. What must be found before your browser can reach the server?",
             "choices": [
@@ -1223,6 +1232,7 @@
         {
           "id": "http-version",
           "name": "HTTP versions",
+          "sprite": 5,
           "catch": {
             "question": "What changed most from HTTP/1.1 to HTTP/2 to HTTP/3?",
             "choices": [
@@ -1346,6 +1356,7 @@
         {
           "id": "tls",
           "name": "TLS",
+          "sprite": 41,
           "catch": {
             "question": "HTTPS protects your shop's traffic with TLS. What does TLS give the connection?",
             "choices": [
@@ -1470,6 +1481,7 @@
         {
           "id": "hsts",
           "name": "HSTS",
+          "sprite": 1,
           "catch": {
             "question": "A user types http://example.com after an earlier HTTPS visit. What makes the browser go straight to HTTPS?",
             "choices": [
@@ -1565,6 +1577,7 @@
         {
           "id": "mixed-content",
           "name": "Mixed content",
+          "sprite": 28,
           "catch": {
             "question": "Your page loads over HTTPS, but one script loads from an http URL. What is this called?",
             "choices": [
@@ -1660,6 +1673,7 @@
         {
           "id": "same-origin-policy",
           "name": "Same-origin policy",
+          "sprite": 13,
           "catch": {
             "question": "A script on https://shop.example.com fetches JSON from https://api.example.net. By default, what can the script do?",
             "choices": [
@@ -1755,6 +1769,7 @@
         {
           "id": "cors",
           "name": "CORS",
+          "sprite": 27,
           "catch": {
             "question": "Your front end on another origin cannot read your API's response. Who must change something to allow it?",
             "choices": [
@@ -3527,6 +3542,7 @@
         {
           "id": "resource-design",
           "name": "Resource-oriented design",
+          "sprite": 35,
           "catch": {
             "question": "In resource-oriented design, what are the main building blocks of an API?",
             "choices": [
@@ -3650,6 +3666,7 @@
         {
           "id": "api-status-code",
           "name": "Status codes in APIs",
+          "sprite": 9,
           "catch": {
             "question": "A POST creates a new order, and the service picks its ID. What should the response be, per the Azure guidelines?",
             "choices": [
@@ -3773,6 +3790,7 @@
         {
           "id": "problem-details",
           "name": "Problem Details",
+          "sprite": 12,
           "catch": {
             "question": "Which media type does RFC 9457 define for an error body in JSON?",
             "choices": [
@@ -3896,6 +3914,7 @@
         {
           "id": "api-auth",
           "name": "API access control",
+          "sprite": 33,
           "catch": {
             "question": "Where must a non-public REST service perform access control?",
             "choices": [
@@ -4019,6 +4038,7 @@
         {
           "id": "rate-limit",
           "name": "Rate limiting",
+          "sprite": 43,
           "catch": {
             "question": "Which status code says the client sent too many requests in a given amount of time?",
             "choices": [
@@ -4142,6 +4162,7 @@
         {
           "id": "paging",
           "name": "Collections and paging",
+          "sprite": 16,
           "catch": {
             "question": "In the Azure guidelines, how does a list response tell the client that another page exists?",
             "choices": [
@@ -4265,6 +4286,7 @@
         {
           "id": "conditional-request",
           "name": "Conditional requests",
+          "sprite": 19,
           "catch": {
             "question": "What do headers like If-Match and If-None-Match let a client do?",
             "choices": [
@@ -4388,6 +4410,7 @@
         {
           "id": "idempotency-key",
           "name": "Idempotency key",
+          "sprite": 40,
           "catch": {
             "question": "A payment request times out, and you do not know if it worked. What makes a retry safe with the Stripe API?",
             "choices": [
@@ -4511,6 +4534,7 @@
         {
           "id": "client-token",
           "name": "Client request token",
+          "sprite": 46,
           "catch": {
             "question": "In the AWS article, how does a service know that a request repeats an earlier one?",
             "choices": [
@@ -4634,6 +4658,7 @@
         {
           "id": "repeatability",
           "name": "Request repeatability",
+          "sprite": 30,
           "catch": {
             "question": "What do the Azure guidelines require of all service operations, including POST?",
             "choices": [
@@ -4729,6 +4754,7 @@
         {
           "id": "long-running",
           "name": "Long-running operation",
+          "sprite": 42,
           "catch": {
             "question": "When should an Azure operation be a long-running operation?",
             "choices": [
@@ -4852,6 +4878,7 @@
         {
           "id": "openapi",
           "name": "OpenAPI",
+          "sprite": 8,
           "catch": {
             "question": "What is an OpenAPI Description?",
             "choices": [
@@ -4947,6 +4974,7 @@
         {
           "id": "versioning",
           "name": "API versioning",
+          "sprite": 44,
           "catch": {
             "question": "What two requirements do the Azure guidelines set for every service change?",
             "choices": [
@@ -5070,6 +5098,7 @@
         {
           "id": "breaking-change",
           "name": "Backwards compatibility",
+          "sprite": 25,
           "catch": {
             "question": "Which change breaks existing clients in the same major version?",
             "choices": [
@@ -5193,6 +5222,7 @@
         {
           "id": "llm-api",
           "name": "LLM API calls",
+          "sprite": 49,
           "catch": {
             "question": "Which Claude API error means the API is temporarily overloaded?",
             "choices": [

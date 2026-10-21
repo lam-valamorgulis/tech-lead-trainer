@@ -148,3 +148,18 @@ test("a catch made offline still counts as today's catch", async ({ page }) => {
     await user.forget();
   }
 });
+
+test("the catch shows the creature's own sprite (#99)", async ({ page }) => {
+  const user = await signInNewUser(page, "catch-sprite");
+  try {
+    await page.getByRole("button", { name: "15 minutes" }).click();
+    // The fixture's Cache is species 12, drawn at 2 times its 64 pixels.
+    const art = page.locator("img.creature-art");
+    await expect(art).toHaveAttribute("src", "/sprites/monsters/monster-12-front.png");
+    await expect(art).toHaveAttribute("width", "128");
+    await readLesson(page);
+    await expect(art).toBeVisible();
+  } finally {
+    await user.forget();
+  }
+});
