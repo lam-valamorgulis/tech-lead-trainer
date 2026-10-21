@@ -42,7 +42,7 @@ Replace `<part>` and `<findings>` with the two file paths.
 
 ```text
 You are a fact checker for a learning app. Answer in simple English (B1, short sentences).
-Read <part>. It is a JSON list of pages: { url, title, claims: [{ where, text }] }.
+Read <part>. It is a JSON list of pages: { url, title, textFile, claims: [{ where, text }] }.
 
 For each page:
 1. Read the page's words from its textFile: the script saved the page there. Quote from that text.

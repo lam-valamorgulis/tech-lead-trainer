@@ -196,6 +196,11 @@ describe("quoteOnPage", () => {
     expect(quoteOnPage(page, "stays fresh ... The expires directive")).toBe(false);
   });
 
+  it("does not let short scraps pass as a quote, but lets a short code part sit next to a real phrase", () => {
+    expect(quoteOnPage(page, "The … fresh")).toBe(false);
+    expect(quoteOnPage(page, "says how long a response stays … max-age")).toBe(true);
+  });
+
   it("does not find words that are not on the page", () => {
     expect(quoteOnPage(page, "The max-age directive says how long a request stays fresh.")).toBe(false);
   });

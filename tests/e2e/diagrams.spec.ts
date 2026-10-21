@@ -24,6 +24,8 @@ function diagramsOf(bundleFile: string): [string, string][] {
 
 test("every diagram of the real and the fixture content is valid Mermaid", async ({ page }) => {
   const diagrams = [...diagramsOf("src/content/bundle.generated.json"), ...diagramsOf("src/content/fixture.generated.json")];
+  // A change of the bundle shape must not turn this into a test of nothing.
+  expect(diagrams.length).toBeGreaterThan(10);
   await page.addScriptTag({ content: readFileSync("node_modules/mermaid/dist/mermaid.min.js", "utf8") });
   const broken = await page.evaluate(async (all) => {
     const mermaid = (window as unknown as { mermaid: { initialize: (o: object) => void; parse: (s: string) => Promise<unknown> } }).mermaid;

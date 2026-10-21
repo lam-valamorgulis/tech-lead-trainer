@@ -68,8 +68,11 @@ if (mode === "list") {
   mkdirSync(join(args.out, "pages"), { recursive: true });
   for (const [index, group] of groups.entries()) {
     if (group.url === "") continue;
+    const text = pageText(await fetchPage(group.url));
+    // A page that did not load gets no textFile, so the reviewer opens it with WebFetch.
+    if (text === "") continue;
     const file = join(args.out, "pages", `page-${index + 1}.txt`);
-    writeFileSync(file, `${group.title}\n${group.url}\n\n${pageText(await fetchPage(group.url))}\n`);
+    writeFileSync(file, `${group.title}\n${group.url}\n\n${text}\n`);
     group.textFile = file;
   }
   const parts = [];

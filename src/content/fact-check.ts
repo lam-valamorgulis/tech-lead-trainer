@@ -9,8 +9,11 @@ import type { BattleTurn, Creature, DecisionCard, Move, Scenario, Town, TradeOff
 /** One thing the content says, with where it lives in the file, for example t01.dns.catch. */
 export type Claim = { where: string; text: string };
 
-/** The claims one page must support. The group with url "" holds the claims that have no page. */
-export type SourceGroup = { url: string; title: string; claims: Claim[] };
+/**
+ * The claims one page must support. The group with url "" holds the claims that have no page.
+ * `textFile` is the page's own words, saved by `npm run fact-check -- list` when the page loads.
+ */
+export type SourceGroup = { url: string; title: string; claims: Claim[]; textFile?: string };
 
 /** A reviewer's verdict on one claim. A verdict without a quote from the page counts for nothing. */
 export type Finding = {
@@ -219,10 +222,14 @@ export function formatFactCheckReport(townId: string, groups: SourceGroup[], fin
  */
 export function quoteOnPage(html: string, quote: string): boolean {
   const page = lettersAndDigits(pageText(html));
-  // "…" joins parts of the page that are apart: each part must be there, in any order.
+  // "…" joins parts of the page that are apart: each part must be there, in any order. Short parts,
+  // like a header name, are fine next to a real phrase, but scraps like "the … a" never pass alone.
   const parts = quote.split(/\.\.\.|…/).map(lettersAndDigits).filter(Boolean);
-  return parts.length > 0 && parts.every((part) => page.includes(part));
+  return parts.some((part) => part.length >= MIN_QUOTE_PART) && parts.every((part) => page.includes(part));
 }
+
+/** The fewest letters and digits of a quote's longest part: about three short words. */
+const MIN_QUOTE_PART = 12;
 
 /**
  * The words of a page, as a reviewer reads them: the main part of the HTML, without scripts and
