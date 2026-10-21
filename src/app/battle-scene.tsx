@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { reviewItem } from "@/content";
 import type { BundledScenario } from "@/content/bundle";
 import type { OpponentType } from "@/content/schema";
@@ -17,6 +17,9 @@ import { OPPONENT_LOOK } from "./opponent-look";
 import { playSound } from "./sound";
 
 const nameOf: NameOf = (id) => reviewItem(id)?.name ?? id;
+
+/** How long after the Reasons show a tap on them is ignored: the second tap of a fast double tap on a move. */
+export const REASON_TAP_GUARD_MS = 300;
 
 /**
  * The learner's pick for one turn: a move (null when the team has none for this threat), the
@@ -36,12 +39,15 @@ export function BattleScene({
   battle,
   onPlay,
   onEnd,
+  onLeave,
 }: {
   scenario: BundledScenario;
   battle: BattleV2;
   onPlay: PlayChoice;
   /** The learner leaves the scene after the last turn's result. */
   onEnd: () => void;
+  /** Ends the session from inside the scene, as Finish does. No Leave button without it. */
+  onLeave?: () => void;
 }) {
   // The turn whose result shows, or null while the learner picks.
   const [resultFor, setResultFor] = useState<number | null>(null);
@@ -59,6 +65,8 @@ export function BattleScene({
 
   function next() {
     playSound("tap");
+    // A tap to skip lasts for one turn: the next turn slides in and plays its effects again.
+    setSkipped(false);
     if (progress.finished) onEnd();
     else setResultFor(null);
   }
@@ -74,7 +82,9 @@ export function BattleScene({
       <div className="battle-stage" onClick={() => result !== null && setSkipped(true)}>
         <Stage scenario={scenario} battle={battle} turnNumber={showing} result={result} timeline={timeline} />
       </div>
-      {result === null && <ChoicePanel key={`turn-${showing}`} scenario={scenario} battle={battle} onPlay={play} />}
+      {result === null && (
+        <ChoicePanel key={`turn-${showing}`} scenario={scenario} battle={battle} onPlay={play} onLeave={onLeave} />
+      )}
       {result !== null && panelOpen && (
         <ResultPanel
           key={`result-${result}`}
@@ -83,6 +93,7 @@ export function BattleScene({
           turnNumber={result}
           finished={progress.finished && result === battle.played.length}
           onNext={next}
+          onLeave={onLeave}
         />
       )}
     </section>
@@ -300,10 +311,12 @@ function ChoicePanel({
   scenario,
   battle,
   onPlay,
+  onLeave,
 }: {
   scenario: BundledScenario;
   battle: BattleV2;
   onPlay: PlayChoice;
+  onLeave?: () => void;
 }) {
   const turnNumber = battle.played.length + 1;
   const turn = scenario.turns[turnNumber - 1];
@@ -312,14 +325,23 @@ function ChoicePanel({
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState("");
   const heading = useRef<HTMLHeadingElement>(null);
+  const box = useRef<HTMLTextAreaElement>(null);
   // A fast double tap plays the turn once.
   const done = useRef(false);
+  // When the Reasons showed. A double tap on a move must not also pick the Reason under the finger.
+  const reasonsShownAt = useRef(0);
 
   useEffect(() => {
     heading.current?.focus({ preventScroll: true });
   }, [picked]);
 
-  function pickMove(moveId: string | null) {
+  // "Add your own words" opens the box, and the cursor goes into it.
+  useEffect(() => {
+    if (noteOpen) box.current?.focus();
+  }, [noteOpen]);
+
+  /** `at` is the tap's time, from the event, on the same clock for every tap. */
+  function pickMove(moveId: string | null, at: number) {
     if (done.current) return;
     if (moveId === null || !turn.reasons) {
       done.current = true;
@@ -327,11 +349,12 @@ function ChoicePanel({
       return;
     }
     playSound("select");
+    reasonsShownAt.current = at;
     setPicked(moveId);
   }
 
-  function pickReason(index: number) {
-    if (done.current) return;
+  function pickReason(index: number, at: number) {
+    if (done.current || at - reasonsShownAt.current < REASON_TAP_GUARD_MS) return;
     done.current = true;
     onPlay(picked, index, note);
   }
@@ -340,14 +363,15 @@ function ChoicePanel({
     // Its own key: a new panel starts at its top, even when the move list was scrolled.
     return (
       <Panel key="reasons">
-        <h2 ref={heading} tabIndex={-1} className="battle-heading">
+        <PanelHeading heading={heading} onLeave={onLeave}>
           Why {nameOf(picked)}?
-        </h2>
+        </PanelHeading>
         <p className="battle-hint">Pick the Reason before you see the result. A wrong Reason makes the hit weaker.</p>
         {noteOpen ? (
           <label className="field">
             <span className="field-label">Your own words (optional)</span>
             <textarea
+              ref={box}
               rows={2}
               maxLength={1000}
               value={note}
@@ -362,7 +386,7 @@ function ChoicePanel({
         )}
         <div className="battle-choices" role="group" aria-label="Reasons">
           {turn.reasons.map((reason, index) => (
-            <button key={index} type="button" className="battle-choice" onClick={() => pickReason(index)}>
+            <button key={index} type="button" className="battle-choice" onClick={(event) => pickReason(index, event.timeStamp)}>
               {reason.text}
             </button>
           ))}
@@ -376,9 +400,9 @@ function ChoicePanel({
 
   return (
     <Panel key="moves" slide>
-      <h2 ref={heading} tabIndex={-1} className="battle-heading">
+      <PanelHeading heading={heading} onLeave={onLeave}>
         Turn {turnNumber} of {MAX_TURNS}
-      </h2>
+      </PanelHeading>
       {/* A two-type opponent shows the type that attacks, before the threat (#36). */}
       {scenarioTwist(scenario) && <AttackType type={threatTypeOf(scenario, turnNumber - 1)} />}
       {/* UI rule 3: the threat and the Constraint come before the moves. */}
@@ -398,12 +422,12 @@ function ChoicePanel({
       )}
       <div className="battle-choices" role="group" aria-label="Your move">
         {moves.map((moveId) => (
-          <button key={moveId} type="button" className="battle-choice" onClick={() => pickMove(moveId)}>
+          <button key={moveId} type="button" className="battle-choice" onClick={(event) => pickMove(moveId, event.timeStamp)}>
             <span className="battle-choice-name">{nameOf(moveId)}</span> <small>({nameOf(creatureOf(moveId))})</small>
           </button>
         ))}
         {moves.length === 0 && (
-          <button type="button" className="battle-choice" onClick={() => pickMove(null)}>
+          <button type="button" className="battle-choice" onClick={(event) => pickMove(null, event.timeStamp)}>
             None of my moves fits this threat
           </button>
         )}
@@ -445,12 +469,14 @@ function ResultPanel({
   turnNumber,
   finished,
   onNext,
+  onLeave,
 }: {
   scenario: BundledScenario;
   battle: BattleV2;
   turnNumber: number;
   finished: boolean;
   onNext: () => void;
+  onLeave?: () => void;
 }) {
   const text = turnResultText({ battle, scenario, turnNumber, nameOf });
   const heading = useRef<HTMLHeadingElement>(null);
@@ -460,9 +486,9 @@ function ResultPanel({
 
   return (
     <Panel slide>
-      <h2 ref={heading} tabIndex={-1} className="battle-heading">
+      <PanelHeading heading={heading} onLeave={onLeave}>
         Turn {turnNumber} result
-      </h2>
+      </PanelHeading>
       <p className="battle-damage">{text.damage}</p>
       <p>
         <GlossaryText text={text.choice} />
@@ -473,6 +499,33 @@ function ResultPanel({
         {finished ? "See how it ended" : "Next turn"}
       </button>
     </Panel>
+  );
+}
+
+/**
+ * The panel's heading, and "Leave" beside it: a session can end at any time (design 3). It ends
+ * the session the same way Finish does. The turns already played stay saved, and nothing else is.
+ */
+function PanelHeading({
+  heading,
+  onLeave,
+  children,
+}: {
+  heading: RefObject<HTMLHeadingElement | null>;
+  onLeave?: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="battle-panel-head">
+      <h2 ref={heading} tabIndex={-1} className="battle-heading">
+        {children}
+      </h2>
+      {onLeave && (
+        <button type="button" className="button-quiet battle-small" onClick={onLeave}>
+          Leave
+        </button>
+      )}
+    </div>
   );
 }
 

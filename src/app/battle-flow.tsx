@@ -34,12 +34,15 @@ export function BattleFlow({
   offer,
   sessionId,
   onDone,
+  onLeave,
   battleId: givenBattleId,
 }: {
   offer: BattleOffer;
   sessionId: string;
   /** Called when the learner leaves the end screen, with whether they won. */
   onDone: (won: boolean) => void;
+  /** Ends the whole session from the Battle scene, as Finish does. The scene hides Finish. */
+  onLeave?: () => void;
   /** The battle id, when the caller needs it, as the Gym does. A new one by default. */
   battleId?: string;
 }) {
@@ -195,7 +198,7 @@ export function BattleFlow({
   }
 
   if (step === "scene") {
-    return <BattleScene scenario={offer.scenario} battle={battle} onPlay={play} onEnd={() => setStep("end")} />;
+    return <BattleScene scenario={offer.scenario} battle={battle} onPlay={play} onEnd={() => setStep("end")} onLeave={onLeave} />;
   }
 
   const won = progressV2(battle).won;

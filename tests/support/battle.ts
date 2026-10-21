@@ -46,7 +46,20 @@ export async function playMove(page: Page, move: string, reason?: string, note?:
     await page.getByRole("button", { name: "Add your own words (optional)" }).click();
     await page.getByLabel("Your own words (optional)").fill(note);
   }
-  await battlePanel(page).getByRole("button", { name: reason, exact: true }).click();
+  await pickReason(page, reason);
+}
+
+/**
+ * Taps a Reason. For 300 ms after the Reasons show, the app ignores a tap on them: it would be
+ * the second tap of a fast double tap on the move. A test can be that fast, so it taps again
+ * until the Reason step closes.
+ */
+export async function pickReason(page: Page, reason: string) {
+  const why = battlePanel(page).getByRole("heading", { name: /^Why / });
+  await expect(async () => {
+    await battlePanel(page).getByRole("button", { name: reason, exact: true }).click({ timeout: 5_000 });
+    await expect(why).toHaveCount(0, { timeout: 1_000 });
+  }).toPass();
 }
 
 /** Waits for the result panel to open after the effects, then goes on. */

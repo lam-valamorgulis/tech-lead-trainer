@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { battlePanel, catchItems, nextTurn, panelSettled, playMove, SALE_DAY_REASONS } from "../support/battle";
+import { battlePanel, catchItems, nextTurn, panelSettled, pickReason, playMove, SALE_DAY_REASONS } from "../support/battle";
 import { local, signInNewUser } from "../support/e2e";
 import { sql } from "../support/local-admin";
 
@@ -35,6 +35,8 @@ async function expectPanelBelowTheCreatures(page: Page) {
 }
 
 test("a full Battle on the scene: Constraint before the moves, Reasons, HP on both sides, a Faint and the next creature", async ({ page }, testInfo) => {
+  // Three turns with every effect, the end screen and the database checks: a long test.
+  test.setTimeout(60_000);
   const isPhone = testInfo.project.name === "iphone";
   const user = await signInNewUser(page, "battle-v2");
   try {
@@ -85,8 +87,10 @@ test("a full Battle on the scene: Constraint before the moves, Reasons, HP on bo
     await expect(panel.getByRole("button", { name: SALE_DAY_REASONS[0].right })).toBeVisible();
     expect((await new AxeBuilder({ page }).withTags(WCAG).analyze()).violations).toEqual([]);
     await page.getByRole("button", { name: "Add your own words (optional)" }).click();
+    // The cursor goes into the box at once.
+    await expect(page.getByLabel("Your own words (optional)")).toBeFocused();
     await page.getByLabel("Your own words (optional)").fill("Scripts cannot read the cookie.");
-    await panel.getByRole("button", { name: SALE_DAY_REASONS[0].right }).click();
+    await pickReason(page, SALE_DAY_REASONS[0].right);
 
     // UI rules 4 and 5, and design 7.3: your HP drops on a weak move.
     await expect(panel.getByText("No effect · 0 ○○")).toBeVisible();
@@ -250,6 +254,82 @@ test("a won Battle: the opponent's HP reaches 0, and the plain end screen says s
         ]),
       )
       .toEqual([{ result: "won", faints: 0 }]);
+  } finally {
+    await user.forget();
+  }
+});
+
+test("a fast double tap on a move does not also pick the Reason under the finger", async ({ page }) => {
+  const user = await signInNewUser(page, "battle-v2-double-tap");
+  try {
+    await catchItems(user.email, ["cache", "cookie", "proxy"]);
+    await startSaleDay(page);
+    await panelSettled(page);
+    // Two taps one frame apart: the first on TTL, the second on the first Reason, which shows by then.
+    const secondTapHit = await page.evaluate(async (reason) => {
+      const buttons = () => [...document.querySelectorAll('[data-testid="battle-panel"] button')] as HTMLButtonElement[];
+      buttons()
+        .find((button) => button.textContent?.startsWith("TTL"))!
+        .click();
+      await new Promise((frame) => requestAnimationFrame(frame));
+      const reasonButton = buttons().find((button) => button.textContent === reason);
+      reasonButton?.click();
+      return reasonButton !== undefined;
+    }, SALE_DAY_REASONS[0].right);
+    expect(secondTapHit).toBe(true);
+    // The second tap is ignored: the Reasons wait for a real pick, and no turn is saved.
+    await expect(battlePanel(page).getByRole("heading", { name: "Why TTL?" })).toBeVisible();
+    await expect(battlePanel(page).getByText("Turn 1 result")).toHaveCount(0);
+    await pickReason(page, SALE_DAY_REASONS[0].right);
+    await expect(battlePanel(page).getByText("Strong hit · 2 ●●")).toBeVisible();
+    await expect
+      .poll(() =>
+        sql(local, `select reason_index from battle_turn_events t join auth.users u on u.id = t.user_id where u.email = $1`, [
+          user.email,
+        ]),
+      )
+      .toEqual([{ reason_index: 0 }]);
+  } finally {
+    await user.forget();
+  }
+});
+
+test("Leave on the scene ends the session like Finish, and saves only the turns played", async ({ page }) => {
+  const user = await signInNewUser(page, "battle-v2-leave");
+  try {
+    await catchItems(user.email, ["cache", "cookie", "proxy"]);
+    await startSaleDay(page);
+    await playMove(page, "TTL (Cache)", SALE_DAY_REASONS[0].right);
+    await nextTurn(page);
+    // Design 3: a session can end at any time, also in the middle of a Battle.
+    const leave = battlePanel(page).getByRole("button", { name: "Leave" });
+    await panelSettled(page);
+    const box = (await leave.boundingBox())!;
+    expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44);
+    await leave.click();
+    await expect(page.getByRole("heading", { name: /^Session (saved|not saved yet)$/ })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Battle: Sale day" })).toHaveCount(0);
+    await expect
+      .poll(async () => {
+        const [turns] = await sql<{ count: string }>(
+          local,
+          `select count(*) from battle_turn_events t join auth.users u on u.id = t.user_id where u.email = $1`,
+          [user.email],
+        );
+        const [ends] = await sql<{ count: string }>(
+          local,
+          `select count(*) from battle_events b join auth.users u on u.id = b.user_id where u.email = $1`,
+          [user.email],
+        );
+        const [sessions] = await sql<{ count: string }>(
+          local,
+          // A session saves its time more than once, so count sessions, not rows.
+          `select count(distinct s.session_id) from session_events s join auth.users u on u.id = s.user_id where u.email = $1`,
+          [user.email],
+        );
+        return { turns: Number(turns.count), ends: Number(ends.count), sessions: Number(sessions.count) };
+      })
+      .toEqual({ turns: 1, ends: 0, sessions: 1 });
   } finally {
     await user.forget();
   }

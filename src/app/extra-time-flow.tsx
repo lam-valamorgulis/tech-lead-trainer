@@ -18,11 +18,14 @@ export function ExtraTimeFlow({
   townId,
   sessionId,
   onDone,
+  onLeave,
 }: {
   extra: ExtraTime;
   townId: string;
   sessionId: string;
   onDone: () => void;
+  /** Ends the session from the extra Battle's scene, as Finish does. */
+  onLeave?: () => void;
 }) {
   const [choice, setChoice] = useState<Choice>("pick");
   const heading = useRef<HTMLHeadingElement>(null);
@@ -31,7 +34,7 @@ export function ExtraTimeFlow({
   }, [choice]);
 
   if (choice === "battle" && extra.extraBattle) {
-    return <BattleFlow offer={extra.extraBattle} sessionId={sessionId} onDone={onDone} />;
+    return <BattleFlow offer={extra.extraBattle} sessionId={sessionId} onDone={onDone} onLeave={onLeave} />;
   }
   if (choice === "reading" && extra.reading) {
     return <ReadCloseWrite task={extra.reading} sessionId={sessionId} onDone={onDone} />;
