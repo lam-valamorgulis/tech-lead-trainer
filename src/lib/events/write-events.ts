@@ -30,7 +30,13 @@ export const catchEventSchema = z.object({
   correct: z.boolean(),
   /** 1 = guess, 2 = think so, 3 = sure. */
   confidence: z.union([z.literal(1), z.literal(2), z.literal(3)]),
-  phase: z.enum(["before-card", "after-card"]),
+  /**
+   * v1.4 asked first: before-card, then after-card. v1.5 teaches first (#97): after-lesson is the
+   * first try, after-look-back the one more try. Old values stay valid for old clients.
+   */
+  phase: z.enum(["before-card", "after-card", "after-lesson", "after-look-back"]),
+  /** Which try of the Lesson flow: 1 or 2. Old events have none. */
+  attempt: z.union([z.literal(1), z.literal(2)]).optional(),
 });
 
 const reviewStep = z.literal(REVIEW_STEPS);
@@ -232,6 +238,7 @@ function toRow(event: LearningEvent) {
         correct: event.correct,
         confidence: event.confidence,
         phase: event.phase,
+        attempt: event.attempt ?? null,
       };
     case "review":
       return {
