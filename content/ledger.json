@@ -218,6 +218,16 @@
     "t01-diff-cors-origin",
     "t01-diff-cached-account",
     "t01-diff-retry-charge",
-    "t01-diff-open-redirect"
+    "t01-diff-open-redirect",
+    "t02-meeting-reset-keys",
+    "t02-meeting-rename-request",
+    "t02-meeting-rate-limit",
+    "t02-meeting-version-upgrade",
+    "t02-meeting-manager-surprise",
+    "t02-meeting-cto-new-version",
+    "t02-diff-feed-key",
+    "t02-diff-charge-retry",
+    "t02-diff-order-fields",
+    "t02-diff-error-details"
   ]
 }

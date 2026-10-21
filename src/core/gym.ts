@@ -1,9 +1,7 @@
 // Gym and badges (design 4 and 5, ticket #26). Pure functions: no clock, no database.
 // The Gym is the town's final test: 5 battles in a row, and 4 wins give the town's badge.
 // It never locks the next town: the learner's town comes from the calendar only (roadmap.ts).
-import type { BundledTown } from "@/content/bundle";
-import { creatureOf, readyOffers, type BattleOffer, type BattleRecord } from "./battle.ts";
-import type { CatchRecord } from "./catch.ts";
+import { creatureOf, readyOffers, type BattleOffer, type OfferInput } from "./battle.ts";
 import { addDays, type LearningDay } from "./day.ts";
 import type { ConfusablePair } from "./review.ts";
 import { townStartDay } from "./roadmap.ts";
@@ -27,7 +25,7 @@ export function gymIsOpen(programStartDate: LearningDay, townNumber: number, tod
 }
 
 /** The Gym's 5 battles: 5 different ready scenarios, the least played first. Null when fewer are ready. */
-export function gymBattles(input: { town: BundledTown; catches: CatchRecord[]; battles: BattleRecord[] }): BattleOffer[] | null {
+export function gymBattles(input: OfferInput): BattleOffer[] | null {
   const offers = readyOffers(input);
   if (offers.length < GYM_BATTLES) return null;
   // The offers are made before the Gym starts, so a concept's worked example comes only once:

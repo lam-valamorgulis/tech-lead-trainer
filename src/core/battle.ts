@@ -58,38 +58,35 @@ export function bestRow(turn: BattleTurn) {
  */
 export function nextBattle({
   town,
+  towns,
   catches,
   battles,
   today,
   committedMinutes,
-}: {
-  town: BundledTown;
-  catches: CatchRecord[];
-  battles: BattleRecord[];
+}: OfferInput & {
   today: LearningDay;
   committedMinutes: 3 | 15 | 45;
 }): BattleOffer | null {
   if (committedMinutes === 3) return null;
   if (battles.some((battle) => battle.learningDay === today)) return null;
-  return readyOffers({ town, catches, battles })[0] ?? null;
+  return readyOffers({ town, towns, catches, battles })[0] ?? null;
 }
+
+/** What a battle offer needs. `towns` are all towns: the caught creatures of earlier towns can join the team (design 7.5). */
+export type OfferInput = { town: BundledTown; towns: BundledTown[]; catches: CatchRecord[]; battles: BattleRecord[] };
 
 /**
  * Every scenario the learner can win today, as a battle offer, the least played first. A
- * scenario is ready when the team can hold the creature of every best move.
+ * scenario is ready when the team can hold the creature of every best move, from this town or an earlier one.
  */
-export function readyOffers({
-  town,
-  catches,
-  battles,
-}: {
-  town: BundledTown;
-  catches: CatchRecord[];
-  battles: BattleRecord[];
-}): BattleOffer[] {
+export function readyOffers({ town, towns, catches, battles }: OfferInput): BattleOffer[] {
   const caught = caughtIds(catches);
-  // A retired creature cannot join a team, even when it was caught.
-  const choices = town.creatures.filter((creature) => !creature.retired && caught.has(creature.id)).map((c) => c.id);
+  // This town's creatures first, then those of earlier towns. A retired creature cannot join a team, even when it was caught.
+  const earlier = towns.filter((other) => other.number < town.number).sort((a, b) => a.number - b.number);
+  const choices = [town, ...earlier]
+    .flatMap((t) => t.creatures)
+    .filter((creature) => !creature.retired && caught.has(creature.id))
+    .map((c) => c.id);
   // Only normal Battles for now: Meeting Battle and Agent Diff Battle come with their own screens (#105, #106).
   // A Gym twin (design 7.5) repeats a threat with the Constraint reversed. Until the Battle screen shows
   // the Constraint, the learner could not tell why the old best move now loses, so twins wait too.

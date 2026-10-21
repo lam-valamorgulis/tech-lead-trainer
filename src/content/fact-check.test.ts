@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { claimsDiffer, factCheckList, factReportProblem, formatFactCheckReport, pageText, quoteOnPage, type Finding } from "./fact-check.ts";
-import { fixtureTown, fixtureTownV2 } from "./fixture-town.ts";
+import { fixtureTown, fixtureTownV2, fixtureTwistTown } from "./fixture-town.ts";
 import { townSchema } from "./schema.ts";
 
 const v1 = () => townSchema.parse(fixtureTown());
@@ -48,6 +48,18 @@ describe("factCheckList", () => {
     expect(turn?.text).toContain("Constraint: The logo changes once a year.");
     expect(turn?.text).toContain("Right Reason: A rarely changed file is safe to keep for long.");
     expect(all.find((c) => c.where === "t99.cache.trade-off.fresh-prices")?.text).toContain("Right option: Cache the page but not the price");
+  });
+
+  it("checks a turn whose best move is from an earlier town against that move's page, and its situation against the story", () => {
+    const two = fixtureTwistTown();
+    const [first] = two.scenarios[0].turns;
+    first.moves = first.moves.map((row) => ({ ...row, damage: row.moveId === "proxy.cdn" ? 2 : row.damage === 2 ? 1 : row.damage })) as typeof first.moves;
+    const all = factCheckList(townSchema.parse(two), [v1()]).flatMap((g) => g.claims.map((c) => ({ ...c, url: g.url })));
+    const turn = all.find((c) => c.where === "t98.t98-public-api.turns.0");
+    expect(turn?.url).toBe(MDN);
+    expect(turn?.text).toContain("Best move: CDN (proxy.cdn)");
+    // Only the turn moves page: the earlier town's own cards are not checked again here.
+    expect(all.some((c) => c.where.startsWith("t98.proxy"))).toBe(false);
   });
 
   it("checks the Town Intro, the placement answers and a v1.5 scenario's story against their pages", () => {

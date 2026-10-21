@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildBundle } from "@/content/bundle";
-import { fixtureTown } from "@/content/fixture-town";
+import { fixtureTown, fixtureTwistTown } from "@/content/fixture-town";
 import { townSchema } from "@/content/schema";
 import type { BattleRecord } from "./battle.ts";
 import type { CatchRecord } from "./catch.ts";
@@ -17,6 +17,16 @@ function townWithScenarios(count: number) {
   return buildBundle([townSchema.parse(content)]).towns[0];
 }
 
+/** Town 1 and a town 2 with `count` copies of a battle whose turn 1 needs proxy.cdn, a move of town 1. */
+function townsWithEarlierTownBattles(count: number) {
+  const two = fixtureTwistTown();
+  const [scenario] = two.scenarios;
+  const [first] = scenario.turns;
+  first.moves = first.moves.map((row) => ({ ...row, damage: row.moveId === "proxy.cdn" ? 2 : row.damage === 2 ? 1 : row.damage })) as typeof first.moves;
+  two.scenarios = Array.from({ length: count }, (_, i) => ({ ...structuredClone(scenario), id: `t98-api-${i + 1}` }));
+  return buildBundle([townSchema.parse(fixtureTown()), townSchema.parse(two)]).towns;
+}
+
 describe("when the Gym opens", () => {
   it("opens 7 days before the next town starts, in the last week of the town's month", () => {
     expect(gymOpensOn("2026-10-20", 1)).toBe("2026-11-13");
@@ -31,15 +41,21 @@ describe("when the Gym opens", () => {
 });
 
 describe("gymBattles", () => {
+  it("counts battles that need a caught creature of an earlier town (design 7.5)", () => {
+    const [one, two] = townsWithEarlierTownBattles(5);
+    expect(gymBattles({ town: two, towns: [one, two], catches: caught("rate-limit", "api-key", "proxy"), battles: [] })).toHaveLength(5);
+    expect(gymBattles({ town: two, towns: [one, two], catches: caught("rate-limit", "api-key"), battles: [] })).toBeNull();
+  });
+
   it("is 5 different ready scenarios, the least played first", () => {
     const town = townWithScenarios(7);
     const played: BattleRecord[] = [{ battleId: "b1", scenarioId: "t99-sale-1", learningDay: "2026-11-02" }];
-    const gym = gymBattles({ town, catches: caught("cache", "proxy"), battles: played });
+    const gym = gymBattles({ towns: [], town, catches: caught("cache", "proxy"), battles: played });
     expect(gym?.map((offer) => offer.scenario.id)).toEqual(["t99-sale-2", "t99-sale-3", "t99-sale-4", "t99-sale-5", "t99-sale-6"]);
   });
 
   it("shows worked examples only before the first Gym battle that uses a concept", () => {
-    const gym = gymBattles({ town: townWithScenarios(5), catches: caught("cache", "proxy"), battles: [] })!;
+    const gym = gymBattles({ towns: [], town: townWithScenarios(5), catches: caught("cache", "proxy"), battles: [] })!;
     expect(gym.map((offer) => offer.workedExamples.map((example) => example.creatureId))).toEqual([
       ["cache", "proxy"],
       [],
@@ -62,13 +78,13 @@ describe("gymBattles", () => {
       turn.moves = turn.moves.map((row) => (row.moveId === "cookie.http-only" ? { ...row, moveId: instead } : row));
     });
     const town = buildBundle([townSchema.parse(content)]).towns[0];
-    const gym = gymBattles({ town, catches: caught("cache", "cookie", "proxy"), battles: [] });
+    const gym = gymBattles({ towns: [], town, catches: caught("cache", "cookie", "proxy"), battles: [] });
     expect(gym?.[0].scenario.id).toBe("t99-sale-2");
   });
 
   it("needs 5 ready scenarios, so a learner with too few caught creatures cannot start it yet", () => {
-    expect(gymBattles({ town: townWithScenarios(4), catches: caught("cache", "proxy"), battles: [] })).toBeNull();
-    expect(gymBattles({ town: townWithScenarios(7), catches: caught("cache"), battles: [] })).toBeNull();
+    expect(gymBattles({ towns: [], town: townWithScenarios(4), catches: caught("cache", "proxy"), battles: [] })).toBeNull();
+    expect(gymBattles({ towns: [], town: townWithScenarios(7), catches: caught("cache"), battles: [] })).toBeNull();
   });
 });
 
