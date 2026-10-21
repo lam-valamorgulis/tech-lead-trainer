@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { fixtureTownV2 } from "../content/fixture-town.ts";
+import { decisionCardSchema, REASONS, tradeOffSchema } from "../content/schema.ts";
 import type { CatchRecord } from "./catch.ts";
 import {
   cardCreatureId,
+  REVIEW_RULES,
   reviewStates,
   todaysReviews,
   type CardRecord,
+  type ConfusablePair,
   type Grade,
   type ReviewRecord,
   type TodayPlace,
@@ -23,7 +27,10 @@ const creatures = (n: number) => Array.from({ length: n }, (_, i) => caught(`c${
 /** A short label for each place: the item id, or "D:<card id>" for a Decision Card. */
 const labels = (places: TodayPlace[]) => places.map((place) => (place.kind === "review" ? place.review.itemId : `D:${place.cardId}`));
 
-function today(catches: CatchRecord[], options: { reviews?: ReviewRecord[]; cards?: CardRecord[]; decisionCardIds?: string[] } = {}) {
+function today(
+  catches: CatchRecord[],
+  options: { reviews?: ReviewRecord[]; cards?: CardRecord[]; decisionCardIds?: string[]; pairs?: ConfusablePair[] } = {},
+) {
   const reviews = options.reviews ?? [];
   const cards = options.cards ?? [];
   return labels(
@@ -33,6 +40,7 @@ function today(catches: CatchRecord[], options: { reviews?: ReviewRecord[]; card
       cards,
       decisionCardIds: options.decisionCardIds ?? ["c0.decision.a"],
       today: TODAY,
+      pairs: options.pairs,
     }),
   );
 }
@@ -66,6 +74,24 @@ describe("the 1-in-4 mix rule", () => {
     ]);
   });
 
+  it("never lets a confusable partner that is not due push out a due review", () => {
+    // 7 due creatures, and p: Cache's partner c0, caught today, so not due yet.
+    const catches = [...creatures(7), caught("p", TODAY)];
+    const places = today(catches, { decisionCardIds: ["c0.decision.a", "c1.decision.b"], pairs: [["c0", "p"]] });
+    // 6 due reviews and 2 Decision Cards fill the 8 places. p only fills a place left over.
+    expect(places).toEqual(["c0", "c1", "c2", "D:c0.decision.a", "c3", "c4", "c5", "D:c1.decision.b"]);
+    // With places left over, p comes right after its pair.
+    expect(today([...creatures(3), caught("p", TODAY)], { pairs: [["c0", "p"]] })).toEqual(["c0", "p", "c1", "c2"]);
+  });
+
+  it("never puts a Decision Card between a confusable pair: it comes right after the pair", () => {
+    // c2 and c3 are both due and easy to mix up: place 4 would split them.
+    expect(today(creatures(4), { pairs: [["c2", "c3"]] })).toEqual(["c0", "c1", "c2", "c3", "D:c0.decision.a"]);
+    // The same with a partner mixed in early.
+    const catches = [...creatures(4), caught("p", TODAY)];
+    expect(today(catches, { pairs: [["c2", "p"]] })).toEqual(["c0", "c1", "c2", "p", "D:c0.decision.a", "c3"]);
+  });
+
   it("shows normal reviews only when no caught creature has a Decision Card", () => {
     expect(today(creatures(5), { decisionCardIds: ["proxy.decision.x"] })).toEqual(["c0", "c1", "c2", "c3", "c4"]);
     expect(today(creatures(5), { decisionCardIds: [] })).toEqual(["c0", "c1", "c2", "c3", "c4"]);
@@ -79,6 +105,23 @@ describe("the 1-in-4 mix rule", () => {
     expect(today(creatures(4), { cards: all, decisionCardIds: ids })).toContain("D:c1.decision.b");
     // Answered today: the only card does not come back today.
     expect(today(creatures(8), { cards: [decision("c0.decision.a", TODAY, true)] })).not.toContain("D:c0.decision.a");
+  });
+});
+
+describe("the review log's database checks (#109)", () => {
+  const MIGRATION = "review_events checks choice_index and reason_index 0 to 2, and rules_version 'v1.5'. A change needs a new migration";
+
+  it(`match the content and the endpoint: at most 3 options, 3 Reasons, rules 'v1.5'. ${MIGRATION}`, () => {
+    const [cache] = fixtureTownV2().creatures;
+    const tradeOff = cache.tradeOff!;
+    const decision = cache.decisionCards![0];
+    expect(REASONS, MIGRATION).toBe(3);
+    expect(REVIEW_RULES, MIGRATION).toBe("v1.5");
+    expect(tradeOffSchema.safeParse({ ...tradeOff, options: [...tradeOff.options, "A 4th option"] }).success, MIGRATION).toBe(false);
+    expect(decisionCardSchema.safeParse({ ...decision, options: [...decision.options, "A 3rd option"] }).success, MIGRATION).toBe(false);
+    expect(tradeOffSchema.safeParse({ ...tradeOff, reasons: [...tradeOff.reasons, { text: "A 4th Reason.", right: false }] }).success, MIGRATION).toBe(
+      false,
+    );
   });
 });
 

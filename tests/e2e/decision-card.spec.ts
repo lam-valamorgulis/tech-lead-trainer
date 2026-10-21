@@ -123,39 +123,43 @@ test("with 4 due reviews, the 4th place is a Decision Card with the creature, gr
   }
 });
 
-test("Good at the 30-day step asks the trade-off question, and a right answer evolves Cache to Stage 3", async ({ page }) => {
-  const user = await signInNewUser(page, "trade-off");
-  try {
-    // Cache: caught 60 days ago, then Good on time under the v1.5 rules: 1 → 3 → 7 → 14 → 30, due 5 days ago.
+/** A creature caught 60 days ago, then Good on time under the v1.5 rules: 1 → 3 → 7 → 14 → 30, due 5 days ago. */
+async function atThirtyDayStep(email: string, itemId: string) {
+  await sql(
+    local,
+    `with u as (select id from auth.users where email = $1)
+     insert into catch_events (user_id, client_event_id, session_id, occurred_at, item_id, item_kind, content_hash,
+                               answer_text, correct, confidence, phase)
+     select id, gen_random_uuid(), gen_random_uuid(), now() - interval '60 days', $2, 'creature',
+            '0123456789abcdef', 'seed', true, 3, 'before-card' from u`,
+    [email, itemId],
+  );
+  for (const [daysAgo, before, after] of [
+    [59, 1, 3],
+    [56, 3, 7],
+    [49, 7, 14],
+    [35, 14, 30],
+  ]) {
     await sql(
       local,
       `with u as (select id from auth.users where email = $1)
-       insert into catch_events (user_id, client_event_id, session_id, occurred_at, item_id, item_kind, content_hash,
-                                 answer_text, correct, confidence, phase)
-       select id, gen_random_uuid(), gen_random_uuid(), now() - interval '60 days', 'cache', 'creature',
-              '0123456789abcdef', 'seed', true, 3, 'before-card' from u`,
-      [user.email],
+       insert into review_events (user_id, client_event_id, session_id, occurred_at, item_id, item_kind, content_hash,
+                                  step_before, step_after, grade, planned_due_day, shown_at, revealed_at, graded_at,
+                                  rules_version)
+       select id, gen_random_uuid(), gen_random_uuid(), now() - make_interval(days => $3), $2, 'creature',
+              '0123456789abcdef', $4, $5, 'good', (now() - make_interval(days => $3))::date,
+              now() - make_interval(days => $3), now() - make_interval(days => $3), now() - make_interval(days => $3),
+              'v1.5'
+         from u`,
+      [email, itemId, daysAgo, before, after],
     );
-    for (const [daysAgo, before, after] of [
-      [59, 1, 3],
-      [56, 3, 7],
-      [49, 7, 14],
-      [35, 14, 30],
-    ]) {
-      await sql(
-        local,
-        `with u as (select id from auth.users where email = $1)
-         insert into review_events (user_id, client_event_id, session_id, occurred_at, item_id, item_kind, content_hash,
-                                    step_before, step_after, grade, planned_due_day, shown_at, revealed_at, graded_at,
-                                    rules_version)
-         select id, gen_random_uuid(), gen_random_uuid(), now() - make_interval(days => $2), 'cache', 'creature',
-                '0123456789abcdef', $3, $4, 'good', (now() - make_interval(days => $2))::date,
-                now() - make_interval(days => $2), now() - make_interval(days => $2), now() - make_interval(days => $2),
-                'v1.5'
-           from u`,
-        [user.email, daysAgo, before, after],
-      );
-    }
+  }
+}
+
+test("Good at the 30-day step asks the trade-off question, and a right answer evolves Cache to Stage 3", async ({ page }) => {
+  const user = await signInNewUser(page, "trade-off");
+  try {
+    await atThirtyDayStep(user.email, "cache");
     await page.reload();
     await page.getByRole("button", { name: "3 minutes" }).click();
 
@@ -198,6 +202,40 @@ test("Good at the 30-day step asks the trade-off question, and a right answer ev
     await page.getByRole("button", { name: "Back home" }).click();
     await page.getByRole("link", { name: "Field Guide" }).click();
     await expect(page.getByRole("listitem").filter({ hasText: "Cache" })).toContainText("Caught · stage 3");
+  } finally {
+    await user.forget();
+  }
+});
+
+test("a creature with no trade-off question evolves to Stage 3 at the 30-day step itself", async ({ page }) => {
+  const user = await signInNewUser(page, "no-trade-off");
+  try {
+    // The fixture's Rate limit (Town 2, from before v1.5) has no trade-off question.
+    await atThirtyDayStep(user.email, "rate-limit");
+    await page.reload();
+    await page.getByRole("button", { name: "3 minutes" }).click();
+
+    await expect(page.getByRole("heading", { name: "Review 1 of 1: Rate limit" })).toBeVisible();
+    await page.getByRole("button", { name: "Reveal" }).click();
+    await page.getByRole("button", { name: "Good · 90 days" }).click();
+
+    await expect(page.getByRole("heading", { name: "Rate limit evolved!" })).toBeVisible();
+    await expect(page.getByText("Stage 3 of 3")).toBeVisible();
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByText("All done for today.")).toBeVisible();
+
+    // Logged with no rules, so a replay gives the same Stage 3.
+    await expect
+      .poll(() =>
+        sql(
+          local,
+          `select r.step_after, r.rules_version from review_events r join auth.users u on u.id = r.user_id
+            where u.email = $1 and r.step_before = 30`,
+          [user.email],
+        ),
+      )
+      .toEqual([{ step_after: 90, rules_version: null }]);
+    await expect.poll(() => cardRows(user.email)).toEqual([]);
   } finally {
     await user.forget();
   }

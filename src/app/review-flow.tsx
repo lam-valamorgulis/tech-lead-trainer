@@ -137,6 +137,10 @@ function ReviewCard({
     graded.current = true;
     const next = nextReview(choice);
     const gradedAt = new Date().toISOString();
+    // A creature with no trade-off question to show reaches Stage 3 at the 30-day step itself.
+    // Its review is logged with no rules, so the replay gives the same Stage 3 (see REVIEW_RULES).
+    const tradeOff = item.kind === "creature" ? tradeOffQuestion(item.id) : undefined;
+    const hasTradeOff = item.kind !== "creature" || tradeOff !== undefined;
     void postEvents([
       {
         type: "review",
@@ -155,16 +159,14 @@ function ReviewCard({
         gradedAt,
         typedAnswer: typed.trim() === "" ? null : typed.trim(),
         confidence: null,
-        rulesVersion: REVIEW_RULES,
+        ...(hasTradeOff ? { rulesVersion: REVIEW_RULES } : {}),
       },
     ]);
     const steps: FollowUp[] = [];
     if (item.kind === "creature") {
-      const stage = evolvesTo(state, choice, today);
+      const stage = evolvesTo(state, choice, today, hasTradeOff);
       if (stage) steps.push({ name: "evolved", stage });
-      // A creature with no trade-off question to show stays at Stage 2 until its content has one.
-      const tradeOff = asksTradeOff(state, choice, today) ? tradeOffQuestion(item.id) : undefined;
-      if (tradeOff) steps.push({ name: "trade-off", card: tradeOff });
+      if (tradeOff && asksTradeOff(state, choice, today)) steps.push({ name: "trade-off", card: tradeOff });
     }
     done(steps);
   }

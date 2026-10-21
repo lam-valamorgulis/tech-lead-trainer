@@ -81,6 +81,11 @@ describe("evolvesTo: the evolution moment after one grade", () => {
     expect(evolvesTo(onStep(30, 2), "good", "2026-10-20")).toBeNull();
   });
 
+  it("says stage 3 at the 30-day step when the creature has no trade-off question to show", () => {
+    expect(evolvesTo(onStep(30, 2), "good", "2026-10-20", false)).toBe(3);
+    expect(evolvesTo(onStep(14, 2), "good", "2026-10-20", false)).toBeNull();
+  });
+
   it("says nothing on Hard or Again", () => {
     expect(evolvesTo(onStep(7, 1), "hard", "2026-10-20")).toBeNull();
     expect(evolvesTo(onStep(7, 1), "again", "2026-10-20")).toBeNull();
@@ -145,6 +150,13 @@ describe("Stage 3 with the trade-off question (v1.5, design 6.5)", () => {
     const later = [...reviews, graded("cache", next.dueDay!, "good")];
     expect(reviewStates(catches, later, [], wrong).get("cache")!.stage).toBe(2);
     expect(reviewStates(catches, later, [], [...wrong, tradeOff(next.dueDay!, true)]).get("cache")!.stage).toBe(3);
+  });
+
+  it("gives Stage 3 at the 30-day step itself when the creature had no trade-off question (a review with no rules)", () => {
+    // A Stage 2 creature that waited on v1.5 rules, then its question was gone at the next review.
+    const { catches, reviews, state } = v15OnTime(TO_90);
+    const noQuestion: ReviewRecord = { itemId: "cache", learningDay: state.dueDay!, grade: "good", rules: null };
+    expect(reviewStates(catches, [...reviews, noQuestion]).get("cache")!.stage).toBe(3);
   });
 
   it("needs the 30-day step too: a right answer before it does not evolve", () => {

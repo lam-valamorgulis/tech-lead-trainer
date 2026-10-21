@@ -13,8 +13,9 @@ export type Grade = "again" | "hard" | "good" | "easy";
 
 /**
  * The review rules a review was graded under. v1.5 (design 6.5): passing the 30-day step gives
- * Stage 3 only with one right trade-off answer. A review from before v1.5 has none: passing the
- * 30-day step gave Stage 3 by itself, and it still does when the log is replayed.
+ * Stage 3 only with one right trade-off answer. A review with none passes the 30-day step to
+ * Stage 3 by itself, also when the log is replayed. Such a review is one from before v1.5, or one of
+ * a creature that had no trade-off question to show, so the learner never gets stuck at Stage 2.
  */
 export const REVIEW_RULES = "v1.5";
 export type ReviewRules = typeof REVIEW_RULES;
@@ -72,12 +73,13 @@ function stageAfter(stage: Stage, grade: Grade, next: Graded, needsTradeOff: boo
 
 /**
  * The new stage when this grade evolves the creature, for the evolution moment on screen.
- * null when the stage stays the same. Uses the same v1.5 rule as the Field Guide: Stage 3 comes
- * from a right trade-off answer, see `asksTradeOff`.
+ * null when the stage stays the same. Uses the same rule as the Field Guide: with a trade-off
+ * question to show, Stage 3 comes from a right answer, see `asksTradeOff`. Without one, from the
+ * 30-day step itself, and the review is logged with no rules (`REVIEW_RULES`).
  */
-export function evolvesTo(state: ReviewState, grade: Grade, gradedDay: LearningDay): Stage | null {
+export function evolvesTo(state: ReviewState, grade: Grade, gradedDay: LearningDay, hasTradeOff = true): Stage | null {
   const graded = gradeReview({ step: state.step, gradedDay, grade, dueDay: state.dueDay });
-  const stage = stageAfter(state.stage, grade, graded, true);
+  const stage = stageAfter(state.stage, grade, graded, hasTradeOff);
   return stage > state.stage ? stage : null;
 }
 
@@ -302,6 +304,10 @@ export type TodayPlace = { kind: "review"; review: TodayReview } | { kind: "deci
  * still waits, so a short queue gets none: 4 due reviews give 3 reviews, 1 Decision Card, 1 review.
  * A Decision Card takes a place, so on a full day 2 due reviews wait until tomorrow.
  *
+ * The Decision Card places are counted first, from the due reviews only. So a confusable partner
+ * that is not due still fills only a place left over, and never pushes out a due review. A Decision
+ * Card never comes between a confusable pair: it moves to the place after the pair.
+ *
  * The Decision Card is one of a caught creature. A card answered today does not come back today.
  * The card answered longest ago comes first, and a card never answered before all others.
  */
@@ -326,7 +332,6 @@ export function todaysReviews({
 }): TodayPlace[] {
   const decisions = cards.filter((card) => card.kind === "decision");
   const decisionsToday = decisions.filter((card) => card.learningDay === today);
-  const due = dueReviews({ states, reviews, today, isReviewable, pairs, placesTaken: decisionsToday.length });
   const lastAnswered = new Map<string, LearningDay>();
   for (const card of decisions) {
     const last = lastAnswered.get(card.cardId);
@@ -336,14 +341,37 @@ export function todaysReviews({
     .filter((id) => states.has(cardCreatureId(id)) && lastAnswered.get(id) !== today)
     .sort((a, b) => (lastAnswered.get(a) ?? "").localeCompare(lastAnswered.get(b) ?? "") || a.localeCompare(b));
 
-  const places: TodayPlace[] = [];
-  let place = reviews.filter((review) => review.learningDay === today).length + decisionsToday.length;
-  let next = 0;
-  while (next < due.length && place < DAILY_REVIEW_LIMIT) {
-    place += 1;
-    if (place % DECISION_CARD_EVERY === 0 && waiting.length > 0) places.push({ kind: "decision", cardId: waiting.shift()! });
-    else places.push({ kind: "review", review: due[next++] });
+  const used = reviews.filter((review) => review.learningDay === today).length + decisionsToday.length;
+  // How many Decision Cards today: every 4th place while a due review still waits.
+  const dueCount = allDue(states, today).filter((state) => isReviewable?.(state.itemId) ?? true).length;
+  let decisionPlaces = 0;
+  for (let place = used + 1, shown = 0; place <= DAILY_REVIEW_LIMIT && shown < dueCount; place += 1) {
+    if (place % DECISION_CARD_EVERY === 0 && decisionPlaces < waiting.length) decisionPlaces += 1;
+    else shown += 1;
   }
+  const due = dueReviews({ states, reviews, today, isReviewable, pairs, placesTaken: decisionsToday.length + decisionPlaces });
+
+  const confusable = (a: TodayReview, b: TodayReview) =>
+    b.mixedWith === a.itemId || (pairs ?? []).some(([x, y]) => (x === a.itemId && y === b.itemId) || (x === b.itemId && y === a.itemId));
+  const places: TodayPlace[] = [];
+  const takeDecision = () => places.push({ kind: "decision", cardId: waiting.shift()! });
+  let left = decisionPlaces;
+  // A Decision Card owed at a 4th place, but held back until the confusable pair is together.
+  let owed = false;
+  let place = used;
+  for (let next = 0; next < due.length; ) {
+    place += 1;
+    if (place % DECISION_CARD_EVERY === 0 && left > 0) owed = true;
+    if (owed && !(next > 0 && confusable(due[next - 1], due[next]))) {
+      takeDecision();
+      owed = false;
+      left -= 1;
+    } else {
+      places.push({ kind: "review", review: due[next++] });
+    }
+  }
+  // A Decision Card held back after the last pair still has its place.
+  for (; left > 0; left -= 1) takeDecision();
   return places;
 }
 

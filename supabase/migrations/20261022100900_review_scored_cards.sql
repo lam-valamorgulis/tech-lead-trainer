@@ -34,8 +34,9 @@ alter table public.review_events
     and 26 >= all (skill_ids)
     and private.has_no_repeats(skill_ids)
   ),
-  -- The review rules the row was graded under. Null: before v1.5, when passing the 30-day step
-  -- gave Stage 3 by itself. A replay keeps that rule for these rows (design 6.5).
+  -- The review rules the row was graded under. 'v1.5': Stage 3 also needs a right trade-off answer.
+  -- Null: passing the 30-day step gives Stage 3 by itself (design 6.5). That is every row from before
+  -- v1.5, and a creature review when the creature had no trade-off question to show. A replay keeps it.
   add column rules_version text check (rules_version in ('v1.5')),
   -- A review card has every review field and no scored-card field. A scored card is the other way round.
   add constraint review_events_shape check (

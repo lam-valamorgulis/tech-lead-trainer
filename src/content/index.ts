@@ -1,9 +1,10 @@
-import type { CardKind, ConfusablePair } from "@/core/review";
+import type { ConfusablePair } from "@/core/review";
 import { currentTownNumber, townToPlay } from "@/core/roadmap";
 import type { Creature, CreatureOf } from "../core/week.ts";
 import type { BundledTown, ContentBundle } from "./bundle.ts";
 import type { Boss } from "./weekend.ts";
-import type { Card, DecisionCard, TradeOff } from "./schema.ts";
+import type { Card } from "./schema.ts";
+import { reviewCards, type ScoredCard } from "./scored-cards.ts";
 import generated from "./bundle.generated.json";
 import fixture from "./fixture.generated.json";
 
@@ -73,29 +74,9 @@ export function reviewItem(id: string): ReviewItem | undefined {
   return reviewItems.get(id);
 }
 
-/**
- * A Decision Card or a trade-off question as the review screen shows it (design 6.4 and 6.5), with
- * its creature's name and art.
- */
-export type ScoredCard = Omit<DecisionCard | TradeOff, "retired"> & {
-  kind: CardKind;
-  hash: string;
-  creature: { id: string; name: string; sprite?: number };
-};
+export type { ScoredCard };
 
-const scoredCards = new Map<string, ScoredCard>();
-const tradeOffs = new Map<string, ScoredCard>();
-for (const town of bundle.towns) {
-  for (const creature of town.creatures) {
-    if (creature.retired) continue;
-    const owner = { id: creature.id, name: creature.name, sprite: creature.sprite };
-    for (const card of creature.decisionCards ?? []) {
-      if (!card.retired) scoredCards.set(card.id, { ...card, kind: "decision", creature: owner });
-    }
-    const tradeOff = creature.tradeOff;
-    if (tradeOff && !tradeOff.retired) tradeOffs.set(creature.id, { ...tradeOff, kind: "trade-off", creature: owner });
-  }
-}
+const { decisionCards: scoredCards, tradeOffs } = reviewCards(bundle.towns);
 
 /** Every Decision Card that review can show: retired cards and the cards of retired creatures are left out. */
 export const decisionCardIds: string[] = [...scoredCards.keys()];

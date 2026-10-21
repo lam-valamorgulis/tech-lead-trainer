@@ -58,8 +58,9 @@ export const reviewEventSchema = z.object({
   typedAnswer: z.string().max(2000).nullable(),
   confidence: z.union([z.literal(1), z.literal(2), z.literal(3)]).nullable(),
   /**
-   * The review rules of the grade (design 6.5). The v1.5 app always sends it. Left out by an old
-   * app: passing the 30-day step then gives Stage 3 by itself, as before v1.5.
+   * The review rules of the grade (design 6.5). Left out by an app from before v1.5, and by the v1.5
+   * app for a creature with no trade-off question to show: passing the 30-day step then gives
+   * Stage 3 by itself.
    */
   rulesVersion: z.literal(REVIEW_RULES).optional(),
 });
