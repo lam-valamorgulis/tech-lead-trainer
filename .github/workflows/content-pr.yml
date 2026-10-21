@@ -1,0 +1,26 @@
+name: Content PR
+
+# A PR that changes a town file needs the fact-check report (ticket #96, docs/agents/fact-check.md).
+# It runs again when the PR body is edited, so adding the report turns the check green.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  fact-check-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Fact check report
+        run: npm run fact-check -- pr-rule

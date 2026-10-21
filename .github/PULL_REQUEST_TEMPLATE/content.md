@@ -8,8 +8,8 @@ What content this adds or changes, and the town.
 
 ## Fact check report
 
-<!-- Required before the merge (docs/agents/fact-check.md). Paste the summary table of
-     `npm run fact-check -- report …` and link the PR comment with the full report. -->
+<!-- Required before the merge (docs/agents/fact-check.md). The "Content PR" CI check fails
+     until this section links the report comment. Paste the summary table of the report. -->
 
 | Result | Claims |
 | --- | --- |
@@ -17,7 +17,7 @@ What content this adds or changes, and the town.
 | Wrong or not on the page | |
 | Check by hand | |
 
-Full report: <link to the PR comment>
+Full report: <link to the PR comment, ending in #issuecomment-…>
 
 Every "Wrong" and "Check by hand" claim is fixed or explained: yes / no
 

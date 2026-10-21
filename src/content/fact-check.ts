@@ -1,5 +1,5 @@
 import { bestRow } from "../core/battle.ts";
-import type { Creature, Move, Town } from "./schema.ts";
+import type { BattleTurn, Creature, DecisionCard, Move, Scenario, Town, TradeOff } from "./schema.ts";
 
 // The independent fact check of a content PR (ticket #96, design 8). A fresh reviewer agent gets
 // the claims of a town, grouped by the page that must support each one. It opens each page once,
@@ -9,7 +9,7 @@ import type { Creature, Move, Town } from "./schema.ts";
 /** One thing the content says, with where it lives in the file, for example t01.dns.catch. */
 export type Claim = { where: string; text: string };
 
-/** The claims one page must support. */
+/** The claims one page must support. The group with url "" holds the claims that have no page. */
 export type SourceGroup = { url: string; title: string; claims: Claim[] };
 
 /** A reviewer's verdict on one claim. A verdict without a quote from the page counts for nothing. */
@@ -24,102 +24,164 @@ export type Finding = {
 
 type Source = { title: string; url: string };
 
-/** Every claim of a town that a source must support, grouped by source, in file order. Retired content is left out. */
+const NO_SOURCE: Source = { title: "No source", url: "" };
+
+/** Every claim of a town that a page must support, grouped by page, in file order. Retired content is left out. */
 export function factCheckList(town: Town): SourceGroup[] {
   const groups = new Map<string, SourceGroup>();
-  const add = (source: Source, where: string, text: string) => {
-    const group = groups.get(source.url) ?? { url: source.url, title: source.title, claims: [] };
-    group.claims.push({ where, text });
-    groups.set(source.url, group);
+  const add = (source: Source | undefined, where: string, text: string) => {
+    const page = source ?? NO_SOURCE;
+    const group = groups.get(page.url) ?? { url: page.url, title: page.title, claims: [] };
+    group.claims.push({ where: `${town.id}.${where}`, text });
+    groups.set(page.url, group);
   };
+
+  if (town.intro) town.intro.screens.forEach((screen, i) => add(town.intro!.source, `intro.screens.${i}`, screen));
 
   const items = new Map<string, Creature | Move>();
   for (const creature of town.creatures) {
     if (creature.retired) continue;
     for (const item of [creature, ...creature.moves.filter((move) => !move.retired)]) {
       items.set(item.id, item);
-      itemClaims(town, item, add);
+      addItemClaims(item, add);
     }
     for (const card of [...(creature.tradeOff ? [creature.tradeOff] : []), ...(creature.decisionCards ?? [])]) {
-      if (card.retired) continue;
-      const right = card.reasons.find((reason) => reason.right)?.text;
-      add(
-        sourceOf(creature),
-        `${town.id}.${card.id}`,
-        `Situation: ${card.situation} Right option: ${card.options[card.rightOption]} Right Reason: ${right} Why: ${card.explanation}`,
-      );
+      if (!card.retired) add(pageOf(creature), card.id, scoredCardText(card));
     }
   }
 
+  town.placement.forEach((question, i) => {
+    const creature = items.get(question.creatureId);
+    add(creature && pageOf(creature), `placement.${i}`, `Q: ${question.question} A: ${question.answer}`);
+  });
+
   for (const scenario of town.scenarios) {
-    if (scenario.retired) continue;
-    scenario.turns.forEach((turn, index) => {
-      const best = bestRow(turn);
-      const move = items.get(best.moveId);
-      const name = move ? `${move.name} (${best.moveId})` : (best.label ?? best.moveId);
-      const parts = [
-        `Threat: ${turn.threat}`,
-        turn.constraint && `Constraint: ${turn.constraint}`,
-        `Best move: ${name}. Its cost: ${best.counterattack}`,
-        turn.reasons && `Right Reason: ${turn.reasons.find((reason) => reason.right)?.text}`,
-        `Model answer: ${turn.modelAnswer}`,
-        `Key points: ${turn.keyPoints.join(" | ")}`,
-      ];
-      // A v1.5 scenario cites its real incident. An older one is checked against its best move's page.
-      const source = scenario.source ?? (move && sourceOf(move));
-      if (source) add(source, `${town.id}.${scenario.id}.turns.${index}`, parts.filter(Boolean).join(" "));
-    });
+    if (!scenario.retired) addScenarioClaims(scenario, items, add);
   }
   return [...groups.values()];
 }
 
-function itemClaims(town: Town, item: Creature | Move, add: (source: Source, where: string, text: string) => void) {
-  const at = `${town.id}.${item.id}`;
+type Add = (source: Source | undefined, where: string, text: string) => void;
+
+function addItemClaims(item: Creature | Move, add: Add) {
   const card = item.card.source;
-  add(card, `${at}.card.text`, item.card.text);
-  add(card, `${at}.card.example`, item.card.example);
+  add(card, `${item.id}.card.text`, item.card.text);
+  add(card, `${item.id}.card.example`, item.card.example);
   add(
-    sourceOf(item),
-    `${at}.catch`,
+    pageOf(item),
+    `${item.id}.catch`,
     `Q: ${item.catch.question} Right answer: ${item.catch.choices[item.catch.correctChoice]}. Why: ${item.catch.explanation}`,
   );
-  add(card, `${at}.review`, `Q: ${item.review.question} A: ${item.review.answer}`);
+  add(card, `${item.id}.review`, `Q: ${item.review.question} A: ${item.review.answer}`);
   if ("workedExample" in item) {
     const { problem, steps, answer } = item.workedExample;
-    add(card, `${at}.workedExample`, `Problem: ${problem} Steps: ${steps.join(" ")} Answer: ${answer}`);
+    add(card, `${item.id}.workedExample`, `Problem: ${problem} Steps: ${steps.join(" ")} Answer: ${answer}`);
   }
-  item.lesson?.screens.forEach((screen, i) => add(item.lesson!.source, `${at}.lesson.screens.${i}`, screen.text));
+  item.lesson?.screens.forEach((screen, i) =>
+    add(item.lesson!.source, `${item.id}.lesson.screens.${i}`, screen.diagram ? `${screen.text} Diagram: ${screen.diagram}` : screen.text),
+  );
 }
 
+/**
+ * A battle turn has two kinds of claim. Its situation (threat and Constraint) comes from the real
+ * incident, so it is checked against the scenario's source. Its best move, the cost, the right
+ * Reason, the model answer and the key points are engineering facts, so they are checked against
+ * the best move's own page. A turn with neither page is listed with no source.
+ */
+function addScenarioClaims(scenario: Scenario, items: Map<string, Creature | Move>, add: Add) {
+  const story = scenario.source;
+  if (story) {
+    add(story, `${scenario.id}.problem`, scenario.problem);
+    if (scenario.diff) add(story, `${scenario.id}.diff`, `The diff has this planted problem, per the turns below: ${scenario.diff}`);
+  }
+  scenario.turns.forEach((turn, index) => {
+    const at = `${scenario.id}.turns.${index}`;
+    const constraint = turn.constraint ? ` Constraint: ${turn.constraint}` : "";
+    if (story) add(story, `${at}.situation`, `Threat: ${turn.threat}${constraint}`);
+    const best = bestRow(turn);
+    const move = items.get(best.moveId);
+    add(move ? pageOf(move) : story, at, turnText(turn, move ? `${move.name} (${best.moveId})` : (best.label ?? best.moveId)));
+  });
+}
+
+function turnText(turn: BattleTurn, bestName: string): string {
+  const best = bestRow(turn);
+  return [
+    `Threat: ${turn.threat}`,
+    turn.constraint && `Constraint: ${turn.constraint}`,
+    `Best move: ${bestName}. Its cost: ${best.counterattack}`,
+    turn.reasons && `Right Reason: ${rightReason(turn.reasons)}`,
+    `Model answer: ${turn.modelAnswer}`,
+    `Key points: ${turn.keyPoints.join(" | ")}`,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function scoredCardText(card: TradeOff | DecisionCard): string {
+  return `Situation: ${card.situation} Right option: ${card.options[card.rightOption]} Right Reason: ${rightReason(card.reasons)} Why: ${card.explanation}`;
+}
+
+const rightReason = (reasons: { text: string; right: boolean }[]) => reasons.find((reason) => reason.right)?.text;
+
 /** The page a learner reads before the question: the Lesson's source, or the card's for older content. */
-function sourceOf(item: Creature | Move): Source {
+function pageOf(item: Creature | Move): Source {
   return item.lesson?.source ?? item.card.source;
 }
 
-/** The fact-check report as Markdown, for a PR comment. Problems come first; supported claims fold away. */
-export function formatFactCheckReport(townId: string, groups: SourceGroup[], findings: Finding[]): string {
-  const byWhere = new Map(findings.map((finding) => [finding.where, finding]));
-  const titleOf = new Map(groups.flatMap((group) => group.claims.map((claim) => [claim.where, group.title])));
+/** One quote may back at most this many claims. A sentence that backs more cannot prove each one. */
+const QUOTE_REUSE_LIMIT = 2;
+
+/** What the report knows besides the findings: whether each quote was found on its page, when the pages were read. */
+export type ReportChecks = { quoteFound?: (finding: Finding) => boolean };
+
+/**
+ * The fact-check report as Markdown, for a PR comment. Problems come first; supported claims
+ * fold away. Every doubt becomes "check by hand": no page, no finding, no quote, two findings,
+ * a quote reused for many claims, or a quote that is not on the page.
+ */
+export function formatFactCheckReport(townId: string, groups: SourceGroup[], findings: Finding[], checks: ReportChecks = {}): string {
+  const byWhere = Map.groupBy(findings, (finding) => finding.where);
+  const quoteUses = Map.groupBy(
+    findings.filter((finding) => finding.quote?.trim()),
+    (finding) => oneLine(finding.quote!).toLowerCase(),
+  );
+  const claims = groups.flatMap((group) => group.claims.map((claim) => ({ ...claim, group })));
   const supported: string[] = [];
   const wrong: string[] = [];
   const byHand: string[] = [];
 
-  for (const claim of groups.flatMap((group) => group.claims)) {
-    const finding = byWhere.get(claim.where);
-    const quote = finding?.quote?.trim();
-    if (!finding) byHand.push(`- \`${claim.where}\`: check by hand. No reviewer checked it.`);
-    else if (!quote) byHand.push(`- \`${claim.where}\`: check by hand. The reviewer gave no quote.`);
-    else if (finding.verdict === "supported") supported.push(`- \`${claim.where}\`: "${oneLine(quote)}"`);
-    else {
-      const note = finding.note ? `${oneLine(finding.note)} ` : "";
-      wrong.push(`- \`${claim.where}\`: ${note}Page: "${oneLine(quote)}" (${titleOf.get(claim.where)})`);
-    }
+  for (const { where, group } of claims) {
+    const found = byWhere.get(where) ?? [];
+    const finding = found[0];
+    const quote = finding?.quote ? oneLine(finding.quote) : "";
+    const uses = quote ? quoteUses.get(quote.toLowerCase())!.length : 0;
+    const doubt =
+      group.url === ""
+        ? "It has no page to check it against."
+        : found.length === 0
+          ? "No reviewer checked it."
+          : found.length > 1
+            ? `It has ${found.length} findings that may disagree.`
+            : !quote
+              ? "The reviewer gave no quote."
+              : uses > QUOTE_REUSE_LIMIT
+                ? `The same quote backs ${uses} claims.`
+                : checks.quoteFound && !checks.quoteFound(finding)
+                  ? "The quote is not on the page."
+                  : null;
+    if (doubt) byHand.push(`- \`${where}\`: check by hand. ${doubt}`);
+    else if (finding.verdict === "supported") supported.push(`- \`${where}\`: "${quote}"`);
+    else wrong.push(`- \`${where}\`: ${finding.note ? `${oneLine(finding.note)} ` : ""}Page: "${quote}" (${group.title})`);
   }
+
+  const known = new Set(claims.map((claim) => claim.where));
+  const strays = [...new Set(findings.map((finding) => finding.where).filter((where) => !known.has(where)))];
 
   const lines = [
     `# Fact check report: ${townId}`,
     "",
-    `${groups.length} page(s), ${supported.length + wrong.length + byHand.length} claim(s).`,
+    `${groups.filter((group) => group.url !== "").length} page(s), ${claims.length} claim(s).`,
     "",
     "| Result | Claims |",
     "| --- | --- |",
@@ -131,10 +193,51 @@ export function formatFactCheckReport(townId: string, groups: SourceGroup[], fin
   if (wrong.length === 0 && byHand.length === 0) lines.push("Every claim is supported by a quote from its page.", "");
   if (wrong.length > 0) lines.push("## Wrong or not on the page", "", ...wrong, "");
   if (byHand.length > 0) lines.push("## Check by hand", "", ...byHand, "");
+  if (strays.length > 0) {
+    lines.push("## Findings for no claim", "", "A reviewer wrote these ids, but the town has no such claim. Check for a typo.", "");
+    lines.push(...strays.map((where) => `- \`${where}\``), "");
+  }
   if (supported.length > 0) {
     lines.push("<details>", `<summary>Supported (${supported.length})</summary>`, "", ...supported, "", "</details>", "");
   }
   return lines.join("\n");
+}
+
+/**
+ * Whether a quote is on a page. Only letters and digits count: tags, spaces, dashes, quote marks,
+ * list commas and capitals do not, because a reviewer copies a list or a table as one line.
+ * The page is the raw HTML of the cited url.
+ */
+export function quoteOnPage(html: string, quote: string): boolean {
+  const page = lettersAndDigits(html.replace(/<[^>]*>/g, " "));
+  // "…" joins parts of the page that are apart: each part must be there, in order.
+  const parts = quote.split(/\.\.\.|…/).map(lettersAndDigits).filter(Boolean);
+  let from = 0;
+  for (const part of parts) {
+    const at = page.indexOf(part, from);
+    if (at < 0) return false;
+    from = at + part.length;
+  }
+  return parts.length > 0;
+}
+
+function lettersAndDigits(text: string): string {
+  return text
+    .replace(/&[a-z]+;|&#\d+;/gi, " ")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * The CI rule for content PRs (#96): a PR that changes a town file must carry the fact-check
+ * report section with a link to the report comment. Null when the PR passes.
+ */
+export function factReportProblem(changedFiles: string[], body: string): string | null {
+  const town = changedFiles.find((file) => /^content\/towns\/[^/]+\.json$/.test(file));
+  if (!town) return null;
+  const section = body.split(/^## /m).find((part) => part.startsWith("Fact check report"));
+  if (section && /#issuecomment-\d+/.test(section)) return null;
+  return `This PR changes ${town}. Its body needs a "## Fact check report" section with a link to the report comment (docs/agents/fact-check.md).`;
 }
 
 const oneLine = (text: string) => text.replace(/\s+/g, " ").trim();

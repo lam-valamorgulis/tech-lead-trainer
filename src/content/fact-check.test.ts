@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { factCheckList, formatFactCheckReport, type Finding } from "./fact-check.ts";
+import { factCheckList, factReportProblem, formatFactCheckReport, quoteOnPage, type Finding } from "./fact-check.ts";
 import { fixtureTown, fixtureTownV2 } from "./fixture-town.ts";
 import { townSchema } from "./schema.ts";
 
@@ -42,11 +42,34 @@ describe("factCheckList", () => {
     const groups = factCheckList(v2());
     const all = groups.flatMap((g) => g.claims.map((c) => ({ ...c, url: g.url })));
     expect(all.find((c) => c.where === "t99.cache.lesson.screens.2")?.text).toBe("A cache keeps a copy, so the next visit loads faster.");
+    const situation = all.find((c) => c.where === "t99.t99-sale-day.turns.0.situation");
+    expect(situation?.text).toContain("Constraint: The logo changes once a year.");
     const turn = all.find((c) => c.where === "t99.t99-sale-day.turns.0");
-    expect(turn?.url).toBe("https://www.cloudflare.com/learning/cdn/what-is-a-cdn/");
     expect(turn?.text).toContain("Constraint: The logo changes once a year.");
     expect(turn?.text).toContain("Right Reason: A rarely changed file is safe to keep for long.");
     expect(all.find((c) => c.where === "t99.cache.trade-off.fresh-prices")?.text).toContain("Right option: Cache the page but not the price");
+  });
+
+  it("checks the Town Intro, the placement answers and a v1.5 scenario's story against their pages", () => {
+    const all = factCheckList(v2()).flatMap((g) => g.claims.map((c) => ({ ...c, url: g.url })));
+    expect(all.find((c) => c.where === "t99.intro.screens.0")?.url).toBe(MDN);
+    expect(all.find((c) => c.where === "t99.placement.0")?.text).toBe("Q: What does a cache keep? A: A copy of a response.");
+    expect(all.find((c) => c.where === "t99.t99-sale-day.problem")?.url).toBe("https://www.cloudflare.com/learning/cdn/what-is-a-cdn/");
+    expect(all.find((c) => c.where === "t99.t99-cache-diff.diff")?.text).toContain('res.set("Cache-Control", "max-age=3600")');
+  });
+
+  it("checks a v1.5 turn's situation against the incident, and its best move against the move's own page", () => {
+    const all = factCheckList(v2()).flatMap((g) => g.claims.map((c) => ({ ...c, url: g.url })));
+    expect(all.find((c) => c.where === "t99.t99-sale-day.turns.0.situation")?.url).toBe("https://www.cloudflare.com/learning/cdn/what-is-a-cdn/");
+    expect(all.find((c) => c.where === "t99.t99-sale-day.turns.0")?.url).toBe(MDN);
+  });
+
+  it("still lists a turn that has no page to check it against, so the report shows it", () => {
+    const town = v1();
+    // A best move of another town, and no scenario source: there is no page for this turn.
+    town.scenarios[0].turns[0].moves[0].moveId = "rate-limit.quota";
+    const noSource = factCheckList(town).find((g) => g.url === "");
+    expect(noSource?.claims.map((c) => c.where)).toContain("t99.t99-sale-day.turns.0");
   });
 
   it("leaves out retired items and retired scenarios", () => {
@@ -96,7 +119,85 @@ describe("formatFactCheckReport", () => {
   });
 
   it("says plainly when every claim is supported with a quote", () => {
-    const findings: Finding[] = groups[0].claims.map((c) => ({ where: c.where, verdict: "supported", quote: "yes" }));
+    const findings: Finding[] = groups[0].claims.map((c) => ({ where: c.where, verdict: "supported", quote: `Words for ${c.where}.` }));
     expect(formatFactCheckReport("t99", groups, findings)).toContain("Every claim is supported by a quote from its page.");
+  });
+});
+
+describe("the report never hides a problem", () => {
+  const claims = ["a", "b", "c", "d"].map((x) => ({ where: `t99.${x}`, text: x }));
+  const groups = [{ url: MDN, title: "MDN: HTTP caching", claims }, { url: "", title: "No source", claims: [{ where: "t99.turn", text: "t" }] }];
+
+  it("lists a claim with no page as check by hand", () => {
+    const report = formatFactCheckReport("t99", groups, [{ where: "t99.turn", verdict: "supported", quote: "x" }]);
+    expect(report).toContain("- `t99.turn`: check by hand. It has no page to check it against.");
+  });
+
+  it("lists two findings for one claim as check by hand, so a later 'supported' cannot hide a 'wrong'", () => {
+    const report = formatFactCheckReport("t99", groups, [
+      { where: "t99.a", verdict: "wrong", quote: "No.", note: "Wrong." },
+      { where: "t99.a", verdict: "supported", quote: "Yes." },
+    ]);
+    expect(report).toContain("- `t99.a`: check by hand. It has 2 findings that may disagree.");
+  });
+
+  it("lists a quote that backs 3 or more claims as check by hand: one sentence cannot prove them all", () => {
+    const findings: Finding[] = ["a", "b", "c"].map((x) => ({ where: `t99.${x}`, verdict: "supported", quote: "HTTP is a protocol." }));
+    findings.push({ where: "t99.d", verdict: "supported", quote: "A different sentence." });
+    const report = formatFactCheckReport("t99", groups, findings);
+    expect(report).toContain("- `t99.a`: check by hand. The same quote backs 3 claims.");
+    expect(report).toContain('- `t99.d`: "A different sentence."');
+  });
+
+  it("lists a quote that is not on the page as check by hand, when the pages were read", () => {
+    const report = formatFactCheckReport("t99", groups, [{ where: "t99.a", verdict: "supported", quote: "Made up." }], {
+      quoteFound: () => false,
+    });
+    expect(report).toContain("- `t99.a`: check by hand. The quote is not on the page.");
+  });
+
+  it("names findings for a claim that does not exist, for example a typo in the id", () => {
+    const report = formatFactCheckReport("t99", groups, [{ where: "t99.zzz", verdict: "supported", quote: "x" }]);
+    expect(report).toContain("## Findings for no claim");
+    expect(report).toContain("- `t99.zzz`");
+  });
+});
+
+describe("quoteOnPage", () => {
+  const page = "<main><p>The <code>max-age</code> directive   says how long a response stays <em>fresh</em>.</p></main>";
+
+  it("finds a quote in the page text, whatever the tags, spaces, quote marks and capitals", () => {
+    expect(quoteOnPage(page, "The max-age directive says how long a response stays fresh.")).toBe(true);
+    expect(quoteOnPage(page, "the MAX-AGE directive says how long")).toBe(true);
+  });
+
+  it("finds a list that the reviewer copied as one line", () => {
+    const list = "<ol><li>Informational responses (<code>100</code> – <code>199</code>)</li><li>Successful responses</li></ol>";
+    expect(quoteOnPage(list, "Informational responses (100 - 199), Successful responses")).toBe(true);
+  });
+
+  it("finds parts joined by an ellipsis, in page order only", () => {
+    expect(quoteOnPage(page, "The max-age directive … stays fresh.")).toBe(true);
+    expect(quoteOnPage(page, "stays fresh ... The max-age directive")).toBe(false);
+  });
+
+  it("does not find words that are not on the page", () => {
+    expect(quoteOnPage(page, "The max-age directive says how long a request stays fresh.")).toBe(false);
+  });
+});
+
+describe("factReportProblem", () => {
+  const report = "## Fact check report\n\nFull report: https://github.com/o/r/pull/1#issuecomment-123";
+
+  it("needs nothing from a PR that does not change a town file", () => {
+    expect(factReportProblem(["src/app/page.tsx", "content/README.md"], "")).toBeNull();
+  });
+
+  it("needs the report section and a link to the report comment when a town file changes", () => {
+    expect(factReportProblem(["content/towns/t01.json"], report)).toBeNull();
+    expect(factReportProblem(["content/towns/t02.json"], "## Summary")).toBe(
+      'This PR changes content/towns/t02.json. Its body needs a "## Fact check report" section with a link to the report comment (docs/agents/fact-check.md).',
+    );
+    expect(factReportProblem(["content/towns/t02.json"], "## Fact check report\n\nLater.")).not.toBeNull();
   });
 });

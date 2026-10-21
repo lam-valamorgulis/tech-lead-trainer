@@ -1,6 +1,8 @@
 # Content fact check
 
-Every content PR gets an independent fact check before it merges (design 8, ticket #96). The agent that wrote the content never checks it. Fresh reviewer agents open every cited page and check each claim against it. A content PR does not merge without the report.
+Every content PR gets an independent fact check before it merges (design 8, ticket #96). The agent that wrote the content never checks it. Fresh reviewer agents open every cited page and check each claim against it. A content PR does not merge without the report: the "Content PR" CI check fails until the PR body has it.
+
+The `fact-check` skill (`.claude/skills/fact-check/SKILL.md`) runs every step below. Start it with `/fact-check content/towns/t01.json <PR number>`.
 
 ## Steps
 
@@ -10,21 +12,29 @@ Every content PR gets an independent fact check before it merges (design 8, tick
    npm run fact-check -- list content/towns/t01.json --out <scratchpad>/fc-t01
    ```
 
-   Each `part-N.json` is a list of pages. Each page lists the claims it must support: card text and example, catch question with its right answer, review answer, worked example, Lesson screens, Decision Cards and trade-off questions, and each battle turn (threat, Constraint, best move and its cost, right Reason, model answer, key points). A v1.5 battle turn is checked against its scenario's source; an older one against its best move's page.
+   Each `part-N.json` is a list of pages. Each page lists the claims it must support:
+   - the Town Intro screens, against the intro's source;
+   - for each creature and move: card text and example, catch question with its right answer, review answer, worked example and Lesson screens (with their diagrams);
+   - Decision Cards and trade-off questions, against the creature's page;
+   - placement questions, against their creature's page;
+   - each battle turn: its best move, the cost, the right Reason, the model answer and the key points, against the best move's page;
+   - a v1.5 scenario's story, diff and each turn's situation (threat and Constraint), against the scenario's source.
+
+   A claim with no page at all is listed under "No source", and the report marks it "check by hand".
 
 2. Start one fresh reviewer agent per part, all at once, with the prompt below. Use the `sonnet` model. Never give a reviewer the writer's notes or this conversation.
 
 3. When every reviewer is done, print the report:
 
    ```sh
-   npm run fact-check -- report content/towns/t01.json <scratchpad>/fc-t01/findings-*.json
+   npm run fact-check -- report content/towns/t01.json <scratchpad>/fc-t01/findings-*.json --verify
    ```
 
-   A claim without a quote, or with no finding at all, is listed as **check by hand**.
+   `--verify` reads every cited page once and checks that each quote is really on it. Reviewers read pages through WebFetch, which can summarise, so a quote can drift from the page's words. The report lists a claim as **check by hand** when it has no page, no finding, no quote, two findings, a quote that backs 3 or more claims, or a quote that is not on the page.
 
-4. Post the report as a PR comment, and paste its summary table into the PR body under "Fact check report". A GitHub comment holds at most 65,536 characters; split the supported list if it is longer.
+4. Post the report as a PR comment (`gh pr comment <n> --body-file report.md`). Put a "## Fact check report" section in the PR body with its summary table and the link to that comment (it ends in `#issuecomment-<id>`). The "Content PR" CI check looks for both. The section shape is in `.github/PULL_REQUEST_TEMPLATE/content.md`. A GitHub comment holds at most 65,536 characters; split the supported list if it is longer.
 
-5. Fix every claim under "Wrong or not on the page" and "Check by hand" before the merge. For a finding with no quote, open the page yourself first: in Town 1, one finding said a sentence was missing, and it was there. After the fixes, check the changed claims again.
+5. Before the merge, fix or remove every claim under "Wrong or not on the page" (design 8: a claim that does not match its source is removed). Open the page yourself for each "check by hand" claim: in Town 1, one finding said a sentence was missing, and it was there. After the fixes, check the changed claims again.
 
 ## Reviewer prompt
 
@@ -41,6 +51,8 @@ For each page:
    - "wrong": the page says something different.
    - "not-on-page": the page does not say it.
 3. Copy a quote from the page: the exact words, at most 40 words, that support the claim or show it is wrong.
+   Give each claim its own quote, the words for that claim. One quote may back at most 2 claims.
+   Copy the words as the page has them. You may join two parts of the page with "…".
    Never write a quote from memory. If you cannot find words on the page, leave the quote out.
 4. For "wrong" and "not-on-page", add a note: one sentence on what is wrong and what the page says.
 

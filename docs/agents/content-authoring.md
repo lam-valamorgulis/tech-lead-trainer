@@ -31,7 +31,7 @@ For v1.5 content (design v1.5, `content/README.md` "v1.5 fields"), add these rul
 
 ## The fact check
 
-Run the independent fact check in `docs/agents/fact-check.md`: fresh reviewer agents, a few pages each, and a report in the PR. A content PR does not merge without the report. Open the PR with the content template (`.github/PULL_REQUEST_TEMPLATE/content.md`), which has the "Fact check report" section.
+Run the independent fact check with the `fact-check` skill (`/fact-check <town file> <PR>`). The steps are in `docs/agents/fact-check.md`: fresh reviewer agents, a few pages each, and a report in the PR. A content PR does not merge without the report: the "Content PR" CI check fails until the PR body has a "## Fact check report" section with the link to the report comment. `/pr` writes the rest of the body; copy that section's shape from `.github/PULL_REQUEST_TEMPLATE/content.md`.
 
 Checklist:
 
@@ -39,7 +39,7 @@ Checklist:
 - [ ] One fresh reviewer per part, with the prompt from `docs/agents/fact-check.md`. The writer agent checks nothing.
 - [ ] Every claim is checked against its page: card, catch question, review answer, worked example, Lesson screen, Decision Card, trade-off question, and each battle turn with its Constraint, right Reason, model answer and key points.
 - [ ] Every finding quotes the page. A finding without a quote is "check by hand": open the page yourself before you change content. In Town 1, one finding said "503 is for temporary conditions" was not on the page, and it was.
-- [ ] Every "Wrong" and "Check by hand" claim is fixed before the merge, and the changed claims are checked again.
+- [ ] Every "Wrong" claim is fixed or removed before the merge, every "Check by hand" claim is opened by hand, and the changed claims are checked again.
 - [ ] The report is a PR comment, and its summary table is in the PR body.
 
 ## The readable PR view
