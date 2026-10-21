@@ -7,10 +7,10 @@
     "screens": [
       "An API is built from resources: named things, like the books of a publisher. A collection holds resources of the same type.",
       "A small number of standard methods do most of the work. A custom method is only for the cases where the standard methods do not fit.",
-      "Each call between the client and the server stands alone, and each side has a clear role.",
+      "Example: a client asks for book 1, then for book 2. These two calls are independent of each other. The client and the server each have a clear role.",
       "The API is not a copy of your database. An API that matches the database schema ties the outside to the inside."
     ],
-    "diagram": "flowchart LR\n  A[Publisher] --> B[Books collection]\n  B --> C[One book]",
+    "diagram": "flowchart TD\n  A[Resource and URL] --> B[Auth with an access token]\n  B --> C[Rate limit and 429]\n  C --> D[Paging and conditional requests]\n  D --> E[Status code and problem details]\n  E --> F[Idempotency key and safe retry]\n  F --> G[Long-running operation]\n  G --> H[OpenAPI description]\n  H --> I[Versioning and breaking changes]",
     "source": {
       "title": "Google AIP-121: Resource-oriented design",
       "url": "https://google.aip.dev/121"
@@ -85,27 +85,27 @@
         "options": [
           "Expose one endpoint for each table, exactly as it is",
           "Design resources and relationships for the clients, and map them to the tables",
-          "Wait until the schema is final, then copy it into the API"
+          "Expose the tables now, and add client-friendly resources in version 2"
         ],
         "rightOption": 1,
         "reasons": [
           {
-            "text": "A schema that the team already reviewed is always a good API, so copying it is safe.",
-            "right": false
-          },
-          {
-            "text": "Clients work with the database directly, so they need to see every table.",
-            "right": false
-          },
-          {
-            "text": "AIP-121 calls an API identical to the database schema an anti-pattern. It couples the API tightly to the system below.",
+            "text": "Copying the database schema is an anti-pattern, because it couples the API tightly to the system below.",
             "right": true
+          },
+          {
+            "text": "One endpoint for each table is quick to build, and the clients can join the data they need.",
+            "right": false
+          },
+          {
+            "text": "Shipping the tables first gives clients something today, and version 2 can hide the tables later.",
+            "right": false
           }
         ],
         "explanation": "AIP-121 says an API should not expect to reflect the database schema, so design resources first. The cost is more design work before you write endpoints.",
         "skills": [
-          3,
-          2
+          2,
+          7
         ]
       },
       "decisionCards": [
@@ -119,21 +119,21 @@
           "rightOption": 1,
           "reasons": [
             {
-              "text": "Statelessness means the server stores no data at all, so the client must store everything.",
+              "text": "Server sessions are the usual way to track a form, and a sticky load balancer handles them.",
               "right": false
             },
             {
-              "text": "Storing state on the server saves the client work, so it is always better.",
+              "text": "Stateless means the server stores no data, so it cannot save the form answers between calls.",
               "right": false
             },
             {
-              "text": "AIP-121 says the protocol must be stateless. Each request is independent, and clients keep the application state.",
+              "text": "The protocol must be stateless: each request stands on its own, and the client keeps application state.",
               "right": true
             }
           ],
-          "explanation": "AIP-121 says the server persists data, but the client has sole responsibility for application state. The cost is that the client must manage that state itself.",
+          "explanation": "AIP-121 says the server persists data, but the client has sole responsibility for application state. So the client code must manage that state itself.",
           "skills": [
-            3
+            2
           ]
         }
       ],
@@ -337,29 +337,29 @@
         "id": "api-status-code.trade-off.delete-missing",
         "situation": "A client calls DELETE on a user that is already deleted. Your team wants to return an error, so the client knows nothing happened.",
         "options": [
+          "Return 204 No Content with no body",
           "Return 404 Not Found, because the resource does not exist",
-          "Return 200 OK with a body that says nothing was deleted",
-          "Return 204 No Content with no body, as the Azure guidelines say"
+          "Return 200 OK with a body that says nothing was deleted"
         ],
-        "rightOption": 2,
+        "rightOption": 0,
         "reasons": [
           {
-            "text": "Azure says a DELETE returns 204 No Content, even if the URL names a resource that does not exist. It says not to return 404.",
-            "right": true
-          },
-          {
-            "text": "A missing resource always means 404 Not Found, for every HTTP method.",
+            "text": "404 is the usual answer for a missing resource, and clients already handle it well.",
             "right": false
           },
           {
-            "text": "A message in the body tells clients more than a status code can, so 200 OK is enough.",
+            "text": "A DELETE returns 204 No Content even for a resource that does not exist, not 404.",
+            "right": true
+          },
+          {
+            "text": "A body that explains nothing was deleted tells the client more than a status code.",
             "right": false
           }
         ],
         "explanation": "Azure says DELETE returns 204 No Content even when the resource does not exist. The cost is that the status code alone does not show if the resource existed before.",
         "skills": [
-          3,
-          2
+          20,
+          3
         ]
       },
       "decisionCards": [
@@ -367,27 +367,28 @@
           "id": "api-status-code.decision.long-running-call",
           "situation": "A POST starts a job that finishes later, like a large report. Which status code does the service return first?",
           "options": [
-            "200 OK now, and change the answer later",
+            "200 OK with a job ID in the body",
             "202 Accepted, and follow the long-running operation guidance"
           ],
           "rightOption": 1,
           "reasons": [
             {
-              "text": "200 OK is the code for every successful call, even when the work is not finished.",
-              "right": false
-            },
-            {
-              "text": "Azure says to return 202 Accepted when a PUT, POST or DELETE completes asynchronously.",
+              "text": "When a PUT, POST or DELETE completes asynchronously, the first answer is 202 Accepted.",
               "right": true
             },
             {
-              "text": "Clients can read the final result from the first answer, so the code does not matter.",
+              "text": "A 200 OK with a job ID is enough, since the client can check the job later.",
+              "right": false
+            },
+            {
+              "text": "201 Created fits better, because the POST creates a job resource on the server.",
               "right": false
             }
           ],
-          "explanation": "Azure says to return 202 Accepted for a call that completes asynchronously and to follow its guidance on long-running operations. The cost is more work than a single answer.",
+          "explanation": "Azure says to return 202 Accepted for a call that completes asynchronously and to follow its guidance on long-running operations. This needs more work than a single answer.",
           "skills": [
-            3
+            20,
+            2
           ]
         }
       ],
@@ -591,29 +592,29 @@
         "id": "problem-details.trade-off.one-error-format",
         "situation": "Five teams return errors in their own JSON shapes. One app must read all five APIs, and you pick one format for the company.",
         "options": [
-          "Use RFC 9457 problem details with application/problem+json in every API",
           "Let each team keep its own shape, and write each shape in a wiki",
-          "Return only status codes, because they are already standard"
+          "Return only status codes, because they are already standard",
+          "Use RFC 9457 problem details with application/problem+json in every API"
         ],
-        "rightOption": 0,
+        "rightOption": 2,
         "reasons": [
           {
-            "text": "A custom format can carry more detail than any standard format, so it is always better.",
+            "text": "A wiki page for each shape costs far less than changing five APIs that already work in production.",
             "right": false
           },
           {
-            "text": "RFC 9457 defines one standard format, so each API does not need to invent its own. Problem types can still add extension members.",
+            "text": "Status codes are already standard, so the app can branch on them without reading a body.",
+            "right": false
+          },
+          {
+            "text": "With one standard format, no API has to invent its own. Problem types can still add extension members.",
             "right": true
-          },
-          {
-            "text": "Status codes already give enough information about every error.",
-            "right": false
           }
         ],
         "explanation": "RFC 9457 gives one standard format, and a problem type can add extension members for extra data. The cost is that each team must change the errors it returns now.",
         "skills": [
-          3,
-          2
+          20,
+          23
         ]
       },
       "decisionCards": [
@@ -627,22 +628,22 @@
           "rightOption": 0,
           "reasons": [
             {
-              "text": "Problem details are a tool to debug the server, so more detail is always better.",
+              "text": "The client already got an error, so a stack dump only adds detail it can ignore.",
               "right": false
             },
             {
-              "text": "RFC 9457 encourages you to avoid making implementation details, like a stack dump, available through the HTTP interface.",
+              "text": "Implementation details such as a stack dump should stay out of what the HTTP interface shows.",
               "right": true
             },
             {
-              "text": "Clients are always trusted, so hiding details has no value.",
+              "text": "Support needs the stack dump fast, and only our own app reads these responses.",
               "right": false
             }
           ],
-          "explanation": "RFC 9457 warns that leaked details can help attackers or expose user privacy. The cost is that support needs another way to find the cause.",
+          "explanation": "RFC 9457 warns that leaked details can help attackers or expose user privacy. Support then needs another way to find the cause.",
           "skills": [
-            3,
-            12
+            12,
+            20
           ]
         }
       ],
@@ -845,28 +846,28 @@
         "situation": "Your internal orders API runs inside the company network. A teammate wants to skip token checks on it, because only staff can reach it.",
         "options": [
           "Trust the company network and skip token checks",
-          "Check a token only at sign-in and trust later calls",
-          "Check an access token at every endpoint"
+          "Check an access token at each endpoint",
+          "Check a token only at sign-in and trust later calls"
         ],
-        "rightOption": 2,
+        "rightOption": 1,
         "reasons": [
           {
-            "text": "A request from the company network is already known to be safe.",
-            "right": false
-          },
-          {
-            "text": "Non-public REST services must perform access control at each API endpoint.",
+            "text": "A REST service that is not public has to do access control at each of its endpoints.",
             "right": true
           },
           {
-            "text": "A check at sign-in covers every later call to the API.",
+            "text": "The network is a strong wall here, and staff are the only people who can reach it.",
+            "right": false
+          },
+          {
+            "text": "Once sign-in checks the token, the later calls come from the same trusted user session.",
             "right": false
           }
         ],
         "explanation": "OWASP says each endpoint makes its own access decision with the token. The cost is one token check on every call.",
         "skills": [
-          3,
-          12
+          12,
+          3
         ]
       },
       "decisionCards": [
@@ -880,21 +881,20 @@
           "rightOption": 0,
           "reasons": [
             {
-              "text": "A valid signature is the only check a JWT needs.",
+              "text": "A valid signature proves the token is real, and that is the main thing to check.",
               "right": false
             },
             {
-              "text": "An API should require and check iss, aud and exp by default.",
+              "text": "The aud claim is for the sign-in server, so the orders service can skip it.",
+              "right": false
+            },
+            {
+              "text": "By default, the API should require the iss, aud and exp claims and validate them.",
               "right": true
-            },
-            {
-              "text": "The aud claim only matters to the sign-in server.",
-              "right": false
             }
           ],
-          "explanation": "OWASP says to require and validate iss, aud and exp by default, so a wrong audience is rejected. The cost is one more check on each request.",
+          "explanation": "OWASP says to require and validate iss, aud and exp by default, so a wrong audience is rejected. That is one more check on each request, but a token for another service cannot get in.",
           "skills": [
-            3,
             12
           ]
         }
@@ -1098,29 +1098,29 @@
         "id": "rate-limit.trade-off.answer-to-heavy-client",
         "situation": "One partner's script calls your API in a tight loop. You want to stop this client without hurting other partners.",
         "options": [
+          "Answer 429 with Retry-After when this partner goes over its limit",
           "Answer 503 Service Unavailable to every partner when load is high",
-          "Answer 403 Forbidden to this partner for every later request",
-          "Answer 429 with Retry-After when this partner goes over its limit"
+          "Answer 403 Forbidden to this partner for every later request"
         ],
-        "rightOption": 2,
+        "rightOption": 0,
         "reasons": [
           {
-            "text": "429 Too Many Requests means too many requests in a given time, and Retry-After says how long to wait.",
-            "right": true
-          },
-          {
-            "text": "403 Forbidden is the status code for a client that sends too many requests.",
+            "text": "403 Forbidden stops the tight loop at once, and the partner can ask our team to unblock it.",
             "right": false
           },
           {
-            "text": "A 503 for everyone is fair, because it treats all partners the same.",
+            "text": "429 means too many requests in a given time, and Retry-After tells the client how long to wait.",
+            "right": true
+          },
+          {
+            "text": "A 503 under high load protects the server, and it treats the partners in the same way.",
             "right": false
           }
         ],
         "explanation": "429 tells this one client it sent too many requests, and Retry-After tells it when to try again. The cost is that you must decide how to count requests for each client.",
         "skills": [
-          3,
-          2
+          10,
+          20
         ]
       },
       "decisionCards": [
@@ -1134,21 +1134,21 @@
           "rightOption": 1,
           "reasons": [
             {
-              "text": "A stored 429 saves work, so it is safe to keep.",
-              "right": false
-            },
-            {
-              "text": "Retry-After already lets a cache keep the response.",
-              "right": false
-            },
-            {
-              "text": "A response with the 429 status code must not be stored by a cache.",
+              "text": "Caches are not allowed to store a response that has status code 429.",
               "right": true
+            },
+            {
+              "text": "Retry-After tells a shared cache how long the 429 response stays valid for.",
+              "right": false
+            },
+            {
+              "text": "A stored 429 takes load off the server while the client waits out its limit.",
+              "right": false
             }
           ],
-          "explanation": "RFC 6585 says a response with the 429 status code must not be stored by a cache. The cost is that the server answers every request itself.",
+          "explanation": "RFC 6585 says a response with the 429 status code must not be stored by a cache. So the server answers each of these requests itself.",
           "skills": [
-            3
+            16
           ]
         }
       ],
@@ -1351,29 +1351,29 @@
         "id": "paging.trade-off.paging-from-start",
         "situation": "Your team designs GET /orders for a new API. The shop has only 300 orders today, and a teammate says paging can wait.",
         "options": [
-          "Return value and nextLink from the first version",
           "Return all orders now and add paging in a later version",
-          "Return all orders with a count of all items instead of paging"
+          "Return all orders with a count of all items instead of paging",
+          "Return value and nextLink from the first version"
         ],
-        "rightOption": 0,
+        "rightOption": 2,
         "reasons": [
           {
-            "text": "300 orders is small, so clients will never need more.",
+            "text": "300 orders fit easily in one response, so paging can wait until the shop really grows.",
             "right": false
           },
           {
-            "text": "Adding paging later is a breaking change, so support it early if the list can grow very large.",
+            "text": "A total count lets clients plan their calls, so they can manage without paging.",
+            "right": false
+          },
+          {
+            "text": "If the list can grow very large, start paging early, since adding it later breaks clients.",
             "right": true
-          },
-          {
-            "text": "A count of all items lets clients plan, so paging is not needed.",
-            "right": false
           }
         ],
         "explanation": "Azure guidelines say to support paging if a list can grow large, since adding it later breaks clients. The cost is more work in version one.",
         "skills": [
-          3,
-          2
+          2,
+          5
         ]
       },
       "decisionCards": [
@@ -1387,22 +1387,21 @@
           "rightOption": 1,
           "reasons": [
             {
-              "text": "A null value is the clearest way to say that nothing is left.",
+              "text": "A null nextLink is clear and explicit, so clients can test for it easily.",
               "right": false
             },
             {
-              "text": "Clients cannot handle a field that is missing.",
-              "right": false
-            },
-            {
-              "text": "Azure guidelines say to leave nextLink out on the last page and never send it as null.",
+              "text": "On the last page, nextLink is left out, not sent with a null value.",
               "right": true
+            },
+            {
+              "text": "Some client libraries fail on a missing field, so an explicit null is safer.",
+              "right": false
             }
           ],
-          "explanation": "Azure guidelines say to leave nextLink out on the last page, and never send it as null. The cost is that clients handle a missing field.",
+          "explanation": "Azure guidelines say to leave nextLink out on the last page, and never send it as null. Clients must be ready for a field that is missing.",
           "skills": [
-            3,
-            2
+            16
           ]
         }
       ],
@@ -1605,29 +1604,29 @@
         "id": "conditional-request.trade-off.lost-update",
         "situation": "Two support agents edit the same customer record in your API. The second save silently removes the first agent's change.",
         "options": [
+          "Return an ETag on read. On save, honor If-Match and answer 412 on a mismatch.",
           "Let the last save win, and write both saves in a log.",
-          "Return an ETag when a client reads the customer. On save, honor If-Match and answer 412 when it does not match.",
           "Use the last-modified date as the precondition, because dates are simpler than ETags."
         ],
-        "rightOption": 1,
+        "rightOption": 0,
         "reasons": [
           {
-            "text": "A save based on old data fails with 412, so it cannot overwrite the other change.",
+            "text": "A stale save gets 412 and fails, so it cannot overwrite the other agent's change.",
             "right": true
           },
           {
-            "text": "The last save has the newest data, so the server can always accept it.",
+            "text": "The log keeps both saves, so support can bring back a lost change if needed.",
             "right": false
           },
           {
-            "text": "Dates work as well as ETags, because two saves never happen at the same second.",
+            "text": "Last-modified dates do the same job as ETags, and they are easier to compare.",
             "right": false
           }
         ],
         "explanation": "The ETag and If-Match make a stale save fail with 412 instead of overwriting. The cost is that clients must send the header and handle the 412 answer.",
         "skills": [
-          3,
-          2
+          2,
+          11
         ]
       },
       "decisionCards": [
@@ -1641,22 +1640,21 @@
           "rightOption": 0,
           "reasons": [
             {
-              "text": "Applying is fine, because the newest save should always win.",
+              "text": "The client sent the whole resource, so its PUT holds the full new state.",
               "right": false
             },
             {
-              "text": "The HTTP standard does not allow precondition headers to be ignored, because that can be unsafe.",
+              "text": "Precondition headers are mainly for caches, so a write API can skip them.",
+              "right": false
+            },
+            {
+              "text": "A server may not ignore a precondition header, because ignoring it can be unsafe.",
               "right": true
-            },
-            {
-              "text": "Only caches use precondition headers, so a write API can skip them.",
-              "right": false
             }
           ],
-          "explanation": "A service must honor the precondition headers it receives. The cost is that the client must read the resource again before it can save.",
+          "explanation": "A service must honor the precondition headers it receives. The client then reads the resource again before it can save.",
           "skills": [
-            3,
-            2
+            16
           ]
         }
       ],
@@ -1860,29 +1858,29 @@
         "id": "idempotency-key.trade-off.retry-after-timeout",
         "situation": "Your checkout calls the Stripe API to charge a customer. The call times out, and you do not know if the charge happened.",
         "options": [
-          "Retry with a new idempotency key each time, so every try starts clean.",
-          "Wait 24 hours so the old key is removed, then send the request again.",
-          "Create one key for this checkout. Send the same key on the first call and on every retry."
+          "Retry with a new idempotency key each time, so each try starts clean.",
+          "Create one key for this checkout. Send the same key on the first call and on each retry.",
+          "Check the payments dashboard, and retry by hand if no charge shows."
         ],
-        "rightOption": 2,
+        "rightOption": 1,
         "reasons": [
           {
-            "text": "A new key for each try gives a fresh start, so a failed try cannot block the next one.",
+            "text": "A new key for each try keeps one failed try from blocking the next try.",
             "right": false
           },
           {
-            "text": "Stripe removes keys after 24 hours, so waiting that long makes any retry safe.",
-            "right": false
-          },
-          {
-            "text": "The same key lets Stripe recognize the retry, so the charge runs only once.",
+            "text": "With the same key, the API knows it is a retry, so the charge runs only once.",
             "right": true
+          },
+          {
+            "text": "A person can see the real state in the dashboard, so no double charge can slip through.",
+            "right": false
           }
         ],
         "explanation": "With the same key, Stripe recognizes the retry and does not charge twice. The cost is that your code must store the key for the whole checkout.",
         "skills": [
           3,
-          12
+          10
         ]
       },
       "decisionCards": [
@@ -1890,27 +1888,27 @@
           "id": "idempotency-key.decision.new-order-key",
           "situation": "A client has an idempotency key from a paid order. It now wants to send a new order with a different amount.",
           "options": [
-            "Keep the old key, to save work.",
+            "Reuse the old key, because it is the same client.",
             "Create a new key for the new order."
           ],
           "rightOption": 1,
           "reasons": [
             {
-              "text": "A key recognizes retries of the same request. Different parameters with the same key get an error.",
+              "text": "A key marks retries of one request, and reusing it with new parameters returns an error.",
               "right": true
             },
             {
-              "text": "A key identifies the customer, so one key per customer is enough.",
+              "text": "A key belongs to the client, so one key per client keeps things simple.",
               "right": false
             },
             {
-              "text": "Stripe runs the new parameters and changes the first request.",
+              "text": "The server sees the new amount and simply updates the first order so that it matches.",
               "right": false
             }
           ],
-          "explanation": "A key is for retries of one request, so a new order needs a new key. The cost is that the client must create and track one key per operation.",
+          "explanation": "A key is for retries of one request, so a new order needs a new key. So the client creates and tracks one key per operation.",
           "skills": [
-            3,
+            16,
             20
           ]
         }
@@ -2114,29 +2112,29 @@
         "id": "client-token.trade-off.detect-duplicates",
         "situation": "Your team builds an API that creates servers. Clients retry after timeouts, and some clients want two identical servers on purpose.",
         "options": [
-          "Ask callers for a unique client request identifier, and save it with the changes in one ACID operation.",
           "Hash the request parameters, and treat two equal hashes as duplicates.",
-          "Answer every retry with a ResourceAlreadyExists error."
+          "Return a ResourceAlreadyExists error when a request matches an earlier one.",
+          "Ask callers for a unique client request identifier, and save it with the changes in one ACID operation."
         ],
-        "rightOption": 0,
+        "rightOption": 2,
         "reasons": [
           {
-            "text": "Identical requests are always duplicates, so a hash of the parameters is enough.",
+            "text": "Two requests with the same parameters are nearly the same thing, so a hash catches retries.",
             "right": false
           },
           {
-            "text": "The identifier tells a retry from a deliberate second request, so both cases work.",
+            "text": "An error on a matching request is simple, and the service needs no token storage.",
+            "right": false
+          },
+          {
+            "text": "The caller's identifier separates a retry from a second request made on purpose, so both work.",
             "right": true
-          },
-          {
-            "text": "An error is best, because it needs no saved token and no extra work.",
-            "right": false
           }
         ],
         "explanation": "The identifier separates a retry from an intended repeat, which a hash of the parameters cannot do. The cost is that the service must store the tokens and save them with the changes.",
         "skills": [
-          3,
-          2
+          2,
+          3
         ]
       },
       "decisionCards": [
@@ -2150,22 +2148,22 @@
           "rightOption": 0,
           "reasons": [
             {
-              "text": "An error is safe for the service, so it is also best for the caller.",
+              "text": "An error tells the caller the truth: this exact resource already exists on the server.",
               "right": false
             },
             {
-              "text": "The caller must always know that its request was a retry.",
-              "right": false
-            },
-            {
-              "text": "An error leaves the caller unsure if its own request made the resource. An equivalent response removes that doubt.",
+              "text": "An error leaves the caller unsure if it made the resource. An equivalent answer removes that doubt.",
               "right": true
+            },
+            {
+              "text": "The caller should learn that it sent a retry, so the team can fix its retry logic.",
+              "right": false
             }
           ],
-          "explanation": "A semantically equivalent response gives the caller the same meaning every time. The cost is that the service must keep the first response details to rebuild it.",
+          "explanation": "A semantically equivalent response gives the caller the same meaning every time. To rebuild it, the service must keep the details of the first response.",
           "skills": [
-            3,
-            2
+            2,
+            20
           ]
         }
       ],
@@ -2368,29 +2366,29 @@
         "id": "repeatability.trade-off.safe-retry",
         "situation": "Your API creates orders. Mobile clients on weak networks often time out, and then they retry.",
         "options": [
-          "Tell clients never to retry a create call",
           "Make the create call idempotent so a retry is safe",
-          "Let clients retry and delete the duplicates by hand later"
+          "Tell clients not to retry a create call",
+          "Let clients retry, and run a nightly job that removes duplicates"
         ],
-        "rightOption": 1,
+        "rightOption": 0,
         "reasons": [
           {
-            "text": "A client cannot know if a timed-out request worked, so the service must make a retry safe.",
+            "text": "After a timeout, the client cannot tell if it worked, so the service must make retries safe.",
             "right": true
           },
           {
-            "text": "A retry only happens after a failure, so duplicates are rare enough to ignore.",
+            "text": "Fewer retries mean fewer duplicate orders, so a clear no-retry rule solves most of the problem.",
             "right": false
           },
           {
-            "text": "Retries are a client problem, so the service does not need to change.",
+            "text": "A nightly clean-up job is cheap, and it removes the few duplicates that the weak networks cause.",
             "right": false
           }
         ],
         "explanation": "A client cannot tell if a timed-out request worked, so Azure wants the service to be idempotent. The cost is extra design work, such as client-chosen names or repeatability headers.",
         "skills": [
-          3,
-          2
+          2,
+          10
         ]
       },
       "decisionCards": [
@@ -2404,21 +2402,21 @@
           "rightOption": 0,
           "reasons": [
             {
-              "text": "POST is the standard way to create things, so it is always the right choice.",
+              "text": "POST is the usual way to create a resource, and most clients expect it.",
               "right": false
             },
             {
-              "text": "With the same name, a repeated PUT cannot make a second project.",
+              "text": "Service-made IDs are unique and safe, so a retry is not a real risk here.",
+              "right": false
+            },
+            {
+              "text": "If the client sends the same PUT again, the same name means no second project.",
               "right": true
-            },
-            {
-              "text": "The service makes better IDs, so retries do not matter.",
-              "right": false
             }
           ],
-          "explanation": "Azure says to use PUT or PATCH to create, because the customer names the resource and the call is idempotent. The cost is that clients must choose unique names.",
+          "explanation": "Azure says to use PUT or PATCH to create, because the customer names the resource and the call is idempotent. But clients must then choose unique names.",
           "skills": [
-            3
+            2
           ]
         }
       ],
@@ -2575,29 +2573,29 @@
         "id": "long-running.trade-off.slow-export",
         "situation": "A report export takes about 3 minutes. Clients behind a load balancer see timeouts.",
         "options": [
-          "Make it a long-running operation: return 202 Accepted and let the client poll",
           "Raise the timeout of the load balancer to 5 minutes",
+          "Make it a long-running operation: return 202 Accepted and let the client poll",
           "Keep one request open and ask clients to wait longer"
         ],
-        "rightOption": 0,
+        "rightOption": 1,
         "reasons": [
           {
-            "text": "A longer timeout fixes the problem for every client, with no new design.",
+            "text": "A 5-minute timeout covers a 3-minute export, and the clients need no code changes.",
             "right": false
           },
           {
-            "text": "The call is far slower than 1 second, and Azure says to make such a call an LRO.",
+            "text": "The call takes far longer than 1 second, and such a slow call should be an LRO.",
             "right": true
           },
           {
-            "text": "Polling wastes requests, so one open connection is always cheaper.",
+            "text": "Polling sends many extra requests, so keeping one long connection open costs the server far less.",
             "right": false
           }
         ],
         "explanation": "Azure says to use an LRO when the 99th percentile response time is over 1 second. The cost is a second API call, so the service needs a status monitor and clients must poll.",
         "skills": [
-          3,
-          2
+          2,
+          3
         ]
       },
       "decisionCards": [
@@ -2611,21 +2609,22 @@
           "rightOption": 1,
           "reasons": [
             {
-              "text": "Waiting on one request is simpler, so it is better for every slow call.",
-              "right": false
-            },
-            {
-              "text": "A 202 Accepted answer promises that the reboot will succeed.",
-              "right": false
-            },
-            {
-              "text": "The call is slower than 1 second, so Azure says to make it an LRO that the client polls.",
+              "text": "Work that takes over 1 second should be an LRO, and the client polls it.",
               "right": true
+            },
+            {
+              "text": "Holding the request open is simpler, and the client learns the end at once.",
+              "right": false
+            },
+            {
+              "text": "202 Accepted tells the client the reboot will succeed, so it needs no polling.",
+              "right": false
             }
           ],
-          "explanation": "Azure says an operation over 1 second at the 99th percentile should be an LRO. The cost is that the client needs a second call to learn the result.",
+          "explanation": "Azure says an operation over 1 second at the 99th percentile should be an LRO. The client then needs a second call to learn the result.",
           "skills": [
-            3
+            2,
+            16
           ]
         }
       ],
@@ -2829,28 +2828,28 @@
         "situation": "The mobile team writes its API client by hand from a wiki page. The wiki is often out of date.",
         "options": [
           "Ask the backend team to update the wiki more often",
-          "Ask the mobile team to read the backend source code",
+          "Share the backend team's Postman collection with the mobile team",
           "Keep one OpenAPI description and generate the client and docs from it"
         ],
         "rightOption": 2,
         "reasons": [
           {
-            "text": "A wiki is easier to read, so it is always the better contract.",
+            "text": "A wiki is easy for people to read, so better habits will keep it current.",
             "right": false
           },
           {
-            "text": "Reading the source gives the exact API, so no description is needed.",
+            "text": "A Postman collection holds real requests, so it shows the API better than a document.",
             "right": false
           },
           {
-            "text": "One description that tools can read keeps the client and the docs from the same source.",
+            "text": "When tools read one description, the client and docs come from the same source.",
             "right": true
           }
         ],
         "explanation": "OpenAPI is a standard description that tools can turn into clients and documentation. The cost is that the team must keep the description correct.",
         "skills": [
-          3,
-          2
+          20,
+          7
         ]
       },
       "decisionCards": [
@@ -2864,21 +2863,21 @@
           "rightOption": 0,
           "reasons": [
             {
-              "text": "You define it once and use it in many places, so the two cannot differ.",
+              "text": "Copies keep each operation separate, so a change for one cannot break the other.",
+              "right": false
+            },
+            {
+              "text": "One definition used in many places means the two responses cannot drift apart.",
               "right": true
             },
             {
-              "text": "Copies are safer, because a change in one place cannot reach another.",
-              "right": false
-            },
-            {
-              "text": "Objects under components apply to every operation without a reference.",
+              "text": "Objects under components apply to the operations that use them, with no reference needed.",
               "right": false
             }
           ],
-          "explanation": "The Components Object holds reusable objects, and a reference lets you use one in many places. The cost is that an object in components does nothing until something references it.",
+          "explanation": "The Components Object holds reusable objects, and a reference lets you use one in many places. But an object in components does nothing until something references it.",
           "skills": [
-            3
+            7
           ]
         }
       ],
@@ -3036,28 +3035,28 @@
         "situation": "Your team wants a new response format for an API. Some customers parse the old format in production code.",
         "options": [
           "Change the format for everyone now, and announce it in the release notes",
-          "Ship the new format in the current version, and fix customers who call support",
-          "Keep the old format in the current version, and ship the new format in a new api-version"
+          "Keep the old format in the current version, and ship the new format in a new api-version",
+          "Ship the new format behind a header that customers can turn off"
         ],
-        "rightOption": 2,
+        "rightOption": 1,
         "reasons": [
           {
-            "text": "Customers should always run the newest version, so old formats have no value",
-            "right": false
-          },
-          {
-            "text": "Already-running workloads must not break, so the old version keeps working while customers move over",
+            "text": "Workloads that already run must not break, so the old version stays while customers move over.",
             "right": true
           },
           {
-            "text": "A release note proves that every customer has read it and updated",
+            "text": "Release notes give customers fair warning, and good teams read them before each update.",
+            "right": false
+          },
+          {
+            "text": "Customers who want the old format can turn it back with a header, so nobody breaks.",
             "right": false
           }
         ],
         "explanation": "A new api-version lets running workloads keep working. The cost is extra work to keep two versions for a time.",
         "skills": [
-          3,
-          20
+          20,
+          3
         ]
       },
       "decisionCards": [
@@ -3071,22 +3070,22 @@
           "rightOption": 0,
           "reasons": [
             {
-              "text": "Azure guidelines say a preview feature must go GA, or be removed, within 1 year",
+              "text": "A preview that a partner uses in production is stable in practice, so it can stay.",
+              "right": false
+            },
+            {
+              "text": "The 1 year limit is for new previews, so this old one can keep going.",
+              "right": false
+            },
+            {
+              "text": "A preview feature has 1 year at most, then it must go GA or be removed.",
               "right": true
-            },
-            {
-              "text": "A preview with active users becomes stable by itself after some months",
-              "right": false
-            },
-            {
-              "text": "The 1 year limit applies only to new previews, not to old ones",
-              "right": false
             }
           ],
-          "explanation": "A preview feature may live 1 year at most, so the partner needs a plan. The cost is a hard talk with the partner now.",
+          "explanation": "A preview feature may live 1 year at most, so the partner needs a plan. That means a hard talk with the partner now, not later.",
           "skills": [
-            3,
-            20
+            20,
+            18
           ]
         }
       ],
@@ -3289,28 +3288,28 @@
         "id": "breaking-change.trade-off.total-type",
         "situation": "Your orders API returns total as a string, and some clients parse it. A teammate wants a number instead, in the same major version.",
         "options": [
+          "Add a new number field, and keep the old string field",
           "Change the type now, because a number is the better design",
-          "Change the type now, and update the documentation",
-          "Add a new number field, and keep the old string field"
+          "Change the type now, and accept both a string and a number on input"
         ],
-        "rightOption": 2,
+        "rightOption": 0,
         "reasons": [
           {
-            "text": "Clients that read JSON handle both types, so the change is safe",
+            "text": "Most JSON parsers read strings and numbers alike, so the clients will hardly notice the change.",
             "right": false
           },
           {
-            "text": "Changing the format of an existing field breaks code that depends on it, so you add a new field",
+            "text": "Code that depends on a field breaks when its format changes, so add a new field.",
             "right": true
           },
           {
-            "text": "A documented change is never a breaking change",
+            "text": "Accepting both types on input keeps old clients working, so the change is safe.",
             "right": false
           }
         ],
         "explanation": "AIP-180 says APIs must not change the format of an existing field. The cost is that you carry two fields until the next major version.",
         "skills": [
-          3,
+          20,
           2
         ]
       },
@@ -3325,21 +3324,21 @@
           "rightOption": 1,
           "reasons": [
             {
-              "text": "Unused fields are not part of the contract, so removing them is safe",
-              "right": false
-            },
-            {
-              "text": "A field marked optional can always be removed",
-              "right": false
-            },
-            {
-              "text": "Removing a component is a backwards incompatible change, and you cannot be sure no client reads it",
+              "text": "Taking a field out is a backwards incompatible change, and a client may still read it.",
               "right": true
+            },
+            {
+              "text": "Logs show nobody read the field for months, so removing it now breaks no one.",
+              "right": false
+            },
+            {
+              "text": "An optional field is not a firm promise to clients, so the team can drop it now.",
+              "right": false
             }
           ],
-          "explanation": "Removing a field is a backwards incompatible change in the same major version. The cost is that an unused field stays in the API for a while.",
+          "explanation": "Removing a field is a backwards incompatible change in the same major version. So an unused field stays in the API for a while.",
           "skills": [
-            3,
+            20,
             12
           ]
         }
@@ -3542,29 +3541,29 @@
         "id": "llm-api.trade-off.overloaded-retry",
         "situation": "A nightly job summarizes 10000 tickets with the Claude API. Some calls fail with 529 overloaded_error.",
         "options": [
-          "Retry with exponential backoff, and stop after a few tries",
           "Retry at once in a tight loop until the call works",
-          "Treat 529 as a bug in your prompt, and rewrite the prompt"
+          "Skip the failed tickets, and leave them without a summary",
+          "Retry with exponential backoff, and stop after a few tries"
         ],
-        "rightOption": 0,
+        "rightOption": 2,
         "reasons": [
           {
-            "text": "Every 5xx error means the request is wrong, so a retry never helps",
+            "text": "A fast retry gets the answer sooner, and one more call costs almost nothing.",
             "right": false
           },
           {
-            "text": "A fast retry gets the answer sooner, so waiting only adds delay",
+            "text": "A few missing summaries cost less than a nightly job that runs for hours.",
             "right": false
           },
           {
-            "text": "529 means the API is temporarily overloaded, so a retry after a wait is worth trying",
+            "text": "A 529 is a temporary overload, so a retry after a wait is worth trying.",
             "right": true
           }
         ],
         "explanation": "529 is temporary, so retry with exponential backoff, as the official SDK does by default. The cost is that the job runs longer on busy days.",
         "skills": [
-          3,
-          2
+          13,
+          10
         ]
       },
       "decisionCards": [
@@ -3578,21 +3577,22 @@
           "rightOption": 1,
           "reasons": [
             {
-              "text": "Every error is temporary, so a retry is always safe",
+              "text": "A retry loop is cheap insurance, and some 400 errors pass on a second try.",
               "right": false
             },
             {
-              "text": "400 is a problem with your request, so the same request fails again",
+              "text": "A 400 means the request itself is wrong, so the same request fails again.",
               "right": true
             },
             {
-              "text": "The SDK retries 400 errors by default, so the loop is needed",
+              "text": "The SDK already retries 400 errors, so the loop just matches its behavior.",
               "right": false
             }
           ],
-          "explanation": "A 400 means the request itself has a problem, so a retry sends the same problem again. The cost is that someone must look at the request now.",
+          "explanation": "A 400 means the request itself has a problem, so a retry sends the same problem again. Someone must look at the request and fix it now.",
           "skills": [
-            3
+            13,
+            11
           ]
         }
       ],
