@@ -29,8 +29,11 @@ type Source = { title: string; url: string };
 
 const NO_SOURCE: Source = { title: "No source", url: "" };
 
-/** Every claim of a town that a page must support, grouped by page, in file order. Retired content is left out. */
-export function factCheckList(town: Town): SourceGroup[] {
+/**
+ * Every claim of a town that a page must support, grouped by page, in file order. Retired content is left out.
+ * `otherTowns` give the pages of best moves from earlier towns (design 7.5); their own cards are not listed.
+ */
+export function factCheckList(town: Town, otherTowns: Town[] = []): SourceGroup[] {
   const groups = new Map<string, SourceGroup>();
   const add = (source: Source | undefined, where: string, text: string) => {
     const page = source ?? NO_SOURCE;
@@ -58,8 +61,13 @@ export function factCheckList(town: Town): SourceGroup[] {
     add(creature && pageOf(creature), `placement.${i}`, `Q: ${question.question} A: ${question.answer}`);
   });
 
+  // A turn's best move can come from an earlier town. It is checked against that move's own page.
+  const moves = new Map(items);
+  for (const other of otherTowns) {
+    for (const creature of other.creatures) for (const item of [creature, ...creature.moves]) if (!moves.has(item.id)) moves.set(item.id, item);
+  }
   for (const scenario of town.scenarios) {
-    if (!scenario.retired) addScenarioClaims(scenario, items, add);
+    if (!scenario.retired) addScenarioClaims(scenario, moves, add);
   }
   return [...groups.values()];
 }

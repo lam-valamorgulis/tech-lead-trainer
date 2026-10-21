@@ -4,8 +4,8 @@
 //   npm run fact-check -- report content/towns/t01.json <findings.json>… --verify   prints the Markdown report
 //   npm run fact-check -- pr-rule                                                    the CI rule for a content PR
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import { parseArgs } from "node:util";
 import { claimsDiffer, factCheckList, factReportProblem, formatFactCheckReport, pageText, quoteOnPage } from "../src/content/fact-check.ts";
 import { townSchema } from "../src/content/schema.ts";
@@ -55,7 +55,12 @@ if ((mode !== "list" && mode !== "report") || !townFile) {
 }
 
 const town = townSchema.parse(JSON.parse(readFileSync(townFile, "utf8")));
-const groups = factCheckList(town);
+// The other town files give the pages of best moves from earlier towns (design 7.5).
+const townDir = dirname(townFile);
+const otherTowns = readdirSync(townDir)
+  .filter((name) => name.endsWith(".json") && join(townDir, name) !== join(townDir, basename(townFile)))
+  .map((name) => townSchema.parse(JSON.parse(readFileSync(join(townDir, name), "utf8"))));
+const groups = factCheckList(town, otherTowns);
 
 if (mode === "list") {
   const size = Number(args.pages);
