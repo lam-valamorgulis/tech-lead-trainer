@@ -85,6 +85,18 @@ describe("nextBattle", () => {
     expect(offer?.scenario.kind).toBeUndefined();
   });
 
+  it("does not offer a Gym twin yet, because the Battle screen does not show its reversed Constraint (#107)", () => {
+    // The twin is never played, so it would come first if it could be offered.
+    const content = fixtureTownV2();
+    content.scenarios.push({ ...structuredClone(content.scenarios[0]), id: "t99-sale-day-twin", twinOf: "t99-sale-day" });
+    const v2 = buildBundle([content]).towns[0];
+    const battles: BattleRecord[] = v2.scenarios
+      .filter((s) => s.kind === undefined && s.twinOf === undefined)
+      .map((s, i) => ({ battleId: `b${i}`, scenarioId: s.id, learningDay: "2026-10-19" }));
+    const offer = nextBattle({ town: v2, catches: caught("cache", "proxy"), battles, today: TODAY, committedMinutes: 15 });
+    expect(offer?.scenario.id).toBe("t99-sale-day");
+  });
+
   it("never offers a retired scenario", () => {
     const content = fixtureTown();
     for (const scenario of content.scenarios) Object.assign(scenario, { retired: true });
