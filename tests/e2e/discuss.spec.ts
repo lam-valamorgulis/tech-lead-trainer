@@ -30,8 +30,8 @@ async function fakeClipboard(page: Page, mode: "keep" | "deny") {
 }
 
 /**
- * Plays and wins "Sale day": own words on turn 1, only the Reason on turn 2. Then the self-check
- * ticks key points 1 and 3 on turn 1 and none on turn 2.
+ * Plays and wins "Sale day": own words on turn 1, only the Reason on turn 2. Then the end screen
+ * ticks key points 1 and 3 on turn 1 and none on turn 2. "Discuss in Claude" saves them.
  */
 async function winSaleDay(page: Page) {
   await page.getByRole("button", { name: "15 minutes" }).click();
@@ -49,7 +49,6 @@ async function winSaleDay(page: Page) {
   await expect(page.getByRole("heading", { name: "You won!" })).toBeVisible();
   await page.getByLabel("The logo and styles rarely change.").check();
   await page.getByLabel("A new logo shows only after the TTL ends.").check();
-  await page.getByRole("button", { name: "Save my ticks" }).click();
 }
 
 test("Discuss in Claude copies the battle, opens claude.ai, and saves the 2 teach-back sentences", async ({ page }) => {
@@ -72,12 +71,37 @@ test("Discuss in Claude copies the battle, opens claude.ai, and saves the 2 teac
     const [text] = copied;
     expect(text.startsWith("Privacy reminder:")).toBe(true);
     expect(text).toContain("You are my tech lead coach. Below is my battle and the model answer.");
-    // The learner's own words when they typed some, else the Reason they picked.
-    expect(text).toContain("- My why: The logo rarely changes, so a copy can live for an hour.");
-    expect(text).toContain(`- My why: ${SALE_DAY_REASONS[1].right}`);
+    // Each turn has its Constraint, the Reason picked, the learner's own words when typed, and the HP lost.
+    expect(text).toContain(
+      [
+        "- Constraint: The logo changes once a year.",
+        "- My move: TTL (Cache)",
+        `- My Reason: ${SALE_DAY_REASONS[0].right} (right)`,
+        "- My own words: The logo rarely changes, so a copy can live for an hour.",
+      ].join("\n"),
+    );
+    expect(text).toContain(`- Constraint: The price changes every minute during the sale.\n- My move: No store (Cache)\n- My Reason: ${SALE_DAY_REASONS[1].right} (right)\n- Damage`);
+    expect(text).toContain("- HP I lost: 0\n- Best moves: 2 of 2\n- Right Reasons: 2 of 2");
     expect(text).toContain("- [x] The logo and styles rarely change.\n- [ ] A TTL lets browsers reuse their copy.");
     expect(text).toContain("Source: MDN: HTTP caching, https://developer.mozilla.org/");
     expect(text).not.toContain(user.email);
+
+    // The tap saved the ticks, one check per turn, and they stay as they are now.
+    await expect(page.getByText("Your ticks are saved. They change only your review schedule.")).toBeVisible();
+    await expect(page.getByLabel("The logo and styles rarely change.")).toBeDisabled();
+    await expect
+      .poll(() =>
+        sql(
+          local,
+          `select turn_number, ticked_points from battle_check_events c join auth.users u on u.id = c.user_id
+            where u.email = $1 order by turn_number`,
+          [user.email],
+        ),
+      )
+      .toEqual([
+        { turn_number: 1, ticked_points: [1, 3] },
+        { turn_number: 2, ticked_points: [] },
+      ]);
 
     const accessibility = await new AxeBuilder({ page }).withTags(WCAG).analyze();
     expect(accessibility.violations).toEqual([]);

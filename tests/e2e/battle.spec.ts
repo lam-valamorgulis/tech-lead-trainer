@@ -120,16 +120,34 @@ test("a full Battle on the scene: Constraint before the moves, Reasons, HP on bo
     await expect(page.getByText("Opponent HP 3 of 4")).toBeAttached();
     await nextTurn(page, true);
 
-    // The plain end screen closes the Battle until #104: the result, then the self-check.
+    // The end-of-Battle screen (#104): the result and the counts, then every turn on one screen.
     await expect(page.getByRole("heading", { name: "You lost this time" })).toBeFocused();
     await expect(
       page.getByText("Out of turns. The opponent still has HP 3 of 4. The moves you used come back in tomorrow's review."),
     ).toBeVisible();
     await expect(page.getByRole("region", { name: "Battle: Sale day" })).toHaveCount(0);
+    await expect(page.getByRole("list", { name: "Your battle in numbers" }).getByRole("listitem")).toHaveText([
+      "1/3best moves",
+      "2/3right Reasons",
+      "Lostresult",
+    ]);
+    const turns = page.getByRole("article");
+    await expect(turns).toHaveCount(3);
+    const [turn1, turn2, turn3] = [1, 2, 3].map((n) => page.getByRole("article", { name: `Turn ${n}` }));
+    await expect(turn1).toContainText("Every visitor downloads the same logo and styles again.");
+    await expect(turn1).toContainText("Constraint The logo changes once a year.");
+    await expect(turn1).toContainText("Not best You: HttpOnly (Cookie) · Best: TTL (Cache)");
+    await expect(turn1).toContainText(`Right Reason Your Reason: “${SALE_DAY_REASONS[0].right}”`);
+    await expect(turn1).toContainText("Give the logo and styles a long TTL.");
+    await expect(turn2).toContainText("Not best You: TTL (Cache) · Best: No store (Cache)");
+    await expect(turn3).toContainText("Best move You: CDN (Proxy)");
+    await expect(turn3).toContainText(
+      `Wrong Reason Your Reason: “${SALE_DAY_REASONS[2].wrong[1]}” The right one: “${SALE_DAY_REASONS[2].right}”`,
+    );
     await expect(page.getByRole("checkbox")).toHaveCount(9);
     await page.getByLabel("The logo and styles rarely change.").check();
     expect((await new AxeBuilder({ page }).withTags(WCAG).analyze()).violations).toEqual([]);
-    await page.getByRole("button", { name: "Save my ticks" }).click();
+    // Continue saves the ticks: one check per turn, also for the turns with no ticks.
     await page.getByRole("button", { name: "Continue" }).click();
     await expect(page.getByText("All done for today.")).toBeVisible();
 
@@ -229,7 +247,7 @@ test("a full Battle on the scene: Constraint before the moves, Reasons, HP on bo
   }
 });
 
-test("a won Battle: the opponent's HP reaches 0, and the plain end screen says so", async ({ page }) => {
+test("a won Battle: the opponent's HP reaches 0, and the end screen says so", async ({ page }) => {
   const user = await signInNewUser(page, "battle-v2-won");
   try {
     await catchItems(user.email, ["cache", "cookie", "proxy"]);
@@ -246,6 +264,14 @@ test("a won Battle: the opponent's HP reaches 0, and the plain end screen says s
     await nextTurn(page, true);
     await expect(page.getByRole("heading", { name: "You won!" })).toBeVisible();
     await expect(page.getByText("The opponent's HP reached 0 in 2 turns.")).toBeVisible();
+    await expect(page.getByRole("list", { name: "Your battle in numbers" }).getByRole("listitem")).toHaveText([
+      "2/2best moves",
+      "2/2right Reasons",
+      "Wonresult",
+    ]);
+    // The best move needs no "Best:" next to it.
+    await expect(page.getByRole("article", { name: "Turn 1" })).toContainText("Best move You: TTL (Cache)");
+    await expect(page.getByRole("article", { name: "Turn 1" })).not.toContainText("Best: ");
     await expect(page.getByRole("checkbox")).toHaveCount(6);
     await expect
       .poll(() =>
@@ -254,6 +280,75 @@ test("a won Battle: the opponent's HP reaches 0, and the plain end screen says s
         ]),
       )
       .toEqual([{ result: "won", faints: 0 }]);
+  } finally {
+    await user.forget();
+  }
+});
+
+/** Wins "Sale day" with TTL, then No store, both with the right Reason, and opens the end screen. */
+async function winSaleDay(page: Page) {
+  await startSaleDay(page);
+  await playMove(page, "TTL (Cache)", SALE_DAY_REASONS[0].right);
+  await nextTurn(page);
+  await playMove(page, "No store (Cache)", SALE_DAY_REASONS[1].right);
+  await nextTurn(page, true);
+  await expect(page.getByRole("heading", { name: "You won!" })).toBeVisible();
+}
+
+/** The self-checks saved for this learner, one row per turn. */
+const savedChecks = (email: string) =>
+  sql(
+    local,
+    `select turn_number, best_move_id, ticked_points from battle_check_events c join auth.users u on u.id = c.user_id
+      where u.email = $1 order by turn_number`,
+    [email],
+  );
+
+test("leaving the end screen with Finish saves the ticks: one check per turn, none for an unticked turn", async ({ page }) => {
+  const user = await signInNewUser(page, "battle-end-finish");
+  try {
+    await catchItems(user.email, ["cache", "cookie", "proxy"]);
+    await winSaleDay(page);
+    await page.getByLabel("No store stops every cache from keeping it.").check();
+    await page.getByRole("button", { name: "Finish" }).click();
+    await expect(page.getByRole("heading", { name: /^Session (saved|not saved yet)$/ })).toBeVisible();
+    await expect
+      .poll(() => savedChecks(user.email))
+      .toEqual([
+        { turn_number: 1, best_move_id: "cache.ttl", ticked_points: [] },
+        { turn_number: 2, best_move_id: "cache.no-store", ticked_points: [2] },
+      ]);
+  } finally {
+    await user.forget();
+  }
+});
+
+test("when the page hides on the end screen, the ticks are saved once and stay as they are", async ({ page }) => {
+  const user = await signInNewUser(page, "battle-end-hide");
+  try {
+    await catchItems(user.email, ["cache", "cookie", "proxy"]);
+    await winSaleDay(page);
+    await page.getByLabel("The logo and styles rarely change.").check();
+    // iPhone Safari may close a hidden tab and never say so, so a hidden page saves at once.
+    await page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await expect(page.getByText("Your ticks are saved. They change only your review schedule.")).toBeVisible();
+    await expect(page.getByLabel("A TTL lets browsers reuse their copy.")).toBeDisabled();
+    // Back on the page: Continue does not save a second time.
+    await page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByText("All done for today.")).toBeVisible();
+    await expect
+      .poll(() => savedChecks(user.email))
+      .toEqual([
+        { turn_number: 1, best_move_id: "cache.ttl", ticked_points: [1] },
+        { turn_number: 2, best_move_id: "cache.no-store", ticked_points: [] },
+      ]);
   } finally {
     await user.forget();
   }
