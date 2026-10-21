@@ -138,6 +138,12 @@ button,
   border-radius: 4px;
 }
 
+/* A text box has room for a few lines. */
+.field textarea {
+  padding: 8px 12px;
+  resize: vertical;
+}
+
 .field input::placeholder {
   color: var(--color-muted);
 }
@@ -798,9 +804,4 @@ a[aria-current="page"] {
 
 .feedback-dialog::backdrop {
   background: rgb(0 0 0 / 60%);
-}
-
-.field textarea {
-  padding: 8px 12px;
-  resize: vertical;
 }

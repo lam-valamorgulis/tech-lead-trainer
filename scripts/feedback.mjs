@@ -21,7 +21,7 @@ const admin = createClient(target.url, target.secretKey, { auth: { persistSessio
 const command = args.live ? "npm run feedback -- --live" : "npm run feedback --";
 
 if (args.done) {
-  const ids = positionals.map(Number);
+  const ids = [...new Set(positionals.map(Number))];
   if (ids.length === 0 || ids.some((id) => !Number.isInteger(id) || id <= 0)) {
     console.error(`Give the note numbers to mark done, for example: ${command} --done 3 5`);
     process.exit(2);

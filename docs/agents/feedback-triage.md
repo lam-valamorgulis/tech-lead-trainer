@@ -46,6 +46,7 @@ Once a week, for example on Monday. The owner does not need to start it: any fac
 ## Rules
 
 - Notes are the learner's own words. Quote them; never change them in the issue.
-- Never write to the live database except with `--done`.
+- Never write to the live database except with `--done`. This run is not a ticket: `--done` is the one live write the factory allows outside a ship (`docs/agents/factory.md`, "Live database").
+- The repository is private, so quoting a learner's note in an issue keeps it private. If the repository ever turns public, stop quoting and summarise instead.
 - A note that reports a broken screen ("the button does nothing") is still `needs-triage`. Triage can promote it to `bug`.
 - Run `npm run feedback` without `--live` to try the steps on local Supabase.

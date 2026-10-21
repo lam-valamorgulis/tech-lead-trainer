@@ -3,6 +3,9 @@
 /** The longest note. A note is a few sentences about one screen, not a report. */
 export const FEEDBACK_LIMIT = 1000;
 
+/** The longest screen name the database takes. */
+const SCREEN_LIMIT = 40;
+
 /** Screens that have their own name although they share a page: the session runs on home. */
 export type ScreenOverride = "session";
 
@@ -15,7 +18,7 @@ export function screenOf(pathname: string, override: ScreenOverride | null = nul
   const parts = pathname.split("/").filter(Boolean);
   if (parts.length === 0) return "home";
   if (parts[0] === "weekend" && parts[2] === "adr") return "weekend-adr";
-  const name = parts[0].toLowerCase().replace(/[^a-z0-9-]/g, "");
+  const name = parts[0].toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, SCREEN_LIMIT).replace(/-+$/, "");
   return /^[a-z0-9]+(-[a-z0-9]+)*$/.test(name) ? name : "other";
 }
 

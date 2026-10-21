@@ -14,7 +14,7 @@ Content tickets (town content, battle scenarios, weekend packs) are drafted in s
 
 ## Live database
 
-Never write to the live database during a ticket. This includes test accounts and test data for an owner check. Vercel previews use the live database.
+Never write to the live database during a ticket. This includes test accounts and test data for an owner check. Vercel previews use the live database. The one exception is the weekly feedback read below: it marks the notes it handled done.
 
 Prove special states with seam C on local Supabase, for example the Rest Stop after 3 days. The owner check in the PR uses the owner's normal account only. If a state cannot be reached that way, the PR says so.
 

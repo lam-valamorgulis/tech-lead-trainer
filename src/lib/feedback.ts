@@ -7,7 +7,7 @@ import { selectAll } from "./select-all.ts";
 
 /** Saves a note about one screen. Throws on any error, so the screen keeps the text. */
 export async function sendFeedback(client: SupabaseClient, note: { screen: string; message: string }): Promise<void> {
-  const { error } = await client.from("feedback_notes").insert({ screen: note.screen, message: note.message.trim() });
+  const { error } = await client.from("feedback").insert({ screen: note.screen, message: note.message.trim() });
   if (error) throw error;
 }
 
@@ -15,7 +15,7 @@ export async function sendFeedback(client: SupabaseClient, note: { screen: strin
 export async function loadOpenFeedback(admin: SupabaseClient): Promise<FeedbackNote[]> {
   const rows = await selectAll((from, to) =>
     admin
-      .from("feedback_notes")
+      .from("feedback")
       .select("id, screen, message, created_at")
       .eq("status", "open")
       .order("created_at")
@@ -28,7 +28,7 @@ export async function loadOpenFeedback(admin: SupabaseClient): Promise<FeedbackN
 
 /** Marks notes done after triage. Returns how many changed. Needs the server key. */
 export async function markFeedbackDone(admin: SupabaseClient, ids: number[]): Promise<number> {
-  const { data, error } = await admin.from("feedback_notes").update({ status: "done" }).in("id", ids).eq("status", "open").select("id");
+  const { data, error } = await admin.from("feedback").update({ status: "done" }).in("id", ids).eq("status", "open").select("id");
   if (error) throw error;
   return data.length;
 }

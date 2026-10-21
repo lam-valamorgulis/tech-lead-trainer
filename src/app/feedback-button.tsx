@@ -39,9 +39,16 @@ export function FeedbackButton() {
   const dialog = useRef<HTMLDialogElement>(null);
   const [text, setText] = useState("");
   const [state, setState] = useState<State>("writing");
+  const thanks = useRef<HTMLParagraphElement>(null);
+
+  // The Send button is replaced by the thanks line, so focus moves to it.
+  useEffect(() => {
+    if (state === "sent") thanks.current?.focus();
+  }, [state]);
 
   function open() {
-    if (state === "sent") setState("writing");
+    // A new visit to the box starts clean; the text from a failed send stays.
+    if (state !== "writing") setState("writing");
     dialog.current?.showModal();
   }
 
@@ -70,7 +77,9 @@ export function FeedbackButton() {
         <h2 id="feedback-title">Feedback</h2>
         {state === "sent" ? (
           <div className="stack">
-            <p role="status">Thanks. Your note is saved.</p>
+            <p role="status" ref={thanks} tabIndex={-1}>
+              Thanks. Your note is saved.
+            </p>
             <button type="button" className="button-main" onClick={() => dialog.current?.close()}>
               Close
             </button>

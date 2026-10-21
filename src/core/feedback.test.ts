@@ -24,6 +24,7 @@ describe("screenOf", () => {
   it("gives a name the database accepts for any path", () => {
     expect(screenOf("/Map_Old")).toBe("mapold");
     expect(screenOf("/__")).toBe("other");
+    expect(screenOf(`/${"a".repeat(39)}-b`)).toBe("a".repeat(39));
   });
 });
 

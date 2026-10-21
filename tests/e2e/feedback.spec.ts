@@ -8,7 +8,7 @@ import { sql } from "../support/local-admin";
 const notesOf = (email: string) =>
   sql<{ screen: string; message: string; status: string }>(
     local,
-    "select f.screen, f.message, f.status from feedback_notes f join auth.users u on u.id = f.user_id where u.email = $1 order by f.id",
+    "select f.screen, f.message, f.status from feedback f join auth.users u on u.id = f.user_id where u.email = $1 order by f.id",
     [email],
   );
 
@@ -72,7 +72,7 @@ test("a note from home and one from the session are saved with their screen name
 test("a failed send shows a clear error and keeps the text", async ({ page }) => {
   const user = await signInNewUser(page, "feedback-offline");
   try {
-    await page.route("**/rest/v1/feedback_notes**", (route) => route.abort("internetdisconnected"));
+    await page.route("**/rest/v1/feedback**", (route) => route.abort("internetdisconnected"));
     await page.getByRole("button", { name: "Feedback" }).click();
     const box = page.getByLabel("What should change on this screen?");
     await box.fill("The map is hard to read.");
@@ -81,7 +81,7 @@ test("a failed send shows a clear error and keeps the text", async ({ page }) =>
     await expect(box).toHaveValue("The map is hard to read.");
 
     // Back online: the same text goes through.
-    await page.unroute("**/rest/v1/feedback_notes**");
+    await page.unroute("**/rest/v1/feedback**");
     await page.getByRole("button", { name: "Send" }).click();
     await expect(page.getByText("Thanks. Your note is saved.")).toBeVisible();
     await expect.poll(() => notesOf(user.email)).toEqual([{ screen: "home", message: "The map is hard to read.", status: "open" }]);
