@@ -7,9 +7,9 @@ import { postEvents } from "@/lib/events/post-events";
 import { CONFIDENCE, type Confidence } from "./confidence";
 import { Fx } from "./effects";
 import { ReportWrong } from "./report-wrong";
+import { ContentDiagram } from "./content-diagram";
 import { CreatureSprite } from "./creature-sprite";
 import { GlossaryText } from "./glossary-text";
-import { useMermaidSvg } from "./use-mermaid-svg";
 import { playSound } from "./sound";
 
 type Phase =
@@ -194,7 +194,7 @@ function AskStep({
 function LessonCard({ screen, source }: { screen: LessonScreen; source: LessonView["source"] }) {
   return (
     <div className="card stack">
-      {screen.diagram && <LessonDiagram source={screen.diagram} />}
+      {screen.diagram && <ContentDiagram source={screen.diagram} />}
       <p>
         <GlossaryText text={screen.text} />
       </p>
@@ -211,31 +211,6 @@ function LessonCard({ screen, source }: { screen: LessonScreen; source: LessonVi
       </p>
     </div>
   );
-}
-
-/**
- * A Lesson diagram, drawn from its Mermaid text. A screen reader gets the boxes and arrows as
- * words instead of the drawing: "Browser to Server".
- */
-function LessonDiagram({ source }: { source: string }) {
-  const { svg, problem } = useMermaidSvg(source);
-  if (problem) return <p className="lead">The diagram could not be drawn.</p>;
-  return (
-    <figure className="diagram lesson-diagram">
-      {svg ? <div aria-hidden="true" dangerouslySetInnerHTML={{ __html: svg }} /> : <p className="lead">Drawing…</p>}
-      <figcaption className="visually-hidden">Diagram: {diagramInWords(source)}</figcaption>
-    </figure>
-  );
-}
-
-/** The arrows of a Mermaid diagram as plain words, one line each: "Browser to Server". */
-function diagramInWords(source: string): string {
-  return source
-    .split("\n")
-    .slice(1)
-    .map((line) => line.trim().replace(/\s*-+>+\s*|\s*->>\s*/g, " to ").replace(/[[\](){}|]/g, " ").replace(/\s+/g, " ").trim())
-    .filter(Boolean)
-    .join(". ");
 }
 
 function PageDots({ count, current }: { count: number; current: number }) {

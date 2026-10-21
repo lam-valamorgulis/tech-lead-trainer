@@ -202,7 +202,13 @@ function CommitChoices({ profile, onChoose }: { profile: Profile; onChoose: (min
 function newTownToShow(programStartDate: string, status: LearningStatus): BundledTown | null {
   const town = currentTown(programStartDate, status.today);
   if (!town) return null;
-  return showsNewTown({ programStartDate, townNumber: town.number, lastSessionDay: status.lastSessionDay }) ? town : null;
+  const shows = showsNewTown({
+    programStartDate,
+    townNumber: town.number,
+    lastSessionDay: status.lastSessionDay,
+    hasIntro: town.intro !== undefined,
+  });
+  return shows ? town : null;
 }
 
 type PlacementOffer = { id: string; questions: number };

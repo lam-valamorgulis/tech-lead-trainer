@@ -39,18 +39,6 @@
       "id": "t99",
       "number": 1,
       "name": "Fixture Town",
-      "intro": {
-        "title": "How a page reaches you",
-        "screens": [
-          "A page travels from a server to your browser.",
-          "Caches and proxies keep copies on the way, so pages load faster."
-        ],
-        "diagram": "flowchart LR\n  Browser --> CDN\n  CDN --> Server",
-        "source": {
-          "title": "MDN: HTTP caching",
-          "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Caching"
-        }
-      },
       "skills": [
         2,
         3
@@ -1482,6 +1470,18 @@
       "id": "t98",
       "number": 2,
       "name": "Fixture Town Two",
+      "intro": {
+        "title": "How an API keeps partners safe",
+        "screens": [
+          "Partners call the shop API from their own servers.",
+          "A key names each partner, and a quota limits how much each one asks."
+        ],
+        "diagram": "flowchart LR\n  Partner --> Gateway\n  Gateway --> API",
+        "source": {
+          "title": "MDN: 429 Too Many Requests",
+          "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/429"
+        }
+      },
       "twist": {
         "kind": "two-types"
       },

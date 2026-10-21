@@ -315,6 +315,13 @@ export function fixtureTwistTown() {
     number: 2,
     name: "Fixture Town Two",
     twist: { kind: "two-types" },
+    // Seam C shows the Town Intro (#98) here: on the first day of a new town, as in real use.
+    intro: {
+      title: "How an API keeps partners safe",
+      screens: ["Partners call the shop API from their own servers.", "A key names each partner, and a quota limits how much each one asks."],
+      diagram: "flowchart LR\n  Partner --> Gateway\n  Gateway --> API",
+      source: apiSource,
+    },
     creatures: [
       apiCreature("rate-limit", "Rate limit", "rate-limit.quota", "Quota"),
       apiCreature("api-key", "API key", "api-key.rotate", "Key rotation"),
@@ -519,3 +526,13 @@ export function fixtureTownV2(): Town {
 }
 
 export const fixtureLedgerV2 = [...fixtureLedger, "cache.trade-off.fresh-prices", "cache.decision.logo", "t99-late-launch", "t99-cache-diff"];
+
+/**
+ * The fixture towns of the seam C bundle. Town 1 has every v1.5 field except its Town Intro, so a
+ * new learner in seam C starts on the commit buttons; Town 2 has the Town Intro (#98).
+ */
+export function fixtureSeamCTowns() {
+  const townOne = fixtureTownV2();
+  delete townOne.intro;
+  return [townOne, fixtureTwistTown()];
+}
