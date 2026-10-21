@@ -1,4 +1,5 @@
 import { towns } from "@/content";
+import type { BundledTown } from "@/content/bundle";
 import { ROADMAP } from "@/core/roadmap";
 import type { TownState } from "@/core/town-map";
 
@@ -7,9 +8,14 @@ import type { TownState } from "@/core/town-map";
 
 export const STATE_LABEL: Record<TownState, string> = { past: "Past", current: "You are here", locked: "Not open yet" };
 
+/** The content of a town, or undefined when it has none yet (towns 3 to 12 for now). */
+export function townContent(number: number): BundledTown | undefined {
+  return towns.find((town) => town.number === number);
+}
+
 /** A town with content uses its own name, so the map and the town never disagree. */
 export function townName(number: number): string {
-  return towns.find((town) => town.number === number)?.name ?? ROADMAP[number - 1].name;
+  return townContent(number)?.name ?? ROADMAP[number - 1].name;
 }
 
 // A 12 x 12 house. R = roof, W = wall, D = door, G = ground. Drawn for this app.
@@ -52,6 +58,13 @@ const PIN = ["XXXXXXX", "XXXXXXX", ".XXXXX.", "..XXX..", "...X..."];
 
 export function TownPin() {
   return <PixelIcon rows={PIN} className="town-pin" />;
+}
+
+// A medal on its ribbon, for a town's badge.
+const MEDAL = ["XX...XX", ".XX.XX.", "..XXX..", ".XXXXX.", "XXX.XXX", ".XXXXX.", "..XXX.."];
+
+export function MedalIcon() {
+  return <PixelIcon rows={MEDAL} className="state-icon medal-icon" />;
 }
 
 function PixelIcon({ rows, className }: { rows: string[]; className: string }) {

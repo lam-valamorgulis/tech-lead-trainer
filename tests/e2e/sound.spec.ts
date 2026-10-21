@@ -71,6 +71,36 @@ test("the speaker button is on the map too, at least 44 px, and the map loop sta
   }
 });
 
+test("the map loop goes on into a town's page, which has the speaker button too (#111)", async ({ page }) => {
+  await countNotes(page);
+  const user = await signInNewUser(page, "speaker-town");
+  try {
+    await page.goto("/map");
+    await page.getByRole("heading", { name: "Map" }).click();
+    const first = await notes(page);
+    await expect.poll(() => notes(page)).toBeGreaterThan(first + 3);
+
+    await page.getByRole("link", { name: "Town 1 You are here" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Town 1" })).toBeVisible({ timeout: 15_000 });
+    // A link to a page in the same app keeps the page loaded, so the loop goes on there.
+    const onTownPage = await notes(page);
+    await expect.poll(() => notes(page)).toBeGreaterThan(onTownPage + 3);
+    const speaker = page.getByRole("button", { name: "Sound on" });
+    const box = (await speaker.boundingBox())!;
+    expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44);
+
+    // Mute on the town page stops the loop.
+    await speaker.click();
+    await expect(page.getByRole("button", { name: "Sound off" })).toBeVisible();
+    await page.waitForTimeout(300);
+    const muted = await notes(page);
+    await page.waitForTimeout(1000);
+    expect(await notes(page)).toBe(muted);
+  } finally {
+    await user.forget();
+  }
+});
+
 test("after the commit tap the music plays, and the speaker button mutes it at once", async ({ page }) => {
   await countNotes(page);
   const user = await signInNewUser(page, "speaker-music");

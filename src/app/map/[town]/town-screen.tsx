@@ -7,11 +7,11 @@ import { currentTownNumber, townStartDay, townToPlay } from "@/core/roadmap";
 import { townLinks, townState } from "@/core/town-map";
 import { formatDay } from "../../format-day";
 import { PixelSprite } from "../../pixel-sprite";
-import { HOUSE, HOUSE_PALETTES, STATE_LABEL, StateIcon } from "../town-look";
+import { HOUSE, HOUSE_PALETTES, MedalIcon, STATE_LABEL, StateIcon, townContent } from "../town-look";
 import { useMapDay } from "../use-map-day";
 
-/** The town's house shown 6 times larger: 72 px. */
-const HOUSE_SCALE = 6;
+/** The town's house on its page, shown 6 times larger: 72 px. */
+const BANNER_HOUSE_SCALE = 6;
 
 /**
  * A town's page (ticket #111): its state, its month, and links to what the town has. A locked
@@ -25,7 +25,7 @@ export function TownScreen({ number, programStartDate }: { number: number; progr
 
   const current = currentTownNumber(programStartDate, day.today);
   const state = townState(number, current);
-  const town = towns.find((t) => t.number === number);
+  const town = townContent(number);
   const played = townToPlay(towns, current);
   const links = townLinks({
     state,
@@ -38,7 +38,7 @@ export function TownScreen({ number, programStartDate }: { number: number; progr
   return (
     <>
       <div className="town-banner">
-        <PixelSprite art={HOUSE} palette={HOUSE_PALETTES[state]} scale={HOUSE_SCALE} />
+        <PixelSprite art={HOUSE} palette={HOUSE_PALETTES[state]} scale={BANNER_HOUSE_SCALE} />
         <div className="stack">
           <p className={`town-state-line town-${state}`}>
             <StateIcon state={state} /> {STATE_LABEL[state]}
@@ -84,8 +84,8 @@ function TownBadge({ townId, gyms }: { townId: string; gyms: GymRecord[] | null 
     );
   }
   return (
-    <p className="town-badge">
-      <span aria-hidden="true">🏅</span> Badge earned · {formatDay(badge.earnedOn)}
+    <p className="town-state-line town-badge">
+      <MedalIcon /> Badge earned · {formatDay(badge.earnedOn)}
     </p>
   );
 }

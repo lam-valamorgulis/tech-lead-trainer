@@ -1,11 +1,15 @@
+"use client";
+
 import Link from "next/link";
-import { useId } from "react";
 import { MAP_SPOTS, MAP_TILES, roadPieces, townState } from "@/core/town-map";
 import { PixelSprite } from "../pixel-sprite";
 import { HOUSE, HOUSE_PALETTES, STATE_LABEL, StateIcon, TownPin } from "./town-look";
 
 /** 12 pixels shown 4 times larger: 48 px (design 9: whole-number scaling). */
-const HOUSE_SCALE = 4;
+const MAP_HOUSE_SCALE = 4;
+
+/** One map per page, so a fixed id is safe. Plain letters work in url(#...) on every browser. */
+const GRASS_PATTERN_ID = "town-map-grass";
 
 const percent = (part: number, whole: number) => `${(part / whole) * 100}%`;
 
@@ -25,7 +29,7 @@ export function TownBoard({ current }: { current: number }) {
               {state === "current" && <TownPin />}
               <Link href={`/map/${number}`} className={`town town-${state}`} aria-current={state === "current" ? "location" : undefined}>
                 <span className="town-house">
-                  <PixelSprite art={HOUSE} palette={HOUSE_PALETTES[state]} scale={HOUSE_SCALE} />
+                  <PixelSprite art={HOUSE} palette={HOUSE_PALETTES[state]} scale={MAP_HOUSE_SCALE} />
                   <StateIcon state={state} />
                 </span>
                 <span className="town-number">Town {number}</span> <span className="town-state">{STATE_LABEL[state]}</span>
@@ -70,18 +74,17 @@ const COLOURS = {
 
 /** The picture under the towns: grass, the road from town 1 to town 12, trees and a pond. */
 function MapArt() {
-  const grass = useId();
   const road = roadPieces();
   return (
     <svg className="map-art" viewBox={`0 0 ${MAP_TILES.width} ${MAP_TILES.height}`} shapeRendering="crispEdges" aria-hidden="true" focusable="false">
       <defs>
-        <pattern id={grass} width="4" height="4" patternUnits="userSpaceOnUse">
+        <pattern id={GRASS_PATTERN_ID} width="4" height="4" patternUnits="userSpaceOnUse">
           <rect width="4" height="4" fill={COLOURS.grass} />
           <rect x="0.5" y="0.75" width="0.5" height="0.25" fill={COLOURS.tuft} />
           <rect x="2.5" y="2.75" width="0.5" height="0.25" fill={COLOURS.tuft} />
         </pattern>
       </defs>
-      <rect width={MAP_TILES.width} height={MAP_TILES.height} fill={`url(#${grass})`} />
+      <rect width={MAP_TILES.width} height={MAP_TILES.height} fill={`url(#${GRASS_PATTERN_ID})`} />
       {road.map((piece, i) => (
         <rect key={`edge-${i}`} x={piece.x - 0.25} y={piece.y - 0.25} width={piece.width + 0.5} height={piece.height + 0.5} fill={COLOURS.roadEdge} />
       ))}

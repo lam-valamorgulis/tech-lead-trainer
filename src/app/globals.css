@@ -556,6 +556,10 @@ h2[tabindex="-1"]:focus {
   flex: none;
 }
 
+.medal-icon {
+  color: var(--color-accent);
+}
+
 /* "You are here": a gold arrow over the current town. It bobs, unless motion is reduced (UI rule 12). */
 .town-pin {
   position: absolute;

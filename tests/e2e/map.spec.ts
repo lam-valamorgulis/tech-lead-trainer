@@ -112,6 +112,10 @@ test("the labels fit inside their towns on the smallest iPhone, and a locked tow
         .map((link) => link.textContent),
     );
     expect(overflowing).toEqual([]);
+    // UI rule 9 holds on the smallest iPhone too.
+    for (const box of await townLinks(page).evaluateAll((links) => links.map((link) => link.getBoundingClientRect().toJSON()))) {
+      expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44);
+    }
     // The map never makes the page scroll sideways.
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
 
