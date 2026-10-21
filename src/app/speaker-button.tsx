@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { saveSoundOn } from "@/lib/profile";
 import { browserClient } from "@/lib/supabase/browser";
 import type { SignedIn } from "./auth-gate";
-import { playSound, setSoundOn, startSound } from "./sound";
+import { playSound, setSoundOn, soundStarted, startSound } from "./sound";
 
 /** Per device: the iPhone silent switch belongs to the phone, not to the account. */
 const HINT_SEEN_KEY = "silent-mode-hint-seen";
@@ -23,10 +23,14 @@ export function SpeakerButton({
   besideIntro?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
+  // One save at a time, so two fast taps can never save out of order.
+  const [saving, setSaving] = useState(false);
   const on = profile.soundOn;
 
   async function toggle() {
+    if (saving) return;
     const next = !on;
+    setSaving(true);
     setFailed(false);
     // Inside the tap, so iPhone Safari lets the audio start.
     setSoundOn(next);
@@ -41,6 +45,8 @@ export function SpeakerButton({
       setSoundOn(on);
       setProfile({ ...profile, soundOn: on });
       setFailed(true);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -51,6 +57,7 @@ export function SpeakerButton({
         className="speaker-button"
         aria-pressed={on}
         aria-label={on ? "Sound on" : "Sound off"}
+        aria-busy={saving}
         onClick={() => void toggle()}
       >
         <SpeakerIcon on={on} />
@@ -66,15 +73,12 @@ export function SpeakerButton({
 
 /**
  * One line, once on this device: the first time the music starts after a commit tap with sound
- * on (UI rule 14). It sits in the page flow, so it covers nothing.
+ * on (UI rule 14). It sits in the page flow, so it covers nothing. It shows after sign-in, in
+ * the browser, so storage is there on the first render.
  */
-export function SilentModeHint({ soundOn }: { soundOn: boolean }) {
-  return useSilentModeHint(soundOn) ? <p className="lead">Turn off silent mode to hear the music</p> : null;
-}
-
-/** The hint shows after sign-in, in the browser, so storage is there on the first render. */
-function useSilentModeHint(soundOn: boolean): boolean {
-  const [unseen] = useState(() => {
+export function SilentModeHint() {
+  const [show] = useState(() => {
+    if (!soundStarted()) return false;
     try {
       return localStorage.getItem(HINT_SEEN_KEY) === null;
     } catch {
@@ -82,7 +86,6 @@ function useSilentModeHint(soundOn: boolean): boolean {
       return true;
     }
   });
-  const show = unseen && soundOn;
   useEffect(() => {
     if (!show) return;
     try {
@@ -91,7 +94,7 @@ function useSilentModeHint(soundOn: boolean): boolean {
       // Nothing to remember it in. The line comes back next visit, which is harmless.
     }
   }, [show]);
-  return show;
+  return show ? <p className="lead">Turn off silent mode to hear the music</p> : null;
 }
 
 function SpeakerIcon({ on }: { on: boolean }) {

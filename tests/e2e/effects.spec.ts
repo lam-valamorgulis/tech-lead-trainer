@@ -118,12 +118,14 @@ async function openSettings(page: Page) {
   await expect(page.getByRole("heading", { name: "Effects and sound" })).toBeVisible();
 }
 
-test("sound starts only in the commit tap, and a strong hit plays next to its text and a short effect", async ({ page }) => {
+test("sound starts at the first tap after sign-in, and a strong hit plays next to its text and a short effect", async ({ page }) => {
   await listenForSound(page);
-  const user = await signInNewUser(page, "fx-sound");
+  const user = await signInNewUser(page, "fx-sound", { keepPlanScreen: true });
   try {
-    // Sound stays off until the first commit tap.
+    // UI rule 13: sound stays off until the first tap of the signed-in learner.
     expect(await soundLog(page)).toEqual({ contexts: 0, notes: 0 });
+    await page.getByRole("button", { name: "Later" }).click();
+    await expect.poll(async () => (await soundLog(page)).contexts).toBe(1);
     await strongHit(page, user.email);
     expect((await soundLog(page)).contexts).toBe(1);
     await expect.poll(async () => (await soundLog(page)).notes).toBeGreaterThan(0);

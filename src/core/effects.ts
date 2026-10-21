@@ -24,8 +24,9 @@ export type SoundName =
 /**
  * Each one plays next to a text that says the same thing (UI rule 10).
  *
- * License of each sound (ticket #35, #94): every sound below and both music loops are original. They were written for this app as these note lists, and
- * src/app/sound.ts plays them as square waves with the Web Audio API. There is no sound file and
+ * License of each sound (ticket #35, #94): every sound below and both music loops are original.
+ * They were written for this app as these note lists, and src/app/sound.ts plays them as 8-bit
+ * waves with the Web Audio API. There is no sound file and
  * no third-party sound, so no outside license applies. A sound file added later must have a
  * license that allows this use, recorded next to the file.
  */

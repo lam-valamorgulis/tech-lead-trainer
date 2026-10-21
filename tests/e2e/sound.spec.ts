@@ -54,6 +54,23 @@ test("the speaker button is at least 44 px, and it is the same switch as Sound e
   }
 });
 
+test("the speaker button is on the map too, at least 44 px, and the map loop starts at the first tap there", async ({ page }) => {
+  await countNotes(page);
+  const user = await signInNewUser(page, "speaker-map");
+  try {
+    await page.goto("/map");
+    const speaker = page.getByRole("button", { name: "Sound on" });
+    const box = (await speaker.boundingBox())!;
+    expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44);
+    // A fresh page load: the first tap anywhere starts the sound.
+    await page.getByRole("heading", { name: "Map" }).click();
+    const first = await notes(page);
+    await expect.poll(() => notes(page)).toBeGreaterThan(first + 3);
+  } finally {
+    await user.forget();
+  }
+});
+
 test("after the commit tap the music plays, and the speaker button mutes it at once", async ({ page }) => {
   await countNotes(page);
   const user = await signInNewUser(page, "speaker-music");

@@ -50,7 +50,6 @@ export function BattleFlow({
   battleId?: string;
 }) {
   const [battleId] = useState(() => givenBattleId ?? crypto.randomUUID());
-  useMusic("battle");
   const [battle, setBattle] = useState<BattleState | null>(null);
   const [step, setStep] = useState<Step>("team");
   // Worked examples come first, one screen each, then they hide (design 7.1).
@@ -60,6 +59,7 @@ export function BattleFlow({
   const checked = useRef(new Set<number>());
   // The why of each turn, shown next to its model answer.
   const [whys, setWhys] = useState<Record<number, string>>({});
+  useMusic("battle");
   // The ticked key points of each turn, for the "Discuss in Claude" package.
   const [ticks, setTicks] = useState<Record<number, number[]>>({});
   const heading = useRef<HTMLHeadingElement>(null);

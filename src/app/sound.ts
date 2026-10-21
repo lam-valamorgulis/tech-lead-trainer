@@ -2,12 +2,15 @@ import { NOISE_MS, SONGS, SOUNDS, stepNotes, stepSeconds, type SongName, type So
 
 // 8-bit sounds and music made in code with the Web Audio API (UI rules 10 and 13). There is no sound file.
 
-/** Square waves are loud, so effects play at a quarter and music lower, under them. */
-const EFFECTS_VOLUME = 0.25;
+/** Square waves are loud. Effects play louder than before #94 (0.06), and music sits under them. */
+const EFFECTS_VOLUME = 0.15;
 const MUSIC_VOLUME = 0.08;
-/** The music timer runs every 25 ms and plans the notes of the next 120 ms. */
+/**
+ * The music timer runs every 25 ms and plans the notes of the next 200 ms, so a slow screen
+ * update on the phone does not leave a gap. Mute is still instant: it silences the master gain.
+ */
 const MUSIC_TICK_MS = 25;
-const MUSIC_AHEAD_SECONDS = 0.12;
+const MUSIC_AHEAD_SECONDS = 0.2;
 
 let soundOn = false;
 let context: AudioContext | null = null;
@@ -30,8 +33,8 @@ export function setSoundOn(on: boolean): void {
 }
 
 /**
- * Call inside a tap: the commit tap or the speaker button. iPhone Safari starts audio only
- * inside a tap, so sound stays off until then.
+ * Call inside a tap: the first tap on any screen, or the speaker button. iPhone Safari starts
+ * audio only inside a tap, so sound stays off until then (UI rule 13).
  */
 export function startSound(): void {
   if (!soundOn || typeof AudioContext === "undefined") return;
@@ -108,6 +111,8 @@ function stopMusic(): void {
 /** Plans every loop step that starts in the next 120 ms. The loop repeats without end. */
 function planMusic(): void {
   if (!playing || !context || !music) return;
+  // iPhone pauses audio when the app goes to the background: start it again when it comes back.
+  if (context.state === "suspended") void context.resume().catch(() => undefined);
   const song = SONGS[playing.song];
   // After the phone paused the app, skip the missed steps instead of playing them all at once.
   if (playing.nextAt < context.currentTime) playing.nextAt = context.currentTime;
@@ -125,7 +130,7 @@ function playTone(audio: AudioContext, out: AudioNode, hz: number, at: number, s
   const gain = audio.createGain();
   oscillator.type = wave;
   oscillator.frequency.value = hz;
-  // A short fade at the end of each note avoids a click.
+  // Each note fades to silence over its length, so it ends without a click.
   gain.gain.setValueAtTime(1, at);
   gain.gain.linearRampToValueAtTime(0, at + seconds);
   oscillator.connect(gain).connect(out);

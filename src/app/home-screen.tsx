@@ -98,11 +98,13 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
     );
   }
 
+  const speaker = <SpeakerButton userId={userId} profile={profile} setProfile={setProfile} besideIntro />;
+
   if (session !== null) {
     return (
       <>
-        <SpeakerButton userId={userId} profile={profile} setProfile={setProfile} besideIntro />
-        <SilentModeHint soundOn={profile.soundOn} />
+        {speaker}
+        <SilentModeHint />
         <SessionScreen
           committedMinutes={session}
           programStartDate={profile.programStartDate}
@@ -114,7 +116,7 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
 
   return (
     <>
-      <SpeakerButton userId={userId} profile={profile} setProfile={setProfile} besideIntro />
+      {speaker}
       <div className="stack">
         <p>
           Learned <strong>{rate ? formatRate(rate) : "…"}</strong>
