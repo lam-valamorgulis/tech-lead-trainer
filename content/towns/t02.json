@@ -325,13 +325,13 @@
         "answer": "204 No Content, not 404 Not Found."
       },
       "workedExample": {
-        "problem": "Your API returns 200 OK with a body that says not found when an order is missing.",
+        "problem": "A user asks for an order of another customer. Your API returns 403 Forbidden, so anyone can learn which orders exist.",
         "steps": [
-          "Azure says to use proper response codes, so customers can find and fix their own problems.",
-          "200 OK says the request worked, so clients treat the error as a success.",
-          "In HTTP, 404 Not Found says the server found nothing for this URL."
+          "Azure says to return 403 Forbidden when the user has no access to the resource.",
+          "403 is easier to debug, but it says the resource exists.",
+          "When that could leak customer secrets, Azure says the response should be 404 Not Found."
         ],
-        "answer": "Return 404 Not Found for the missing order, so clients can see the error without reading the body."
+        "answer": "Return 404 Not Found for orders of other customers, so the API does not show that they exist."
       },
       "tradeOff": {
         "id": "api-status-code.trade-off.delete-missing",
@@ -4845,7 +4845,7 @@
               "counterattack": "Each worker's key is limited, but they all still retry at the same moment."
             }
           ],
-          "modelAnswer": "Answer with 503 Service Unavailable and a Retry-After header, so workers wait before they retry. Safe retries can still overload a service. The cost: some work finishes later.",
+          "modelAnswer": "Answer with 503 Service Unavailable and a Retry-After header, so workers wait before they retry. The cost: some work finishes later.",
           "keyPoints": [
             "A 503 means a temporary overload that should pass after a delay.",
             "Retry-After tells clients how long to wait.",
@@ -4873,7 +4873,7 @@
             {
               "moveId": "long-running.accepted",
               "damage": 2,
-              "counterattack": "The call returns 202 at once, but clients must now poll for the result."
+              "counterattack": "The call returns 202 at once, but clients must now check a status monitor for the result."
             },
             {
               "moveId": "rate-limit.retry-after",
@@ -4886,9 +4886,9 @@
               "counterattack": "You accept an Operation-Id, but the call still blocks for 3 minutes."
             }
           ],
-          "modelAnswer": "Make the export a long-running operation. Return 202 Accepted at once, with a link to a status monitor. A 202 does not promise success. The cost: clients must poll for the result.",
+          "modelAnswer": "Make the export a long-running operation. Return 202 Accepted at once, with a link to a status monitor. A 202 does not promise success. The cost: clients must check the status monitor for the result.",
           "keyPoints": [
-            "Use it when the 99th percentile is over 1 second and the client must poll.",
+            "The 202 response points to a status monitor.",
             "202 Accepted returns at once.",
             "A 202 promises nothing about the result."
           ]
