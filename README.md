@@ -2,7 +2,7 @@
 
 A pixel-art learning game for one year of tech lead practice. It runs as an iPhone Home Screen app (PWA) and in a desktop browser.
 
-The confirmed design is `docs/design-v1.4.md`. Agent rules are in `CLAUDE.md`.
+The confirmed design is `docs/design-v1.5.md`. Agent rules are in `CLAUDE.md`.
 
 ## What you need
 
