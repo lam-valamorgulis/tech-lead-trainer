@@ -3,7 +3,7 @@ import { buildBundle } from "@/content/bundle";
 import { fixtureTown, fixtureTownV2 } from "@/content/fixture-town";
 import { townSchema } from "@/content/schema";
 import { catchQueue } from "./catch.ts";
-import { afterTry, CATCH_TRIES, lessonOf } from "./lesson.ts";
+import { afterTry, CATCH_TRIES, catchPhase, lessonOf } from "./lesson.ts";
 
 const v2Items = () => catchQueue(buildBundle([fixtureTownV2()]).towns[0]);
 const v1Items = () => catchQueue(buildBundle([townSchema.parse(fixtureTown())]).towns[0]);
@@ -41,6 +41,10 @@ describe("afterTry", () => {
 
   it("shows the look-back after a wrong first try, and gives one more try", () => {
     expect(afterTry(1, false)).toBe("look-back");
+  });
+
+  it("saves the first try as after-lesson and the second as after-look-back", () => {
+    expect([catchPhase(1), catchPhase(2)]).toEqual(["after-lesson", "after-look-back"]);
   });
 
   it("ends after a wrong second try: there are at most two tries", () => {

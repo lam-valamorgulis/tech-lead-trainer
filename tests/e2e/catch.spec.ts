@@ -12,8 +12,9 @@ test("commit 15 minutes, read the 3 Lesson screens, catch with a second try, and
     await expect(page.getByRole("heading", { name: "A new creature: Cache" })).toBeVisible();
     await expect(page.getByText("Lesson · Cache · 1 of 3")).toBeVisible();
     await expect(page.getByText("Why does a browser keep a copy of a page?")).toBeHidden();
-    // The diagram is drawn from the content's Mermaid text.
+    // The diagram is drawn from the content's Mermaid text, and a screen reader gets it in words.
     await expect(page.locator(".lesson-diagram svg")).toBeVisible();
+    await expect(page.getByText("Diagram: Browser to Server")).toBeAttached();
     const source = page.getByRole("link", { name: /Source: MDN: HTTP caching/ });
     await expect(source).toHaveAttribute("target", "_blank");
     await expect(source).toHaveAttribute("href", "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Caching");
@@ -22,7 +23,7 @@ test("commit 15 minutes, read the 3 Lesson screens, catch with a second try, and
     expect(accessibility.violations).toEqual([]);
 
     await page.getByRole("button", { name: "Next" }).click();
-    await expect(page.getByText("Lesson · Cache · 2 of 3")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Cache, 2 of 3" })).toBeFocused();
     await page.getByRole("button", { name: "Next" }).click();
     await expect(page.getByText("A cache keeps a copy of a response, so the next visit loads faster.")).toBeVisible();
     await page.getByRole("button", { name: "I am ready: catch it" }).click();
@@ -35,7 +36,9 @@ test("commit 15 minutes, read the 3 Lesson screens, catch with a second try, and
     await expect(page.getByRole("heading", { name: "Not yet. Look again" })).toBeFocused();
     await expect(page.getByText("Look again · Lesson 3 of 3")).toBeVisible();
     await expect(page.getByText("A cache keeps a copy of a response, so the next visit loads faster.")).toBeVisible();
-    await expect(page.getByLabel("To make it smaller")).not.toBeChecked();
+    // The first answer is locked, and says so in words.
+    await expect(page.getByLabel("To make it smaller")).toBeDisabled();
+    await expect(page.getByText("your first answer, not right")).toBeVisible();
 
     await page.getByLabel("To load it faster next time").check();
     await page.getByLabel("Sure").check();

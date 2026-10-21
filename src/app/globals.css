@@ -799,8 +799,8 @@ a[aria-current="page"] {
 
 /* Design 6.3 and UI rule 11: the Lesson before a catch, 3 swipe screens. */
 .swipe-area {
-  /* The browser still scrolls up and down; a sideways swipe turns the page. */
-  touch-action: pan-y;
+  /* The browser still scrolls up and down and zooms; a sideways swipe turns the page. */
+  touch-action: pan-y pinch-zoom;
 }
 
 .page-dots {
@@ -847,4 +847,10 @@ a[aria-current="page"] {
   margin: 0;
   font-size: 12px;
   color: var(--color-muted);
+}
+
+/* The first try's wrong answer, locked on the second try. Text and a line, never colour alone. */
+.choice-wrong {
+  border-style: dashed;
+  opacity: 0.8;
 }

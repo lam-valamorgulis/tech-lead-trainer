@@ -5,7 +5,7 @@ import type { Boss, SituationBlock } from "@/content/weekend";
 import { DESIGN_DOC_SECTIONS, designDocPackage, type DesignDoc } from "@/core/design-doc";
 import { browserClient } from "@/lib/supabase/browser";
 import { loadDesignDoc, saveDesignDoc } from "@/lib/weekend-doc";
-import { useMermaidSvg } from "../../mermaid-diagram";
+import { useMermaidSvg } from "../../use-mermaid-svg";
 import { ColleagueRead, DiscussDoc, DocField, SaveStatus, WeekendTabs } from "../weekend-parts";
 import { useAutosaved, type SaveState } from "./use-autosaved-doc";
 
@@ -155,7 +155,7 @@ function InlineCode({ text }: { text: string }) {
 
 /** The live preview. */
 function MermaidPreview({ source }: { source: string }) {
-  const { svg, problem } = useMermaidSvg(source, DRAW_AFTER_MS);
+  const { svg, problem } = useMermaidSvg(source, { delayMs: DRAW_AFTER_MS, keepLastDrawing: true });
 
   return (
     <section className="card stack diagram-preview" aria-label="Diagram preview">

@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useId, useState } from "react";
 import { mermaidProblem } from "@/lib/mermaid-problem";
 
@@ -22,13 +20,18 @@ function loadMermaid() {
 }
 
 /**
- * Draws Mermaid text as SVG, `delayMs` after the last change (the weekend editor waits while the
- * learner types). The last good drawing stays while a change has a mistake.
+ * Draws Mermaid text as SVG, `delayMs` after the last change. The weekend editor waits while the
+ * learner types, and keeps the last good drawing while a change has a mistake (`keepLastDrawing`).
+ * A Lesson shows only the drawing of its own text, never the one of the screen before.
  */
-export function useMermaidSvg(source: string, delayMs = 0): { svg: string | null; problem: string | null } {
+export function useMermaidSvg(
+  source: string,
+  { delayMs = 0, keepLastDrawing = false }: { delayMs?: number; keepLastDrawing?: boolean } = {},
+): { svg: string | null; problem: string | null } {
   const id = useId().replace(/[^a-zA-Z0-9]/g, "");
-  const [svg, setSvg] = useState<string | null>(null);
+  const [drawn, setDrawn] = useState<{ source: string; svg: string } | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  const svg = drawn && (keepLastDrawing || drawn.source === source) ? drawn.svg : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -36,9 +39,9 @@ export function useMermaidSvg(source: string, delayMs = 0): { svg: string | null
       try {
         const mermaid = await loadMermaid();
         await mermaid.parse(source);
-        const { svg: drawn } = await mermaid.render(`diagram-${id}`, source);
+        const result = await mermaid.render(`diagram-${id}`, source);
         if (!cancelled) {
-          setSvg(drawn);
+          setDrawn({ source, svg: result.svg });
           setProblem(null);
         }
       } catch (error) {

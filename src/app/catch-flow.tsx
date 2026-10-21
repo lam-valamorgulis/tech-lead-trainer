@@ -2,13 +2,13 @@
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
 import { checkCatchAnswer, type CatchAnswer, type CatchItem } from "@/core/catch";
-import { afterTry, lessonOf, type LessonScreen, type LessonView, type Try } from "@/core/lesson";
+import { afterTry, catchPhase, lessonOf, type LessonScreen, type LessonView, type Try } from "@/core/lesson";
 import { postEvents } from "@/lib/events/post-events";
 import { CONFIDENCE, type Confidence } from "./confidence";
 import { Fx } from "./effects";
 import { ReportWrong } from "./report-wrong";
 import { GlossaryText } from "./glossary-text";
-import { useMermaidSvg } from "./mermaid-diagram";
+import { useMermaidSvg } from "./use-mermaid-svg";
 import { playSound } from "./sound";
 
 type Phase =
@@ -40,12 +40,13 @@ export function CatchFlow({
   // Each try is saved once, even after a fast double tap.
   const answered = useRef(new Set<Try>());
   const heading = useRef<HTMLHeadingElement>(null);
-  const step = phase.name === "lesson" ? `lesson-${phase.screen}` : phase.name === "ask" ? `ask-${phase.attempt}` : phase.name;
+  // The first try's wrong answer, locked on the second try.
+  const [wrongChoice, setWrongChoice] = useState<string | null>(null);
 
-  // A new step replaces the button that was tapped, so focus moves to the new heading.
+  // Each step replaces the button that was tapped, so focus moves to the new heading.
   useEffect(() => {
     heading.current?.focus();
-  }, [step]);
+  }, [phase]);
 
   function answer(chosen: string, confidence: Confidence, attempt: Try) {
     if (answered.current.has(attempt)) return;
@@ -63,13 +64,14 @@ export function CatchFlow({
         answerText: chosen,
         correct: result.correct,
         confidence,
-        phase: attempt === 1 ? "after-lesson" : "after-look-back",
+        phase: catchPhase(attempt),
         attempt,
       },
     ]);
     const next = afterTry(attempt, result.correct);
     if (next === "look-back") {
       playSound("wrong");
+      setWrongChoice(chosen);
       setPhase({ name: "ask", attempt: 2 });
     } else {
       setPhase({ name: next, answer: result });
@@ -88,11 +90,12 @@ export function CatchFlow({
             Lesson · {item.name} · {phase.screen + 1} of {lesson.screens.length}
           </p>
           {lesson.screens.length > 1 && <PageDots count={lesson.screens.length} current={phase.screen} />}
+          {/* The page number is in the heading, because focus lands on it and a screen reader reads it. */}
           <h2 id="lesson-title" ref={heading} tabIndex={-1}>
-            {phase.screen === 0 ? `A new ${item.kind}: ${item.name}` : item.name}
+            {phase.screen === 0 ? `A new ${item.kind}: ${item.name}` : `${item.name}, ${phase.screen + 1} of ${lesson.screens.length}`}
           </h2>
           <LessonCard screen={screen} source={lesson.source} />
-          {phase.screen === last && <ReportWrong itemId={item.id} contentHash={item.hash} screen="catch-card" />}
+          <ReportWrong itemId={item.id} contentHash={item.hash} screen="catch-card" />
           <button type="button" className="button-main" onClick={() => turn(phase.screen + 1)}>
             {phase.screen < last ? "Next" : "I am ready: catch it"}
           </button>
@@ -107,7 +110,17 @@ export function CatchFlow({
   }
 
   if (phase.name === "ask") {
-    return <AskStep {...{ item, choices, heading }} attempt={phase.attempt} lesson={lesson} onAnswer={answer} />;
+    return (
+      <AskStep
+        item={item}
+        choices={choices}
+        heading={heading}
+        attempt={phase.attempt}
+        lesson={lesson}
+        wrongChoice={wrongChoice}
+        onAnswer={answer}
+      />
+    );
   }
 
   return (
@@ -134,6 +147,7 @@ function AskStep({
   heading,
   attempt,
   lesson,
+  wrongChoice,
   onAnswer,
 }: {
   item: CatchItem;
@@ -141,6 +155,8 @@ function AskStep({
   heading: RefObject<HTMLHeadingElement | null>;
   attempt: Try;
   lesson: LessonView;
+  /** On the second try: the first try's answer, shown as wrong and locked. */
+  wrongChoice: string | null;
   onAnswer: (chosen: string, confidence: Confidence, attempt: Try) => void;
 }) {
   const lookBack = lesson.screens[lesson.answerScreen];
@@ -155,11 +171,18 @@ function AskStep({
             Look again · Lesson {lesson.answerScreen + 1} of {lesson.screens.length}
           </p>
           <LessonCard screen={lookBack} source={lesson.source} />
+          <ReportWrong itemId={item.id} contentHash={item.hash} screen="catch-card" />
           <p className="lead">One more try.</p>
         </div>
       )}
       {/* A new form for the second try, so the first answer is not still ticked. */}
-      <QuestionForm key={attempt} question={item.catch.question} choices={choices} onAnswer={(chosen, confidence) => onAnswer(chosen, confidence, attempt)} />
+      <QuestionForm
+        key={attempt}
+        question={item.catch.question}
+        choices={choices}
+        locked={attempt === 2 ? wrongChoice : null}
+        onAnswer={(chosen, confidence) => onAnswer(chosen, confidence, attempt)}
+      />
     </section>
   );
 }
@@ -186,15 +209,29 @@ function LessonCard({ screen, source }: { screen: LessonScreen; source: LessonVi
   );
 }
 
-/** A Lesson diagram, drawn from its Mermaid text. Its text stays for screen readers. */
+/**
+ * A Lesson diagram, drawn from its Mermaid text. A screen reader gets the boxes and arrows as
+ * words instead of the drawing: "Browser to Server".
+ */
 function LessonDiagram({ source }: { source: string }) {
   const { svg, problem } = useMermaidSvg(source);
   if (problem) return <p className="lead">The diagram could not be drawn.</p>;
   return (
-    <figure className="diagram lesson-diagram" aria-label="Diagram">
-      {svg ? <div dangerouslySetInnerHTML={{ __html: svg }} /> : <p className="lead">Drawing…</p>}
+    <figure className="diagram lesson-diagram">
+      {svg ? <div aria-hidden="true" dangerouslySetInnerHTML={{ __html: svg }} /> : <p className="lead">Drawing…</p>}
+      <figcaption className="visually-hidden">Diagram: {diagramInWords(source)}</figcaption>
     </figure>
   );
+}
+
+/** The arrows of a Mermaid diagram as plain words, one line each: "Browser to Server". */
+function diagramInWords(source: string): string {
+  return source
+    .split("\n")
+    .slice(1)
+    .map((line) => line.trim().replace(/\s*-+>+\s*|\s*->>\s*/g, " to ").replace(/[[\](){}|]/g, " ").replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join(". ");
 }
 
 function PageDots({ count, current }: { count: number; current: number }) {
@@ -240,10 +277,13 @@ function Caught({ name }: { name: string }) {
 function QuestionForm({
   question,
   choices,
+  locked = null,
   onAnswer,
 }: {
   question: string;
   choices: string[];
+  /** A choice that cannot be picked: the wrong answer of the first try. */
+  locked?: string | null;
   onAnswer: (chosen: string, confidence: Confidence) => void;
 }) {
   const [chosen, setChosen] = useState<string | null>(null);
@@ -260,9 +300,19 @@ function QuestionForm({
       <fieldset className="choices">
         <legend>{question}</legend>
         {choices.map((choice) => (
-          <label key={choice} className="choice">
-            <input type="radio" name="choice" value={choice} checked={chosen === choice} onChange={() => setChosen(choice)} />
-            <span>{choice}</span>
+          <label key={choice} className={choice === locked ? "choice choice-wrong" : "choice"}>
+            <input
+              type="radio"
+              name="choice"
+              value={choice}
+              checked={chosen === choice}
+              disabled={choice === locked}
+              onChange={() => setChosen(choice)}
+            />
+            <span>
+              {choice}
+              {choice === locked && <span className="lead"> · your first answer, not right</span>}
+            </span>
           </label>
         ))}
       </fieldset>
@@ -288,7 +338,6 @@ function QuestionForm({
     </form>
   );
 }
-
 
 function shuffle<T>(items: T[]): T[] {
   const copy = [...items];
