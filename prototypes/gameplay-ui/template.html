@@ -1,0 +1,886 @@
+<title>Battle Prototype</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Pixelify+Sans:wght@500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* PROTOTYPE, throwaway. One iPhone-portrait game column. Scene on top, commands below.
+   Three Battle layouts (A Classic, B Cards, C Panel) switch from the bottom bar.
+   Single game look on purpose: night-blue UI panels over bright pixel scenes. */
+:root {
+  color-scheme: dark;
+  --night: #121830;
+  --panel: #1d2546;
+  --panel-2: #2a3563;
+  --edge: #070a16;
+  --ink: #f5f3ff;
+  --muted: #b3bbe0;
+  --gold: #ffd166;
+  --accent: #ff8a3d;
+  --good: #5ee38b;
+  --mid: #ffc53d;
+  --bad: #ff5c6c;
+  --sky-1: #79c3ee;
+  --sky-2: #d4f0fb;
+  --grass: #8fd16f;
+  --grass-d: #4e9446;
+  --pixel: "Pixelify Sans", "Courier New", monospace;
+  --body: "Atkinson Hyperlegible", -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --bar-h: 64px;
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { background: var(--night); color: var(--ink); font: 17px/1.45 var(--body); overflow: hidden; }
+button { font: inherit; color: inherit; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+button:focus-visible, a:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+a { color: var(--gold); }
+
+#app { height: 100%; max-width: 460px; margin: 0 auto; position: relative; display: flex; flex-direction: column; background: var(--night); }
+.screen { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+.gutter { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.pixel { font-family: var(--pixel); letter-spacing: .02em; }
+.label { font-family: var(--pixel); font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+
+/* Buttons */
+.btn { display: block; width: 100%; min-height: 56px; border: 3px solid var(--edge); border-radius: 6px; background: var(--panel-2); box-shadow: inset 0 -4px 0 rgba(0,0,0,.35); padding: 10px 14px; text-align: left; cursor: pointer; }
+.btn:active { transform: translateY(2px); box-shadow: inset 0 -2px 0 rgba(0,0,0,.35); }
+.btn.primary { background: var(--accent); color: #1b0f05; font-weight: 700; text-align: center; font-family: var(--pixel); font-size: 20px; }
+.btn small { display: block; color: var(--muted); font-size: 14px; }
+.btn.primary small { color: #3a1f08; }
+
+/* Title */
+#title { justify-content: center; gap: 22px; padding-block: 24px calc(var(--bar-h) + 16px); overflow-y: auto; }
+.logo { text-align: center; }
+.logo h1 { font-family: var(--pixel); font-size: 34px; line-height: 1.05; margin: 8px 0; color: var(--gold); text-shadow: 3px 3px 0 var(--edge); text-wrap: balance; }
+.logo p { margin: 0; color: var(--muted); }
+.logo .team { display: flex; justify-content: center; gap: 10px; margin-top: 14px; }
+.menu { display: grid; gap: 10px; }
+.hint { font-size: 15px; color: var(--muted); text-align: center; margin: 0; }
+
+/* Sprites */
+.spr { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+.idle { animation: bob 1s steps(2) infinite; }
+@keyframes bob { 50% { transform: translateY(-3px); } }
+
+/* Lesson */
+#lesson { padding-block: 14px calc(var(--bar-h) + 16px); gap: 14px; overflow-y: auto; }
+.dots { display: flex; gap: 8px; justify-content: center; }
+.dots i { width: 28px; height: 8px; background: var(--panel-2); border: 2px solid var(--edge); }
+.dots i.on { background: var(--gold); }
+.card { background: var(--panel); border: 3px solid var(--edge); border-radius: 8px; padding: 16px; display: grid; gap: 12px; }
+.card h2 { font-family: var(--pixel); font-size: 24px; margin: 0; color: var(--gold); text-wrap: balance; }
+.card p { margin: 0; }
+.diagram { background: #f7f4e8; border: 3px solid var(--edge); border-radius: 6px; padding: 8px; }
+.diagram svg { width: 100%; height: auto; display: block; }
+.source { font-size: 14px; color: var(--muted); }
+.choices { display: grid; gap: 10px; }
+.btn.right { background: #1f6b3d; }
+.btn.wrong { background: #7a2232; }
+.lookback { background: #3b2a12; border: 3px solid var(--gold); border-radius: 6px; padding: 12px; }
+.catch-stage { position: relative; height: 190px; display: grid; place-items: center; }
+.capsule { position: absolute; width: 40px; height: 40px; border: 4px solid var(--edge); border-radius: 50%; background: linear-gradient(var(--bad) 0 46%, var(--edge) 46% 56%, #fff 56%); top: -60px; }
+.capsule.drop { animation: drop .5s steps(6) forwards, wobble .5s steps(2) .6s 3; }
+@keyframes drop { to { top: 64px; } }
+@keyframes wobble { 0% { transform: rotate(-18deg); } 100% { transform: rotate(18deg); } }
+.stars { position: absolute; top: 40px; font-family: var(--pixel); color: var(--gold); font-size: 22px; animation: pop .8s steps(4) forwards; }
+
+/* Battle scene */
+#battle { position: relative; }
+.scene { position: relative; flex: 0 0 auto; height: clamp(300px, 44vh, 380px); overflow: hidden; border-bottom: 4px solid var(--edge); }
+.scene.field { background: linear-gradient(var(--sky-1), var(--sky-2) 62%, var(--grass) 62%); }
+.scene.field::before { content: ""; position: absolute; left: -10%; right: -10%; top: 48%; height: 18%; background: radial-gradient(60% 100% at 30% 100%, #6fb6a0 0 60%, transparent 61%), radial-gradient(50% 90% at 80% 100%, #5fa392 0 60%, transparent 61%); }
+.scene.office { background: linear-gradient(#cdbfa6 0 58%, #8a6b4a 58% 62%, #b08a60 62%); }
+.scene.office::before { content: ""; position: absolute; left: 12%; top: 10%; width: 34%; height: 32%; background: linear-gradient(90deg, #9fd8f5 0 48%, #6a5338 48% 52%, #9fd8f5 52%); border: 4px solid #6a5338; }
+.scene.lab { background: linear-gradient(#18234d 0 62%, #24306a 62%); }
+.scene.lab::before { content: ""; position: absolute; inset: 0 0 38% 0; background-image: linear-gradient(rgba(126,195,238,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(126,195,238,.12) 1px, transparent 1px); background-size: 16px 16px; }
+.pad { position: absolute; width: 150px; height: 34px; border-radius: 50%; background: var(--grass-d); box-shadow: inset 0 -6px 0 rgba(0,0,0,.18); }
+.office .pad { background: #8a6b4a; }
+.lab .pad { background: #3b4a8f; }
+.foe-pad { right: 6%; top: 41%; }
+.me-pad { left: 4%; bottom: 7%; width: 170px; }
+.foe { position: absolute; right: 6%; width: 150px; display: flex; justify-content: center; bottom: calc(59% - 22px); }
+.me { position: absolute; left: 4%; width: 170px; display: flex; justify-content: center; bottom: calc(7% + 10px); }
+.flip { transform: scaleX(-1); }
+.frame { background: #fbf7e9; border: 4px solid var(--edge); border-radius: 4px; padding: 4px; box-shadow: 4px 4px 0 rgba(0,0,0,.3); }
+/* Field Guide */
+#guide { padding-block: 14px calc(var(--bar-h) + 16px); gap: 12px; overflow-y: auto; }
+.guide-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.mon { background: var(--panel); border: 3px solid var(--edge); border-radius: 6px; padding: 6px 4px 8px; display: grid; justify-items: center; gap: 2px; text-align: center; }
+.mon .no { font-family: var(--pixel); font-size: 12px; color: var(--muted); justify-self: start; padding-left: 4px; }
+.mon .nm { font-size: 13px; line-height: 1.2; min-height: 2.4em; display: grid; place-items: center; }
+.mon.seen img { filter: grayscale(1) opacity(.7); }
+.mon.unseen img { filter: brightness(0) opacity(.45); }
+.mon.unseen .nm { color: var(--muted); }
+.mon .st { font-size: 11px; font-weight: 700; padding: 0 6px; border-radius: 3px; border: 2px solid var(--edge); }
+.mon .st.caught { background: #1f6b3d; }
+.mon .st.seen { background: #5a5f80; }
+.mon .st.unseen { background: #2a2f4a; color: var(--muted); }
+.hpbox { position: absolute; background: #fbf7e9; color: #1b1b2a; border: 3px solid var(--edge); border-radius: 6px; padding: 6px 10px 8px; min-width: 168px; box-shadow: 3px 3px 0 rgba(0,0,0,.25); }
+.hpbox .nm { font-family: var(--pixel); font-weight: 700; font-size: 16px; display: flex; justify-content: space-between; gap: 8px; }
+.hpbox .ty { display: inline-flex; align-items: center; gap: 4px; font-family: var(--body); font-weight: 700; font-size: 12px; padding: 0 6px; border-radius: 3px; color: #fff; }
+.ty i { width: 8px; height: 8px; background: #fff; display: inline-block; }
+.segs { display: flex; gap: 3px; margin-top: 5px; align-items: center; }
+.segs span.k { font-family: var(--pixel); font-size: 12px; margin-right: 4px; }
+.segs b { flex: 1; height: 10px; border: 2px solid var(--edge); background: #d8d2c0; }
+.segs b.on { background: var(--good); }
+.segs.mid b.on { background: var(--mid); }
+.segs.low b.on { background: var(--bad); }
+.segs em { font-style: normal; font-size: 12px; margin-left: 6px; font-variant-numeric: tabular-nums; }
+.foe-hp { left: max(12px, env(safe-area-inset-left, 0px)); top: 12px; }
+.me-hp { right: max(12px, env(safe-area-inset-right, 0px)); bottom: 14px; }
+.speaker { position: absolute; top: 12px; right: max(12px, env(safe-area-inset-right, 0px)); width: 44px; height: 44px; border: 3px solid var(--edge); border-radius: 6px; background: #fbf7e9; color: #1b1b2a; font-family: var(--pixel); font-size: 13px; cursor: pointer; z-index: 5; }
+.dmg { position: absolute; font-family: var(--pixel); font-weight: 700; font-size: 18px; color: #fff; text-shadow: 2px 2px 0 var(--edge), -2px -2px 0 var(--edge), 2px -2px 0 var(--edge), -2px 2px 0 var(--edge); white-space: nowrap; animation: pop 1.1s steps(6) forwards; z-index: 4; }
+@keyframes pop { 0% { transform: translateY(8px); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(-26px); opacity: 0; } }
+.lunge-r { animation: lungeR .36s steps(4); }
+@keyframes lungeR { 50% { transform: translate(36px, -26px); } }
+.lunge-l { animation: lungeL .36s steps(4); }
+@keyframes lungeL { 50% { transform: translate(-36px, 26px); } }
+.flash { animation: flash .8s steps(2) 1; }
+@keyframes flash { 0%, 50% { opacity: .15; } 25%, 75% { opacity: 1; } }
+.shake { animation: shake .3s steps(3); }
+@keyframes shake { 33% { transform: translateX(5px); } 66% { transform: translateX(-5px); } }
+.faint { animation: faint .7s steps(5) forwards; }
+@keyframes faint { to { transform: translateY(46px); opacity: 0; } }
+.enter { animation: enter .5s steps(5); }
+@keyframes enter { from { transform: translateX(-160px); } }
+.bubble { position: absolute; right: 4%; top: 64px; max-width: 64%; background: #fff; color: #1b1b2a; border: 3px solid var(--edge); border-radius: 8px; padding: 6px 9px; font-size: 14px; line-height: 1.3; z-index: 3; }
+.bubble::after { content: ""; position: absolute; right: 38px; bottom: -11px; border: 8px solid transparent; border-top-color: var(--edge); }
+.bubble .label { color: #6b5a2a; font-size: 11px; display: block; }
+
+/* Command area (shared) */
+.cmd { flex: 1 1 auto; min-height: 0; background: var(--panel); padding-block: 10px calc(var(--bar-h) + 8px + env(safe-area-inset-bottom, 0px)); display: grid; align-content: start; gap: 10px; overflow-y: auto; }
+.textbox { background: #fbf7e9; color: #1b1b2a; border: 3px solid var(--edge); border-radius: 6px; padding: 10px 12px; min-height: 64px; box-shadow: inset 0 0 0 3px #d9cfae; }
+.textbox p { margin: 0; }
+.textbox .label { color: #7a6420; }
+.constraint { display: flex; gap: 8px; align-items: flex-start; background: #3a2c0e; border: 3px solid var(--gold); border-radius: 6px; padding: 8px 10px; font-size: 15px; }
+.constraint b { font-family: var(--pixel); color: var(--gold); font-size: 13px; text-transform: uppercase; letter-spacing: .06em; flex: 0 0 auto; padding-top: 2px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.grid2 .btn { font-family: var(--pixel); font-size: 17px; text-align: center; min-height: 64px; display: grid; place-items: center; line-height: 1.15; }
+.grid2 .btn small { font-family: var(--body); font-size: 12px; }
+.code { background: #0b1022; color: #d6e2ff; border: 3px solid var(--edge); border-radius: 6px; padding: 8px 10px; font: 12.5px/1.5 var(--mono); overflow-x: auto; white-space: pre; }
+.code .add { color: #7ef0a4; }
+.code .k { color: #ffb86b; }
+
+/* Variant B: card hand */
+.hand { display: flex; gap: 8px; overflow-x: auto; padding: 14px 2px 6px; scroll-snap-type: x mandatory; }
+.mcard { flex: 0 0 132px; min-height: 150px; scroll-snap-align: start; background: #fbf7e9; color: #1b1b2a; border: 3px solid var(--edge); border-radius: 8px; padding: 0 0 8px; text-align: left; cursor: pointer; display: flex; flex-direction: column; transition: transform .12s steps(2); }
+.mcard .top { height: 10px; background: var(--accent); border-bottom: 3px solid var(--edge); margin-bottom: 8px; }
+.mcard .nm { font-family: var(--pixel); font-weight: 700; font-size: 16px; padding: 0 8px; line-height: 1.1; }
+.mcard .ow { font-size: 11px; color: #6b6a80; padding: 2px 8px 6px; }
+.mcard .ht { font-size: 13px; line-height: 1.3; padding: 0 8px; }
+.mcard.sel { transform: translateY(-12px); box-shadow: 0 6px 0 var(--gold); }
+.mcard.reason { flex-basis: 200px; }
+.mcard.reason .top { background: var(--gold); }
+.play-row { display: flex; gap: 8px; }
+
+/* Variant C: question panel */
+.panel { position: absolute; left: 0; right: 0; bottom: 0; max-height: 74%; overflow-y: auto; background: var(--panel); border-top: 4px solid var(--edge); border-radius: 14px 14px 0 0; padding-block: 14px calc(var(--bar-h) + 10px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 10px; transform: translateY(105%); transition: transform .28s steps(5); z-index: 6; }
+.panel.open { transform: none; }
+.panel .grab { width: 48px; height: 6px; background: var(--panel-2); border-radius: 3px; margin: 0 auto; }
+/* C: the scene fills the screen; fighters sit in the top half so the panel never hides them */
+#battle.vC .scene { flex: 1 1 auto; height: auto; }
+#battle.vC .scene.field { background: linear-gradient(var(--sky-1), var(--sky-2) 33%, var(--grass) 33%); }
+#battle.vC .scene.field::before { top: 22%; height: 11%; }
+#battle.vC .scene.office { background: linear-gradient(#cdbfa6 0 36%, #8a6b4a 36% 39%, #b08a60 39%); }
+#battle.vC .scene.lab { background: linear-gradient(#18234d 0 36%, #24306a 36%); }
+#battle.vC .scene.lab::before { inset: 0 0 64% 0; }
+#battle.vC .foe-pad { top: 22%; }
+#battle.vC .foe { bottom: calc(78% - 22px); }
+#battle.vC .me-pad { bottom: 51%; }
+#battle.vC .me { bottom: calc(51% + 10px); }
+#battle.vC .me-hp { bottom: calc(51% + 40px); }
+#battle.vC .panel { max-height: 49%; }
+#battle.vC .panel .btn { min-height: 52px; padding-block: 8px; }
+.banner { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 4; }
+.list { display: grid; gap: 8px; }
+
+/* Review */
+#review { padding-block: 14px calc(var(--bar-h) + 16px); gap: 12px; overflow-y: auto; }
+.stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat { background: var(--panel); border: 3px solid var(--edge); border-radius: 6px; padding: 8px; text-align: center; }
+.stat b { display: block; font-family: var(--pixel); font-size: 26px; color: var(--gold); font-variant-numeric: tabular-nums; }
+.stat span { font-size: 13px; color: var(--muted); }
+.turn { background: var(--panel); border: 3px solid var(--edge); border-radius: 8px; padding: 12px; display: grid; gap: 8px; }
+.turn h3 { margin: 0; font-family: var(--pixel); font-size: 17px; color: var(--gold); }
+.chip { display: inline-block; font-size: 13px; font-weight: 700; padding: 1px 8px; border-radius: 3px; border: 2px solid var(--edge); }
+.chip.ok { background: #1f6b3d; }
+.chip.no { background: #7a2232; }
+.tick { display: flex; gap: 10px; align-items: center; min-height: 48px; background: var(--panel-2); border: 2px solid var(--edge); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+.tick input { width: 22px; height: 22px; accent-color: var(--good); flex: 0 0 auto; }
+
+/* Prototype switcher (not part of the design) */
+#bar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 50; display: flex; align-items: center; gap: 4px; background: #fff; color: #111; border-radius: 999px; padding: 4px; box-shadow: 0 4px 18px rgba(0,0,0,.45); font: 600 14px/1 var(--body); }
+#bar button { border: 0; background: #eee; border-radius: 999px; min-width: 44px; height: 44px; cursor: pointer; color: #111; }
+#bar .lbl { padding: 0 10px; white-space: nowrap; }
+#state { position: fixed; inset: 10% 8px auto; max-height: 60%; overflow: auto; z-index: 49; background: #fff; color: #111; font: 12px/1.4 var(--mono); padding: 10px; border-radius: 8px; box-shadow: 0 4px 18px rgba(0,0,0,.5); white-space: pre-wrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+
+<div id="app">
+  <section id="title" class="screen gutter">
+    <div class="logo">
+      <span class="label">Prototype · not the real app</span>
+      <h1>Tech Lead Trainer</h1>
+      <p>Play each screen. Then tell us which Battle layout you like.</p>
+      <div class="team">
+        <img class="spr idle" alt="" width="96" height="96" src="{{cdn}}">
+        <img class="spr idle" alt="" width="96" height="96" src="{{lb}}">
+        <img class="spr idle" alt="" width="96" height="96" src="{{key}}">
+      </div>
+    </div>
+    <div class="menu" id="menu">
+      <button class="btn primary" id="go-lesson" type="button">Start: Lesson and catch<small>Learn CDN Cache, then catch it</small></button>
+      <button class="btn" data-go="battle" type="button"><span class="pixel">Battle</span><small>Black Friday rush · Constraint and Reason</small></button>
+      <button class="btn" data-go="meeting" type="button"><span class="pixel">Meeting Battle</span><small>The client asks why the project is late</small></button>
+      <button class="btn" data-go="agent" type="button"><span class="pixel">Agent Diff Battle</span><small>Review code an AI agent wrote</small></button>
+      <button class="btn" id="go-guide" type="button"><span class="pixel">Field Guide</span><small>30 creatures of Town 1 and Town 2</small></button>
+    </div>
+    <p class="hint">Sound plays after your first tap. No sound? Turn off silent mode on the iPhone.</p>
+  </section>
+
+  <section id="lesson" class="screen gutter" hidden></section>
+  <section id="battle" class="screen" hidden></section>
+  <section id="review" class="screen gutter" hidden></section>
+  <section id="guide" class="screen gutter" hidden></section>
+</div>
+
+<div id="bar" role="toolbar" aria-label="Prototype controls">
+  <button type="button" id="prev" aria-label="Previous layout">‹</button>
+  <span class="lbl" id="vlabel">A · Classic</span>
+  <button type="button" id="next" aria-label="Next layout">›</button>
+  <button type="button" id="home" aria-label="Back to menu">Menu</button>
+  <button type="button" id="st" aria-label="Show state">State</button>
+</div>
+<pre id="state" hidden></pre>
+
+<script>
+"use strict";
+// PROTOTYPE, throwaway: answers "what should the gameplay screens look like?" No data is saved.
+const SPR = { cdn: "{{cdn}}", cdnB: "{{cdnB}}", lb: "{{lb}}", lbB: "{{lbB}}", key: "{{key}}", keyB: "{{keyB}}", spike: "{{spike}}", agent: "{{agent}}", clientP: "{{clientP}}", youP: "{{youP}}" };
+
+/* ---------- Sound: effects + two music loops, made with Web Audio ---------- */
+const Snd = (() => {
+  let ctx = null, master = null, sfx = null, music = null, on = true, song = null, step = 0, nextAt = 0, timer = null;
+  const hz = (m) => 440 * Math.pow(2, (m - 69) / 12);
+  function init() {
+    if (ctx || typeof AudioContext === "undefined") return;
+    try {
+      ctx = new AudioContext();
+      master = ctx.createGain(); master.gain.value = 0.9; master.connect(ctx.destination);
+      sfx = ctx.createGain(); sfx.gain.value = 0.28; sfx.connect(master);
+      music = ctx.createGain(); music.gain.value = 0.10; music.connect(master);
+    } catch { ctx = null; }
+  }
+  function tone(f, t, len, type, gainNode, vol = 1) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    g.gain.setValueAtTime(vol, t); g.gain.linearRampToValueAtTime(0, t + len);
+    o.connect(g).connect(gainNode); o.start(t); o.stop(t + len + 0.02);
+    return o;
+  }
+  function seq(notes, type = "square") {
+    if (!ctx || !on) return;
+    let t = ctx.currentTime;
+    for (const [m, ms] of notes) { if (m) tone(hz(m), t, ms / 1000, type, sfx); t += ms / 1000; }
+  }
+  function noise(len) {
+    if (!ctx || !on) return;
+    const buf = ctx.createBuffer(1, ctx.sampleRate * len, ctx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+    const s = ctx.createBufferSource(); s.buffer = buf; s.connect(sfx); s.start();
+  }
+  const FX = {
+    tap: () => seq([[84, 40]]),
+    select: () => seq([[79, 50], [86, 60]]),
+    strong: () => { noise(0.18); seq([[72, 60], [84, 70], [91, 120]]); },
+    weak: () => { noise(0.1); seq([[67, 80], [72, 90]]); },
+    miss: () => seq([[60, 90], [55, 140]], "triangle"),
+    hurt: () => { noise(0.14); seq([[57, 70], [52, 120]]); },
+    faint: () => seq([[72, 120], [67, 120], [62, 120], [55, 300]], "triangle"),
+    shake: () => seq([[64, 50], [0, 60]]),
+    catch: () => seq([[72, 90], [76, 90], [79, 90], [84, 260]]),
+    win: () => seq([[72, 110], [72, 110], [72, 110], [76, 330], [74, 110], [77, 110], [79, 420]]),
+    lose: () => seq([[67, 200], [63, 200], [60, 420]], "triangle"),
+    wrong: () => seq([[55, 120], [50, 200]], "triangle"),
+    right: () => seq([[76, 80], [83, 160]]),
+  };
+  const SONGS = {
+    map: { bpm: 108, lead: [72,0,76,0,79,0,76,0, 74,0,77,0,81,0,77,0, 72,0,76,0,79,0,84,0, 83,0,79,0,74,0,0,0], bass: [48,0,0,0,55,0,0,0, 50,0,0,0,57,0,0,0, 48,0,0,0,55,0,0,0, 43,0,0,0,50,0,0,0] },
+    battle: { bpm: 150, lead: [69,0,72,0,76,0,72,0, 69,0,72,0,77,0,76,0, 67,0,71,0,74,0,71,0, 69,72,76,79,77,76,74,72], bass: [45,0,45,0,45,0,45,0, 41,0,41,0,41,0,41,0, 43,0,43,0,43,0,43,0, 45,0,45,0,40,0,40,0] },
+    meeting: { bpm: 96, lead: [76,0,0,74,0,0,72,0, 71,0,0,72,0,0,74,0, 76,0,0,79,0,0,76,0, 74,0,0,0,72,0,0,0], bass: [45,0,0,0,52,0,0,0, 43,0,0,0,50,0,0,0, 41,0,0,0,48,0,0,0, 40,0,0,0,47,0,0,0] },
+  };
+  function tick() {
+    if (!ctx || !song) return;
+    const s = SONGS[song], len = 60 / s.bpm / 4;
+    while (nextAt < ctx.currentTime + 0.12) {
+      const i = step % s.lead.length;
+      if (on) {
+        if (s.lead[i]) tone(hz(s.lead[i]), nextAt, len * 0.9, "square", music, 0.8);
+        if (s.bass[i]) tone(hz(s.bass[i]), nextAt, len * 1.8, "triangle", music, 1);
+      }
+      step++; nextAt += len;
+    }
+  }
+  return {
+    unlock() { init(); if (ctx && ctx.state !== "running") ctx.resume().catch(() => {}); },
+    play(name) { if (ctx && FX[name]) { if (ctx.state !== "running") ctx.resume().catch(() => {}); FX[name](); } },
+    music(name) {
+      if (!ctx) return;
+      if (song === name) return;
+      song = name; step = 0; nextAt = ctx.currentTime + 0.05;
+      if (!timer) timer = setInterval(tick, 25);
+    },
+    toggle() { on = !on; return on; },
+    get on() { return on; },
+  };
+})();
+
+/* ---------- Content (example made up, for the prototype only) ---------- */
+const BATTLES = {
+  battle: {
+    title: "Black Friday rush", scene: "field", song: "battle",
+    foe: { name: "Traffic Spike", sprite: "spike", type: "Traffic", color: "#d9534f", hp: 4, bar: "HP", big: true },
+    team: [ { name: "CDN Cache", sprite: "cdn", back: "cdnB" }, { name: "Load Balancer", sprite: "lb", back: "lbB" }, { name: "Idempotency Key", sprite: "key", back: "keyB" } ],
+    myBar: "HP",
+    turns: [
+      { threat: "Traffic Spike sends 10x shoppers to the product page.",
+        constraint: "Prices change once a day. Your team has 2 people.",
+        moves: [
+          { name: "CDN cache", owner: "CDN Cache", hint: "Serve saved copies near shoppers", damage: 2 },
+          { name: "Add servers", owner: "Load Balancer", hint: "Spread load over more machines", damage: 1, counter: "You added servers. The bill is now 3x higher." },
+          { name: "Rewrite in Go", owner: "No creature", hint: "A faster language, all new code", damage: 0, counter: "You chose a rewrite. The fix is 3 months late." },
+          { name: "Retry requests", owner: "Idempotency Key", hint: "Send failed requests again", damage: 0, counter: "Retries add even more load. The page gets slower." } ],
+        reasons: [ { t: "Prices rarely change, so a saved copy is safe to show.", ok: true }, { t: "A CDN makes the server code run faster.", ok: false }, { t: "A CDN blocks every bot.", ok: false } ],
+        model: "Prices change once a day, so a cached page is almost never wrong. A CDN takes the load off a 2-person team for little work.",
+        keys: [ "Read the Constraint first: how often does the data change?", "A CDN serves saved copies close to shoppers.", "Caching trades freshness for speed." ] },
+      { threat: "Flash sale! Prices now change every 5 minutes.",
+        constraint: "Shoppers must never pay an old price.",
+        moves: [
+          { name: "Purge on change", owner: "CDN Cache", hint: "Clear the copy when a price changes", damage: 2 },
+          { name: "Keep 1-day cache", owner: "CDN Cache", hint: "Leave the cache as it is", damage: 0, counter: "You kept the cache. Shoppers see old prices." },
+          { name: "Turn cache off", owner: "CDN Cache", hint: "Every request hits your servers", damage: 1, counter: "You turned the cache off. The servers slow down." },
+          { name: "Add servers", owner: "Load Balancer", hint: "Spread load over more machines", damage: 0, counter: "More servers do not fix old prices in the cache." } ],
+        reasons: [ { t: "The copy stays, but it is cleared the moment a price changes.", ok: true }, { t: "Purging makes the CDN cheaper.", ok: false }, { t: "Shoppers like a fresh page design.", ok: false } ],
+        model: "When data changes often, keep the cache but clear it on each change. You keep the speed and lose the old prices.",
+        keys: [ "Fast-changing data breaks a long cache time (TTL).", "Purge the copy when the data changes.", "Turning the cache off moves all load back to your servers." ] },
+      { threat: "Checkout fails with HTTP 503 under the load.",
+        constraint: "A shopper must never be charged twice. This turn needs a creature from Town 2.",
+        moves: [
+          { name: "Retry with key", owner: "Idempotency Key", hint: "Retry; the server sees it is the same order", damage: 2 },
+          { name: "Retry blindly", owner: "No creature", hint: "Send the payment again", damage: 0, counter: "Some shoppers were charged twice." },
+          { name: "Show an error", owner: "No creature", hint: "Ask the shopper to try later", damage: 1, counter: "Shoppers leave. You lose sales." },
+          { name: "CDN cache", owner: "CDN Cache", hint: "Serve saved copies", damage: 0, counter: "You cannot cache a payment. Checkout still fails." } ],
+        reasons: [ { t: "The server sees the same key and takes the payment only once.", ok: true }, { t: "Retries are always safe for POST requests.", ok: false }, { t: "The key makes the request faster.", ok: false } ],
+        model: "Retry the payment with an idempotency key. The server sees the same key and charges once. A blind retry can charge twice.",
+        keys: [ "POST is not safe to retry on its own.", "An idempotency key marks the same order.", "Old towns still matter in new fights." ] },
+    ],
+  },
+  meeting: {
+    title: "The late project", scene: "office", song: "meeting",
+    foe: { name: "Mai · Client", portrait: "clientP", type: "Client", color: "#7b5cd6", hp: 4, bar: "Doubt" },
+    team: [ { name: "You", portrait: "youP" } ],
+    myBar: "Trust", myHp: 3,
+    turns: [
+      { threat: "“Your team said Friday. It is Tuesday. Why is this late?”",
+        constraint: "The client launches on Friday. The call is 10 minutes. The client is not technical. Fact: the partner's API changed on Monday, and you lost 3 days.",
+        moves: [
+          { name: "Cause, date, options", owner: "Skill: Talking with clients", hint: "“The partner's API changed Monday. We lost 3 days. New date: Wednesday. Or launch Friday without feature X.”", damage: 2 },
+          { name: "Blame the estimate", owner: "Skill: Talking with clients", hint: "“The developers underestimated the work.”", damage: 0, counter: "The client now doubts every estimate." },
+          { name: "Work the weekend", owner: "Skill: Talking with clients", hint: "“We will work the weekend to keep Friday.”", damage: 1, counter: "Quality falls. The client expects this next time." },
+          { name: "Get back later", owner: "Skill: Talking with clients", hint: "“Let me check with the team and get back to you.”", damage: 0, counter: "The client hears: nobody knows." } ],
+        reasons: [ { t: "It states the cause and gives the client a choice.", ok: true }, { t: "It protects the team from blame.", ok: false }, { t: "It keeps the old date at any cost.", ok: false } ],
+        model: "Answer first: one cause, the new date, and a choice. The client can decide in 10 minutes without technical words.",
+        keys: [ "Answer first, details after.", "One cause, said as a fact.", "Give the client options, not only bad news." ] },
+      { threat: "“So can we still launch on Friday?”",
+        constraint: "Feature X needs 2 more days. Everything else is done and tested.",
+        moves: [
+          { name: "Yes, without X", owner: "Skill: Talking with clients", hint: "“Yes, without feature X. X follows on Wednesday. Your call.”", damage: 2 },
+          { name: "Yes, all of it", owner: "Skill: Talking with clients", hint: "“Yes, we will ship everything.”", damage: 0, counter: "You promised what you cannot ship. Friday breaks trust." },
+          { name: "No, Wednesday", owner: "Skill: Talking with clients", hint: "“No. Everything moves to Wednesday.”", damage: 1, counter: "The client misses the launch they planned." },
+          { name: "Depends on partner", owner: "Skill: Talking with clients", hint: "“It depends on the partner.”", damage: 0, counter: "The client hears an excuse, not a plan." } ],
+        reasons: [ { t: "It keeps the launch and is honest about the one missing part.", ok: true }, { t: "Saying yes keeps the client happy today.", ok: false }, { t: "It moves the risk to the partner.", ok: false } ],
+        model: "Offer the launch without the unfinished part, with a date for it. Cut scope, keep the date, and let the client choose.",
+        keys: [ "Never promise what you cannot ship.", "Cut scope before you move the date.", "The client makes the business call." ] },
+      { threat: "“Why did nobody tell me on Monday?”",
+        constraint: "You knew on Monday afternoon. You hoped to catch up.",
+        moves: [
+          { name: "Own it, fix it", owner: "Skill: Talking with clients", hint: "“You are right. I should have told you Monday. From now on you get a risk note each day.”", damage: 2 },
+          { name: "We hoped to catch up", owner: "Skill: Talking with clients", hint: "“We thought we could catch up.”", damage: 1, counter: "True, but the client hears: they hide problems." },
+          { name: "It was not sure yet", owner: "Skill: Talking with clients", hint: "“On Monday it was not sure yet.”", damage: 0, counter: "The client knows it was sure. Trust drops." },
+          { name: "Change the topic", owner: "Skill: Talking with clients", hint: "“Let's focus on Friday.”", damage: 0, counter: "The client feels ignored." } ],
+        reasons: [ { t: "Bad news early is better than a surprise later.", ok: true }, { t: "Saying sorry ends the topic fast.", ok: false }, { t: "The client must not see any risk.", ok: false } ],
+        model: "Own the late warning in one sentence, then give a habit that stops it next time. Never surprise the client.",
+        keys: [ "Share a delay as soon as you know it.", "Own the mistake in one sentence.", "Offer a habit, not a promise." ] },
+    ],
+  },
+  agent: {
+    title: "Agent PR #42", scene: "lab", song: "battle",
+    foe: { name: "Agent PR #42", sprite: "agent", type: "AI code", color: "#2f8fd6", hp: 4, bar: "Risk", big: true },
+    team: [ { name: "You", portrait: "youP" } ],
+    myBar: "Trust", myHp: 3,
+    turns: [
+      { threat: "The agent says: “Added the order page API. All tests pass.”",
+        code: `app.get("/api/orders/:id", async (req, res) => {
+<span class="add">  const order = await db.orders.find(req.params.id);</span>
+<span class="add">  res.json(order);</span>
+});`,
+        constraint: "Release tonight. Orders hold home addresses. The tests only use the owner's own order.",
+        moves: [
+          { name: "Block: no owner check", owner: "Skill: Reviewing AI code", hint: "Any user can read any order", damage: 2 },
+          { name: "Approve", owner: "Skill: Reviewing AI code", hint: "Tests pass, ship it", damage: 0, counter: "Any logged-in user can read any address." },
+          { name: "Ask for 1 more test", owner: "Skill: Reviewing AI code", hint: "More tests, same code", damage: 1, counter: "The new test still uses the owner. The hole stays." },
+          { name: "Ship behind a flag", owner: "Skill: Reviewing AI code", hint: "Turn it on later", damage: 1, counter: "The flag is on for everyone tonight. The hole goes live." } ],
+        reasons: [ { t: "The route never checks that the order belongs to the user.", ok: true }, { t: "The code has no comments.", ok: false }, { t: "An agent wrote it, so it must be wrong.", ok: false } ],
+        model: "The route returns any order by its ID. It must check the order belongs to the logged-in user. Passing tests did not test another user.",
+        keys: [ "Read what the code allows, not what the tests say.", "Check who may see the data.", "Ask for evidence that covers the risky path." ] },
+      { threat: "The agent says: “Fixed. Added the owner check.”",
+        code: `  const order = await db.orders.find(req.params.id);
+<span class="add">  if (order.userId !== req.user.id) return res.status(404).end();</span>
+  res.json(order);`,
+        constraint: "Release in 1 hour. A missing order now crashes with a 500 page. No data leaks.",
+        moves: [
+          { name: "Approve + ticket", owner: "Skill: Judging AI output", hint: "Leak fixed; log the crash for tomorrow", damage: 2 },
+          { name: "Block again", owner: "Skill: Judging AI output", hint: "Wait for the missing-order case", damage: 1, counter: "You miss the release for a small, safe bug." },
+          { name: "Rewrite it yourself", owner: "Skill: Judging AI output", hint: "Do it by hand", damage: 0, counter: "You spend the hour coding. 3 other PRs wait." },
+          { name: "Approve, no ticket", owner: "Skill: Judging AI output", hint: "Ship and forget", damage: 0, counter: "The crash ships and nobody remembers it." } ],
+        reasons: [ { t: "The leak is fixed. The crash is small and safe, so a ticket is enough.", ok: true }, { t: "Agent code is always fine after one fix.", ok: false }, { t: "Blocking twice slows the agent down.", ok: false } ],
+        model: "The data leak is closed. The new crash leaks nothing and is easy to fix, so ship now and write the ticket. Judge the risk, not the perfection.",
+        keys: [ "Ship, block or narrow: pick by risk.", "A safe small bug can wait for a ticket.", "Write it down, or it is forgotten." ] },
+      { threat: "The agent says: “Added a test so the leak never comes back.”",
+        code: `<span class="add">it("hides other users' orders", async () => {</span>
+<span class="add">  const res = await get("/api/orders/1", { as: "bob" });</span>
+<span class="add">  expect(res.status).not.toBe(200);</span>
+<span class="add">});</span>`,
+        constraint: "The test must fail if someone removes the owner check. A missing order still crashes with a 500.",
+        moves: [
+          { name: "Ask for exact 404", owner: "Skill: Reviewing AI code", hint: "Test the exact status, not “not 200”", damage: 2 },
+          { name: "Approve the test", owner: "Skill: Reviewing AI code", hint: "It is green, ship it", damage: 0, counter: "The test also passes on a crash. It guards nothing." },
+          { name: "Add 10 more tests", owner: "Skill: Reviewing AI code", hint: "More tests, same check", damage: 1, counter: "Ten tests, same weak check. Slower CI." },
+          { name: "Delete the test", owner: "Skill: Reviewing AI code", hint: "Tests slow us down", damage: 0, counter: "Nothing guards the owner check now." } ],
+        reasons: [ { t: "“Not 200” also passes on a 500 crash, so the test cannot catch a broken check.", ok: true }, { t: "Shorter tests are easier to read.", ok: false }, { t: "404 is the standard number for errors.", ok: false } ],
+        model: "Ask: will this test fail when the code is broken? “Not 200” passes on a crash too. Expect exactly 404.",
+        keys: [ "A test must fail when the code is broken.", "Check the exact result, not “anything but success”.", "Green tests from an agent still need a review." ] },
+    ],
+  },
+};
+
+/* ---------- Helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms * speed));
+let speed = 1;
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const shuffle = (a) => a.map((v) => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map((x) => x[1]);
+function anim(el, cls) { if (!el) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
+
+const VARIANTS = [ ["A", "Classic"], ["B", "Cards"], ["C", "Panel"] ];
+let vi = 2;
+try { const k = VARIANTS.findIndex((v) => v[0] === localStorage.getItem("proto-variant-v2")); if (k >= 0) vi = k; } catch {}
+function setVariant(i) {
+  vi = (i + VARIANTS.length) % VARIANTS.length;
+  $("#vlabel").textContent = VARIANTS[vi].join(" · ");
+  try { localStorage.setItem("proto-variant-v2", VARIANTS[vi][0]); } catch {}
+  if (B && !$("#battle").hidden) renderCmd();
+  showState();
+}
+
+function show(id) {
+  for (const s of document.querySelectorAll(".screen")) s.hidden = s.id !== id;
+}
+let view = { screen: "title" };
+function showState() {
+  const el = $("#state");
+  if (el.hidden) return;
+  const snap = B ? { variant: VARIANTS[vi][0], battle: B.key, turn: B.turn + 1, phase: B.phase, foeHp: B.foeHp, team: B.team.map((m) => `${m.name} ${m.hp}/${m.max}`), active: B.team[B.active]?.name, picked: B.move?.name ?? null, log: B.log.map((l) => `${l.move} dmg ${l.dmg}${l.reasonOk ? "" : " (wrong Reason)"}`) } : { variant: VARIANTS[vi][0], ...view };
+  el.textContent = JSON.stringify(snap, null, 2);
+}
+
+/* ---------- Lesson + catch ---------- */
+const LESSON = [
+  { h: "A copy near the shopper", p: "A CDN keeps a saved copy of your page on servers close to each shopper. The shopper gets the copy. Your own server does not have to answer.", svg: "d1" },
+  { h: "Why it is fast", p: "10,000 shoppers open the page. The CDN answers them. Your server gets about 1 request a minute, only to refresh the copy.", svg: "d2" },
+  { h: "The cost: old copies", p: "The copy lives for a set time, the TTL. If the price changes inside that time, shoppers still see the old price.", svg: "d3" },
+];
+const SVG = {
+  d1: `<svg viewBox="0 0 320 120" role="img" aria-label="Shopper's browser, then CDN edge, then your server">
+    <g font-family="Atkinson Hyperlegible, sans-serif" font-size="12" fill="#1b1b2a">
+    <rect x="6" y="36" width="80" height="48" rx="4" fill="#ffffff" stroke="#1b1b2a" stroke-width="3"/><text x="46" y="58" text-anchor="middle" font-weight="700">Shopper</text><text x="46" y="73" text-anchor="middle">browser</text>
+    <rect x="120" y="30" width="84" height="60" rx="4" fill="#8fd16f" stroke="#1b1b2a" stroke-width="3"/><text x="162" y="55" text-anchor="middle" font-weight="700">CDN edge</text><text x="162" y="71" text-anchor="middle">saved copy</text>
+    <rect x="236" y="36" width="78" height="48" rx="4" fill="#ffd166" stroke="#1b1b2a" stroke-width="3"/><text x="275" y="58" text-anchor="middle" font-weight="700">Your</text><text x="275" y="73" text-anchor="middle">server</text>
+    <path d="M88 60 H116" stroke="#1b1b2a" stroke-width="3" fill="none"/><path d="M110 54 L118 60 L110 66 Z" fill="#1b1b2a"/>
+    <path d="M206 60 H232" stroke="#1b1b2a" stroke-width="2" stroke-dasharray="4 4" fill="none"/><path d="M226 55 L234 60 L226 65 Z" fill="#1b1b2a"/>
+    <text x="219" y="104" text-anchor="middle" fill="#5b5b70">only when the copy is old</text>
+    <text x="102" y="26" text-anchor="middle" fill="#5b5b70">fast, close</text></g></svg>`,
+  d2: `<svg viewBox="0 0 320 120" role="img" aria-label="10,000 shoppers reach the CDN; 1 request a minute reaches your server">
+    <g font-family="Atkinson Hyperlegible, sans-serif" font-size="12" fill="#1b1b2a">
+    ${Array.from({ length: 15 }, (_, i) => `<rect x="${10 + (i % 5) * 14}" y="${30 + Math.floor(i / 5) * 18}" width="10" height="12" fill="#7b5cd6"/>`).join("")}
+    <text x="44" y="100" text-anchor="middle" font-weight="700">10,000 shoppers</text>
+    <path d="M86 50 H128" stroke="#1b1b2a" stroke-width="9" fill="none"/><path d="M124 40 L138 50 L124 60 Z" fill="#1b1b2a"/>
+    <rect x="140" y="26" width="76" height="50" rx="4" fill="#8fd16f" stroke="#1b1b2a" stroke-width="3"/><text x="178" y="55" text-anchor="middle" font-weight="700">CDN</text>
+    <path d="M218 51 H250" stroke="#1b1b2a" stroke-width="1.5" fill="none"/><path d="M246 47 L252 51 L246 55 Z" fill="#1b1b2a"/>
+    <rect x="254" y="30" width="60" height="42" rx="4" fill="#ffd166" stroke="#1b1b2a" stroke-width="3"/><text x="284" y="55" text-anchor="middle" font-weight="700">Server</text>
+    <text x="252" y="96" text-anchor="middle" fill="#5b5b70">1 request / minute</text></g></svg>`,
+  d3: `<svg viewBox="0 0 320 120" role="img" aria-label="Timeline: copy saved at 9:00 with price 20; price changes to 15 at 9:05; shoppers still see 20 until the TTL ends">
+    <g font-family="Atkinson Hyperlegible, sans-serif" font-size="12" fill="#1b1b2a">
+    <rect x="20" y="52" width="280" height="14" fill="#d8d2c0" stroke="#1b1b2a" stroke-width="2"/>
+    <rect x="20" y="52" width="200" height="14" fill="#8fd16f" stroke="#1b1b2a" stroke-width="2"/>
+    <text x="120" y="44" text-anchor="middle" font-weight="700">TTL: copy lives 1 day</text>
+    <path d="M20 70 V86" stroke="#1b1b2a" stroke-width="2"/><text x="20" y="100" text-anchor="middle">9:00</text><text x="20" y="114" text-anchor="middle">$20 saved</text>
+    <path d="M90 70 V86" stroke="#ff5c6c" stroke-width="3"/><text x="90" y="100" text-anchor="middle" fill="#b0283c" font-weight="700">9:05</text><text x="90" y="114" text-anchor="middle" fill="#b0283c">price $15</text>
+    <text x="170" y="100" text-anchor="middle">shoppers still</text><text x="170" y="114" text-anchor="middle" font-weight="700">see $20</text></g></svg>`,
+};
+const CATCH = {
+  q: "Prices change every 5 minutes. The CDN keeps each page for 1 day. What do shoppers see?",
+  choices: [ "The new price, always", "An old price, for up to 1 day", "An error page", "A slower page, but the right price" ],
+  right: 1,
+};
+let lessonStep = 0, catchTries = 0;
+function renderLesson() {
+  const el = $("#lesson");
+  view = { screen: "lesson", step: lessonStep + 1 };
+  if (lessonStep < LESSON.length) {
+    const L = LESSON[lessonStep];
+    el.innerHTML = `
+      <span class="label">Lesson · CDN Cache · ${lessonStep + 1} of 3</span>
+      <div class="dots">${LESSON.map((_, i) => `<i class="${i <= lessonStep ? "on" : ""}"></i>`).join("")}</div>
+      <div class="card">
+        <h2>${L.h}</h2>
+        <div class="diagram">${SVG[L.svg]}</div>
+        <p>${L.p}</p>
+        <p class="source">Source: <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Caching" target="_blank" rel="noopener">MDN, HTTP caching</a></p>
+      </div>
+      <button class="btn primary" id="lnext" type="button">${lessonStep < 2 ? "Next" : "I am ready: catch it"}</button>`;
+    $("#lnext").onclick = () => { Snd.play("tap"); lessonStep++; renderLesson(); };
+  } else {
+    el.innerHTML = `
+      <span class="label">Catch · CDN Cache</span>
+      <div class="catch-stage" id="stage"><img class="spr idle" id="wild" alt="CDN Cache" width="128" height="128" src="${SPR.cdn}"></div>
+      <div class="card"><p><b>${CATCH.q}</b></p></div>
+      <div id="look"></div>
+      <div class="choices" id="choices">${CATCH.choices.map((c, i) => `<button class="btn" data-i="${i}" type="button">${c}</button>`).join("")}</div>`;
+    el.querySelectorAll("#choices .btn").forEach((b) => (b.onclick = () => answerCatch(+b.dataset.i, b)));
+  }
+  showState();
+}
+async function answerCatch(i, btn) {
+  const all = document.querySelectorAll("#choices .btn");
+  if (i === CATCH.right) {
+    btn.classList.add("right"); Snd.play("right");
+    all.forEach((b) => (b.disabled = true));
+    await throwCapsule(true);
+    return;
+  }
+  catchTries++;
+  btn.classList.add("wrong"); btn.disabled = true; Snd.play("wrong");
+  if (catchTries === 1) {
+    $("#look").innerHTML = `<div class="lookback"><span class="label">Look again · Lesson 3</span><p>${LESSON[2].p}</p></div>`;
+  } else {
+    all.forEach((b) => (b.disabled = true));
+    all[CATCH.right].classList.add("right");
+    $("#look").innerHTML = `<div class="lookback"><p>The answer is “${CATCH.choices[CATCH.right]}”. CDN Cache runs away. It comes back tomorrow.</p></div>`;
+    $("#lesson").insertAdjacentHTML("beforeend", `<button class="btn primary" id="tobattle" type="button">Go to the Battle</button>`);
+    $("#tobattle").onclick = () => startBattle("battle");
+  }
+  view.catchTries = catchTries; showState();
+}
+async function throwCapsule() {
+  const st = $("#stage");
+  const cap = document.createElement("div"); cap.className = "capsule"; st.appendChild(cap);
+  anim(cap, "drop");
+  await sleep(500); $("#wild").style.visibility = "hidden";
+  for (let k = 0; k < 3; k++) { Snd.play("shake"); await sleep(500); }
+  Snd.play("catch");
+  st.insertAdjacentHTML("beforeend", `<div class="stars">★ Caught CDN Cache! ★</div>`);
+  await sleep(900);
+  $("#lesson").insertAdjacentHTML("beforeend", `<div class="card"><p><b>CDN Cache</b> joined your team. Form 1. It evolves after you review it on day 7.</p></div><button class="btn primary" id="tobattle" type="button">Go to the Battle</button>`);
+  $("#tobattle").onclick = () => startBattle("battle");
+  $("#tobattle").scrollIntoView({ behavior: "smooth", block: "end" });
+}
+
+/* ---------- Battle engine (shared by all layouts) ---------- */
+// Creatures show their back, like a real monster battle. People (You) are flipped front sprites.
+const meImg = (m) => m.back
+  ? `<img class="spr idle" alt="${m.name}" width="128" height="128" src="${SPR[m.back]}">`
+  : `<div class="frame"><img class="spr" alt="${m.name}" width="96" height="96" src="${SPR[m.portrait]}"></div>`;
+const foeImg = (f) => f.portrait
+  ? `<div class="frame"><img class="spr" alt="${f.name}" width="128" height="128" src="${SPR[f.portrait]}"></div>`
+  : `<img class="spr idle" alt="${f.name}" width="${f.big ? 128 : 96}" height="${f.big ? 128 : 96}" src="${SPR[f.sprite]}">`;
+let B = null;
+const STALE = Symbol("stale");
+function startBattle(key) {
+  const d = BATTLES[key];
+  const max = d.myHp ?? 3;
+  B = { key, d, turn: 0, foeHp: d.foe.hp, team: d.team.map((m) => ({ ...m, hp: max, max })), active: 0, phase: "intro", move: null, reasons: [], log: [], msg: "" };
+  speed = 1;
+  show("battle");
+  Snd.music(d.song);
+  renderBattle();
+  runIntro();
+}
+function segs(n, max, label) {
+  const ratio = n / max, cls = ratio <= 0.34 ? "low" : ratio <= 0.67 ? "mid" : "";
+  return `<div class="segs ${cls}"><span class="k">${label}</span>${Array.from({ length: max }, (_, i) => `<b class="${i < n ? "on" : ""}"></b>`).join("")}<em>${n}/${max}</em></div>`;
+}
+function renderBattle() {
+  const { d } = B, me = B.team[B.active];
+  $("#battle").innerHTML = `
+    <div class="scene ${d.scene}" id="scene">
+      <div class="hpbox foe-hp"><div class="nm"><span>${d.foe.name}</span><span class="ty" style="background:${d.foe.color}"><i></i>${d.foe.type}</span></div><div id="foehp">${segs(B.foeHp, d.foe.hp, d.foe.bar)}</div></div>
+      <button class="speaker" id="spk" type="button" aria-label="Sound on or off">${Snd.on ? "SND" : "OFF"}</button>
+      <div class="pad foe-pad" ${d.foe.portrait ? "hidden" : ""}></div>
+      <div class="foe" id="foe">${foeImg(d.foe)}</div>
+      <div id="bubble"></div>
+      <div class="pad me-pad" ${me.portrait ? "hidden" : ""}></div>
+      <div class="me" id="me">${meImg(me)}</div>
+      <div class="hpbox me-hp"><div class="nm"><span id="myname">${me.name}</span><span style="font-size:12px">${B.team.length > 1 ? `Team ${B.team.filter((m) => m.hp > 0).length}/${B.team.length}` : ""}</span></div><div id="myhp">${segs(me.hp, me.max, d.myBar)}</div></div>
+      <div id="banner"></div>
+    </div>
+    <div class="cmd gutter" id="cmd"></div>
+    <div class="panel gutter" id="panel"></div>`;
+  $("#spk").onclick = () => { const on = Snd.toggle(); $("#spk").textContent = on ? "SND" : "OFF"; };
+  $("#scene").onclick = (e) => { if (e.target.id !== "spk") speed = 0.35; };
+  renderCmd();
+}
+function updateBars() {
+  const { d } = B, me = B.team[B.active];
+  $("#foehp").innerHTML = segs(Math.max(0, B.foeHp), d.foe.hp, d.foe.bar);
+  $("#myhp").innerHTML = segs(Math.max(0, me.hp), me.max, d.myBar);
+}
+const T = () => B.d.turns[B.turn];
+const dmgLabel = (n) => (n === 2 ? "Strong hit · 2 ●●" : n === 1 ? "Weak hit · 1 ●" : "No effect · 0");
+
+function say(text) { B.msg = text; renderCmd(); }
+
+async function runIntro() {
+  const b = B; const nap = async (ms) => { await sleep(ms); if (B !== b) throw STALE; };
+  try {
+  const { d } = B;
+  say(`${d.foe.name} appears! ${d.title}.`);
+  Snd.play("select");
+  await nap(1300);
+  startTurn();
+  } catch (e) { if (e !== STALE) throw e; }
+}
+function startTurn() {
+  B.phase = "move"; B.move = null; B.reasons = shuffle(T().reasons); speed = 1;
+  B.msg = "";
+  renderCmd(); showState();
+}
+function pickMove(i) {
+  if (B.phase !== "move") return;
+  Snd.play("select");
+  B.move = T().moves[i]; B.phase = "reason";
+  renderCmd(); showState();
+}
+async function pickReason(i) {
+  const b = B; const nap = async (ms) => { await sleep(ms); if (B !== b) throw STALE; };
+  try {
+  if (B.phase !== "reason") return;
+  Snd.play("select");
+  const r = B.reasons[i], m = B.move, t = T();
+  B.phase = "anim"; renderCmd(); showState();
+  const best = t.moves.reduce((a, b) => (b.damage > a.damage ? b : a));
+  let dmg = m.damage;
+  if (!r.ok && dmg > 0) dmg -= 1;
+  B.log.push({ turn: B.turn, threat: t.threat, move: m.name, best: best.name, isBest: m === best, reasonOk: r.ok, reason: r.t, rightReason: t.reasons.find((x) => x.ok).t, dmg, model: t.model, keys: t.keys, code: !!t.code });
+
+  // Your attack
+  const me = B.team[B.active];
+  say(`${me.name} uses ${m.name}!`);
+  await nap(500);
+  anim($("#me"), "lunge-r"); await nap(360);
+  if (dmg > 0) { anim($("#foe"), "flash"); Snd.play(dmg === 2 ? "strong" : "weak"); } else Snd.play("miss");
+  popDmg($("#foe"), dmgLabel(dmg));
+  B.foeHp -= dmg; updateBars();
+  await nap(900);
+  if (!r.ok) { say(`Wrong Reason. The right one: “${t.reasons.find((x) => x.ok).t}” Your hit lost 1.`); await nap(2400); }
+
+  if (B.foeHp <= 0) return endBattle(true);
+
+  // Counter-hit when the move was not the best
+  if (m !== best) {
+    const hurt = m.damage === 1 ? 1 : 2;
+    say(`${B.d.foe.name} hits back. ${m.counter}`);
+    await nap(700);
+    anim($("#foe"), "lunge-l"); await nap(360);
+    anim($("#me"), "flash"); anim($("#scene"), "shake"); Snd.play("hurt");
+    popDmg($("#me"), `−${hurt} ${B.d.myBar}`);
+    me.hp -= hurt; updateBars();
+    await nap(1800);
+    if (me.hp <= 0) {
+      anim($("#me"), "faint"); Snd.play("faint");
+      say(B.team.length > 1 ? `${me.name} fainted!` : `The ${B.d.myBar.toLowerCase()} is gone.`);
+      await nap(1400);
+      const next = B.team.findIndex((x) => x.hp > 0);
+      if (next < 0) return endBattle(false);
+      B.active = next;
+      const nm = B.team[next];
+      $("#me").innerHTML = meImg(nm);
+      $("#me").classList.remove("faint"); anim($("#me"), "enter");
+      $("#myname").textContent = nm.name; updateBars();
+      say(`${nm.name}, go!`); Snd.play("select");
+      await nap(1100);
+    }
+  } else {
+    say(`Best move. ${B.d.foe.name} could not hit back.`);
+    await nap(1300);
+  }
+  B.turn++;
+  if (B.turn >= B.d.turns.length) return endBattle(false, true);
+  startTurn();
+  } catch (e) { if (e !== STALE) throw e; }
+}
+function popDmg(target, text) {
+  const s = $("#scene"), r = target.getBoundingClientRect(), sr = s.getBoundingClientRect();
+  const el = document.createElement("div");
+  el.className = "dmg"; el.textContent = text;
+  el.style.left = Math.max(8, Math.min(sr.width - 170, r.left - sr.left - 10)) + "px";
+  el.style.top = r.top - sr.top - 6 + "px";
+  s.appendChild(el); setTimeout(() => el.remove(), 1200 * speed + 200);
+}
+async function endBattle(win, outOfTurns) {
+  const b = B; const nap = async (ms) => { await sleep(ms); if (B !== b) throw STALE; };
+  try {
+  B.phase = "done";
+  if (win) { Snd.play("win"); anim($("#foe"), "faint"); say(`You won! ${B.d.foe.name} is down.`); }
+  else { Snd.play("lose"); say(outOfTurns ? `Out of turns. ${B.d.foe.name} still stands. The moves you used come back in tomorrow's review.` : `You lost this time. The moves you used come back in tomorrow's review.`); }
+  Snd.music("map");
+  showState();
+  await nap(1400);
+  renderCmd();
+  } catch (e) { if (e !== STALE) throw e; }
+}
+
+/* ---------- Command area: the part that differs per layout ---------- */
+function moveText(m) { return B.key === "battle" ? m.hint : m.hint; }
+function renderCmd() {
+  if (!B) return;
+  const v = VARIANTS[vi][0], t = T() || B.d.turns[B.d.turns.length - 1], cmd = $("#cmd"), panel = $("#panel"), banner = $("#banner"), bubble = $("#bubble");
+  if (!cmd) return;
+  $("#battle").className = "screen v" + v;
+  const doneBtn = B.phase === "done" ? `<button class="btn primary" id="toreview" type="button">See the review</button>` : "";
+  const msgBox = (cls = "") => `<div class="textbox ${cls}"><p>${esc(B.msg || "")}</p></div>`;
+  const threatBox = () => `<div class="textbox"><span class="label">${B.key === "meeting" ? "The client says" : B.key === "agent" ? "The agent" : "Threat"} · turn ${B.turn + 1}/${B.d.turns.length}</span><p>${esc(t.threat)}</p></div>${t.code ? `<div class="code">${t.code}</div>` : ""}`;
+  const cons = `<div class="constraint"><b>Constraint</b><span>${esc(t.constraint)}</span></div>`;
+  const showChoice = B.phase === "move" || B.phase === "reason";
+  panel.classList.remove("open"); panel.innerHTML = ""; banner.innerHTML = ""; bubble.innerHTML = "";
+
+  if (v === "A") {
+    let body = "";
+    if (B.phase === "move") body = threatBox() + cons + `<div class="grid2">${t.moves.map((m, i) => `<button class="btn" data-m="${i}" type="button">${esc(m.name)}<small>${esc(m.owner)}</small></button>`).join("")}</div>`;
+    else if (B.phase === "reason") body = `<div class="textbox"><span class="label">Why ${esc(B.move.name)}?</span><p>${esc(B.move.hint)}</p></div><div class="list">${B.reasons.map((r, i) => `<button class="btn" data-r="${i}" type="button">${esc(r.t)}</button>`).join("")}</div>`;
+    else body = msgBox() + doneBtn;
+    cmd.hidden = false; cmd.innerHTML = body;
+  } else if (v === "B") {
+    if (showChoice) bubble.innerHTML = `<div class="bubble"><span class="label">${B.key === "meeting" ? "Says" : "Intent"}</span>${esc(t.threat)}</div>`;
+    let body = "";
+    if (B.phase === "move") body = (t.code ? `<div class="code">${t.code}</div>` : "") + cons + `<div class="hand">${t.moves.map((m, i) => `<button class="mcard" data-sel="${i}" type="button"><span class="top"></span><span class="nm">${esc(m.name)}</span><span class="ow">${esc(m.owner)}</span><span class="ht">${esc(m.hint)}</span></button>`).join("")}</div><div class="play-row"><button class="btn primary" id="play" type="button" disabled>Pick a card</button></div>`;
+    else if (B.phase === "reason") body = `<span class="label">Why ${esc(B.move.name)}? Pick a Reason card</span><div class="hand">${B.reasons.map((r, i) => `<button class="mcard reason" data-r="${i}" type="button"><span class="top"></span><span class="ht">${esc(r.t)}</span></button>`).join("")}</div>`;
+    else body = msgBox() + doneBtn;
+    cmd.hidden = false; cmd.innerHTML = body;
+    let sel = -1;
+    cmd.querySelectorAll("[data-sel]").forEach((c) => (c.onclick = () => {
+      Snd.play("tap");
+      if (sel === +c.dataset.sel) return pickMove(sel);
+      cmd.querySelectorAll("[data-sel]").forEach((x) => x.classList.remove("sel"));
+      c.classList.add("sel"); sel = +c.dataset.sel;
+      const p = $("#play"); p.disabled = false; p.textContent = `Play ${t.moves[sel].name}`;
+    }));
+    const p = $("#play"); if (p) p.onclick = () => sel >= 0 && pickMove(sel);
+  } else {
+    cmd.hidden = true;
+    if (showChoice) {
+      panel.classList.add("open");
+      panel.innerHTML = `<div class="grab"></div>` + (B.phase === "move"
+        ? threatBox() + cons + `<span class="label">Your move</span><div class="list">${t.moves.map((m, i) => `<button class="btn" data-m="${i}" type="button"><span class="pixel">${esc(m.name)}</span><small>${esc(m.hint)}</small></button>`).join("")}</div>`
+        : `<span class="label">Why ${esc(B.move.name)}?</span><div class="list">${B.reasons.map((r, i) => `<button class="btn" data-r="${i}" type="button">${esc(r.t)}</button>`).join("")}</div>`);
+    } else {
+      banner.innerHTML = `<div class="banner">${msgBox()}${doneBtn}</div>`;
+    }
+  }
+  const root = $("#battle");
+  root.querySelectorAll("[data-m]").forEach((b) => (b.onclick = () => pickMove(+b.dataset.m)));
+  root.querySelectorAll("[data-r]").forEach((b) => (b.onclick = () => pickReason(+b.dataset.r)));
+  const rv = $("#toreview"); if (rv) rv.onclick = renderReview;
+}
+
+/* ---------- End-of-battle review ---------- */
+function renderReview() {
+  Snd.play("tap");
+  show("review");
+  const L = B.log, best = L.filter((l) => l.isBest).length, rs = L.filter((l) => l.reasonOk).length;
+  const el = $("#review");
+  el.innerHTML = `
+    <span class="label">Review · ${esc(B.d.title)}</span>
+    <div class="stat-row">
+      <div class="stat"><b>${best}/${L.length}</b><span>best moves</span></div>
+      <div class="stat"><b>${rs}/${L.length}</b><span>right Reasons</span></div>
+      <div class="stat"><b>${B.foeHp <= 0 ? "Won" : "Lost"}</b><span>result</span></div>
+    </div>
+    ${L.map((l, i) => `
+      <div class="turn">
+        <h3>Turn ${i + 1}</h3>
+        <p style="margin:0">${esc(l.threat)}</p>
+        <div><span class="chip ${l.isBest ? "ok" : "no"}">${l.isBest ? "Best move" : "Not best"}</span> You: <b>${esc(l.move)}</b>${l.isBest ? "" : ` · Best: <b>${esc(l.best)}</b>`}</div>
+        <div><span class="chip ${l.reasonOk ? "ok" : "no"}">${l.reasonOk ? "Right Reason" : "Wrong Reason"}</span> ${l.reasonOk ? "" : esc(l.rightReason)}</div>
+        <div class="textbox"><span class="label">Model answer</span><p>${esc(l.model)}</p></div>
+        <span class="label">Tick what you could say yourself</span>
+        ${l.keys.map((k, j) => `<label class="tick" for="k${i}-${j}"><input type="checkbox" id="k${i}-${j}">${esc(k)}</label>`).join("")}
+      </div>`).join("")}
+    <button class="btn primary" id="again" type="button">Back to menu</button>`;
+  $("#again").onclick = goHome;
+  view = { screen: "review" }; showState();
+}
+
+function goHome() {
+  B = null; lessonStep = 0; catchTries = 0;
+  show("title"); Snd.music("map"); view = { screen: "title" }; showState();
+}
+
+/* ---------- Field Guide (example progress, made up) ---------- */
+const MON = {{MONMAP}};
+const GUIDE = [
+  ["Town 1 · Web and HTTP", [[1,"Client and server"],[2,"HTTP message"],[3,"HTTP method"],[5,"Status code"],[6,"Content type"],[7,"Stateless HTTP"],[16,"Cookie"],[12,"Proxy"],[14,"DNS"],[13,"HTTP versions"],[25,"TLS"],[27,"HSTS"],[29,"Mixed content"],[21,"Same-origin policy"],[47,"CORS"]]],
+  ["Town 2 · API design", [[42,"Resource-oriented design"],[18,"Status codes in APIs"],[24,"Problem Details"],[43,"API access control"],[20,"Rate limiting"],[35,"Collections and paging"],[39,"Conditional requests"],[31,"Idempotency key"],[49,"Client request token"],[50,"Request repeatability"],[45,"Long-running operation"],[54,"OpenAPI"],[9,"API versioning"],[56,"Backwards compatibility"],[26,"LLM API calls"]]],
+];
+function guideState(town, i, n) {
+  if (town === 0) return i < 9 ? "caught" : i < 12 ? "seen" : "unseen";
+  return n === 31 ? "caught" : "unseen";
+}
+function renderGuide() {
+  Snd.unlock(); Snd.music("map"); Snd.play("select");
+  show("guide");
+  let k = 0;
+  $("#guide").innerHTML = `<span class="label">Field Guide · example progress</span>` + GUIDE.map(([title, list], town) => `
+    <h2 class="pixel" style="margin:4px 0 0;color:var(--gold);font-size:20px">${title}</h2>
+    <div class="guide-grid">${list.map(([n, name], i) => { const st = guideState(town, i, n); k++; return `
+      <div class="mon ${st}"><span class="no">#${String(k).padStart(3, "0")}</span>
+        <img class="spr" alt="${st === "unseen" ? "Unknown creature" : name}" width="96" height="96" src="${MON[n]}">
+        <span class="nm">${st === "unseen" ? "???" : name}</span>
+        <span class="st ${st}">${st === "caught" ? "Caught" : st === "seen" ? "Seen" : "Not met"}</span></div>`; }).join("")}</div>`).join("") +
+    `<button class="btn primary" id="guide-back" type="button">Back to menu</button>`;
+  $("#guide-back").onclick = goHome;
+  view = { screen: "guide" }; showState();
+}
+
+/* ---------- Wiring ---------- */
+document.addEventListener("pointerdown", () => Snd.unlock(), { once: false, passive: true });
+$("#go-lesson").onclick = () => { Snd.unlock(); Snd.music("map"); Snd.play("select"); lessonStep = 0; catchTries = 0; show("lesson"); renderLesson(); };
+document.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => { Snd.unlock(); startBattle(b.dataset.go); }));
+$("#go-guide").onclick = renderGuide;
+$("#prev").onclick = () => setVariant(vi - 1);
+$("#next").onclick = () => setVariant(vi + 1);
+$("#home").onclick = goHome;
+$("#st").onclick = () => { const s = $("#state"); s.hidden = !s.hidden; showState(); };
+document.addEventListener("keydown", (e) => {
+  const tag = (document.activeElement?.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "textarea" || document.activeElement?.isContentEditable) return;
+  if (e.key === "ArrowLeft") setVariant(vi - 1);
+  if (e.key === "ArrowRight") setVariant(vi + 1);
+});
+setVariant(vi);
+</script>
