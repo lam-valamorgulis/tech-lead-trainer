@@ -10,7 +10,7 @@ export function ContentDiagram({ source }: { source: string }) {
   const { svg, problem } = useMermaidSvg(source);
   if (problem) return <p className="lead">The diagram could not be drawn.</p>;
   return (
-    <figure className="diagram lesson-diagram">
+    <figure className="diagram content-diagram">
       {svg ? <div aria-hidden="true" dangerouslySetInnerHTML={{ __html: svg }} /> : <p className="lead">Drawing…</p>}
       <figcaption className="visually-hidden">Diagram: {diagramInWords(source)}</figcaption>
     </figure>

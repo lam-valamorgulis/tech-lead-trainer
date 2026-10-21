@@ -532,7 +532,5 @@ export const fixtureLedgerV2 = [...fixtureLedger, "cache.trade-off.fresh-prices"
  * new learner in seam C starts on the commit buttons; Town 2 has the Town Intro (#98).
  */
 export function fixtureSeamCTowns() {
-  const townOne = fixtureTownV2();
-  delete townOne.intro;
-  return [townOne, fixtureTwistTown()];
+  return [{ ...fixtureTownV2(), intro: undefined }, fixtureTwistTown()];
 }

@@ -6,6 +6,7 @@ import { TownIntroFromUrl } from "./town-intro-from-url";
 export default function TownIntroPage() {
   return (
     <main className="shell">
+      <h1>Town Intro</h1>
       {/* The town comes from the URL, so it is read at request time inside Suspense. */}
       <Suspense fallback={<p className="lead">Loading…</p>}>
         <TownIntroFromUrl />
