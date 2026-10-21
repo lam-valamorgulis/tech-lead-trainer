@@ -4000,11 +4000,33 @@
         {
           "id": "t01-empty-sign-up",
           "name": "The empty sign-up",
+          "source": {
+            "title": "Chrome DevTools: Inspect network activity",
+            "url": "https://developer.chrome.com/docs/devtools/network"
+          },
           "opponentType": "data",
           "problem": "New sign-ups arrive empty or wrong. You open the Network tab to read the raw HTTP messages.",
           "turns": [
             {
               "threat": "The form posts a name and an email, but the server saves an empty user.",
+              "constraint": "The Network tab shows the request line is POST /signup, as planned.",
+              "reasons": [
+                {
+                  "text": "A POST form sends its data in the body, after the headers.",
+                  "right": true
+                },
+                {
+                  "text": "The request line carries the form fields of a POST.",
+                  "right": false
+                },
+                {
+                  "text": "Another browser would send the missing form data.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                11
+              ],
               "moves": [
                 {
                   "moveId": "http-message.request-line",
@@ -4036,6 +4058,25 @@
             },
             {
               "threat": "The server now rejects bad emails, but the app shows Welcome for every sign-up.",
+              "constraint": "The error texts in the body change with each server release.",
+              "reasons": [
+                {
+                  "text": "The reason phrase is the part that says if a request failed.",
+                  "right": false
+                },
+                {
+                  "text": "A reply with a body always means the request worked.",
+                  "right": false
+                },
+                {
+                  "text": "The status code says success or failure in a fixed form.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                11,
+                3
+              ],
               "moves": [
                 {
                   "moveId": "client-server.web-server",
@@ -4067,6 +4108,24 @@
             },
             {
               "threat": "Each refresh of the profile page shows different data. Support thinks users lost their data.",
+              "constraint": "The site has one address, but the hosting bill lists three machines.",
+              "reasons": [
+                {
+                  "text": "One address always means one machine.",
+                  "right": false
+                },
+                {
+                  "text": "One address can hide many servers that share the load.",
+                  "right": true
+                },
+                {
+                  "text": "Different data on each refresh means the browser cache is broken.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                11
+              ],
               "moves": [
                 {
                   "moveId": "client-server.web-server",
@@ -4097,16 +4156,39 @@
               ]
             }
           ],
-          "hash": "410297b8da4ef7ca"
+          "hash": "e366cbd1bd2efd76"
         },
         {
           "id": "t01-live-prices",
           "name": "Live prices",
+          "source": {
+            "title": "RFC 6202: Known Issues and Best Practices for the Use of Long Polling and Streaming in Bidirectional HTTP",
+            "url": "https://www.rfc-editor.org/rfc/rfc6202"
+          },
           "opponentType": "speed",
           "problem": "The product manager wants open pages to show new prices at once. The site uses plain HTTP.",
           "turns": [
             {
               "threat": "The plan says the server sends each new price to every open page by itself.",
+              "constraint": "The site must keep plain HTTP requests and responses, with no new protocol.",
+              "reasons": [
+                {
+                  "text": "In HTTP, the client starts every request, never the server.",
+                  "right": true
+                },
+                {
+                  "text": "A server can send a response as soon as its data changes.",
+                  "right": false
+                },
+                {
+                  "text": "More servers let HTTP send a message to the browser first.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                3,
+                2
+              ],
               "moves": [
                 {
                   "moveId": "client-server.web-server",
@@ -4138,6 +4220,24 @@
             },
             {
               "threat": "A teammate builds the price check as POST /price, because it runs every few seconds.",
+              "constraint": "The price check runs every few seconds and never changes data.",
+              "reasons": [
+                {
+                  "text": "POST is the better method for requests that run often.",
+                  "right": false
+                },
+                {
+                  "text": "The method name does not matter when the server code is right.",
+                  "right": false
+                },
+                {
+                  "text": "A read-only request should use a safe method like GET.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                3
+              ],
               "moves": [
                 {
                   "moveId": "http-method.post",
@@ -4164,6 +4264,25 @@
             },
             {
               "threat": "The price GET sends the product id in a JSON body. Some servers drop it.",
+              "constraint": "Other teams will share and bookmark the price URL for each product.",
+              "reasons": [
+                {
+                  "text": "Every server keeps the body of any request.",
+                  "right": false
+                },
+                {
+                  "text": "Usually only PATCH, POST and PUT have a body, so the id belongs in the URL.",
+                  "right": true
+                },
+                {
+                  "text": "Switching to POST keeps the price check safe.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                3,
+                11
+              ],
               "moves": [
                 {
                   "moveId": "http-message.request-line",
@@ -4194,16 +4313,39 @@
               ]
             }
           ],
-          "hash": "9644ead4ed169512"
+          "hash": "b55bada7b01a499e"
         },
         {
           "id": "t01-crawler-deletes",
           "name": "The crawler deletes posts",
+          "source": {
+            "title": "The Daily WTF: The Spider of Doom",
+            "url": "https://thedailywtf.com/articles/The_Spider_of_Doom"
+          },
           "opponentType": "data",
           "problem": "Blog posts disappear at night. The logs show a web crawler on the admin pages.",
           "turns": [
             {
               "threat": "Each admin page has links like GET /posts/7/delete. The crawler follows every link.",
+              "constraint": "The sign-in check needs cookies or JavaScript, and crawlers use neither.",
+              "reasons": [
+                {
+                  "text": "A sign-in check stops every program that follows links.",
+                  "right": false
+                },
+                {
+                  "text": "Deleting twice does no harm, so the delete links are fine.",
+                  "right": false
+                },
+                {
+                  "text": "Crawlers follow links freely, so a GET must not change data.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                12,
+                11
+              ],
               "moves": [
                 {
                   "moveId": "http-method.safe",
@@ -4235,6 +4377,24 @@
             },
             {
               "threat": "The new delete uses DELETE /posts/7. On a slow network the admin app sends it twice.",
+              "constraint": "The app cannot tell if the first DELETE arrived before the network failed.",
+              "reasons": [
+                {
+                  "text": "Two identical DELETE calls have the same intended effect as one.",
+                  "right": true
+                },
+                {
+                  "text": "Only methods that change nothing are safe to retry.",
+                  "right": false
+                },
+                {
+                  "text": "POST is safer to retry, because each call is a new request.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                3
+              ],
               "moves": [
                 {
                   "moveId": "http-method.post",
@@ -4266,6 +4426,25 @@
             },
             {
               "threat": "Admins create posts with POST /posts. The slow network sends that request twice too.",
+              "constraint": "The server has no way to spot a repeated create request.",
+              "reasons": [
+                {
+                  "text": "Retries are safe for every method once DELETE is safe.",
+                  "right": false
+                },
+                {
+                  "text": "POST is not idempotent, so a blind retry can create a second post.",
+                  "right": true
+                },
+                {
+                  "text": "The server ignores a second request with the same body.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                3,
+                11
+              ],
               "moves": [
                 {
                   "moveId": "http-method.idempotent",
@@ -4291,16 +4470,39 @@
               ]
             }
           ],
-          "hash": "95e513cfef03e80c"
+          "hash": "49d3fdf899b57afc"
         },
         {
           "id": "t01-account-errors",
           "name": "Confusing account errors",
+          "source": {
+            "title": "Google Search Central: How to deal with planned site downtime",
+            "url": "https://developers.google.com/search/blog/2011/01/how-to-deal-with-planned-site-downtime"
+          },
           "opponentType": "security",
           "problem": "Customers complain about the account pages. The API answers with the wrong status codes.",
           "turns": [
             {
               "threat": "A customer who is not signed in opens /account and gets 403 Forbidden.",
+              "constraint": "Mobile apps call /account directly and need a clear code to start sign-in.",
+              "reasons": [
+                {
+                  "text": "403 is the right code for any customer without access.",
+                  "right": false
+                },
+                {
+                  "text": "401 asks the client to prove who it is.",
+                  "right": true
+                },
+                {
+                  "text": "A redirect to the sign-in page works the same for apps as for browsers.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                12,
+                3
+              ],
               "moves": [
                 {
                   "moveId": "status-code.server-error",
@@ -4332,6 +4534,24 @@
             },
             {
               "threat": "The sign-up API answers 200 OK with an empty body. The app cannot find the new user.",
+              "constraint": "Every app that uses the sign-up API can be updated this week.",
+              "reasons": [
+                {
+                  "text": "200 OK already tells the app that a user was created.",
+                  "right": false
+                },
+                {
+                  "text": "Sending the POST again is a safe way to get the new user.",
+                  "right": false
+                },
+                {
+                  "text": "201 Created says the request made a new resource.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                3
+              ],
               "moves": [
                 {
                   "moveId": "status-code.success",
@@ -4363,6 +4583,25 @@
             },
             {
               "threat": "During tonight's database work, the API will answer 500 Internal Server Error for one hour.",
+              "constraint": "The database work is planned and ends in about one hour.",
+              "reasons": [
+                {
+                  "text": "503 says the problem is temporary, and Retry-After says when to come back.",
+                  "right": true
+                },
+                {
+                  "text": "A 200 page with an error text keeps clients calm.",
+                  "right": false
+                },
+                {
+                  "text": "A 400 code tells clients to stop sending requests for a while.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                10,
+                3
+              ],
               "moves": [
                 {
                   "moveId": "status-code.client-error",
@@ -4393,16 +4632,38 @@
               ]
             }
           ],
-          "hash": "9c872cf588e58bea"
+          "hash": "3aca64b51020c34b"
         },
         {
           "id": "t01-moved-shop",
           "name": "The moved shop",
+          "source": {
+            "title": "Google Search Central: Site moves with URL changes",
+            "url": "https://developers.google.com/search/docs/crawling-indexing/site-move-with-url-changes"
+          },
           "opponentType": "traffic",
           "problem": "Your shop moves all product pages to new URLs. Many other sites still link to the old ones.",
           "turns": [
             {
               "threat": "Next week the old URLs will answer 404 Not Found. Search engines and bookmarks still use them.",
+              "constraint": "The move is permanent, and most visits come from search results.",
+              "reasons": [
+                {
+                  "text": "A permanent redirect tells browsers and search engines the new URL.",
+                  "right": true
+                },
+                {
+                  "text": "Two URLs for one page cause no problem for search engines.",
+                  "right": false
+                },
+                {
+                  "text": "A 404 page with a link works as well as a redirect.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                3
+              ],
               "moves": [
                 {
                   "moveId": "status-code.client-error",
@@ -4429,6 +4690,24 @@
             },
             {
               "threat": "Some old products are gone for good. Their old URLs now redirect to the home page.",
+              "constraint": "The gone products have no replacement in the new shop.",
+              "reasons": [
+                {
+                  "text": "Sending every old link to the home page keeps old links useful.",
+                  "right": false
+                },
+                {
+                  "text": "A home page that answers 200 shows that nothing is broken.",
+                  "right": false
+                },
+                {
+                  "text": "A page that is gone for good should answer with a 4xx code, like 410.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                3
+              ],
               "moves": [
                 {
                   "moveId": "status-code.success",
@@ -4460,6 +4739,25 @@
             },
             {
               "threat": "After a config change for the redirects, every new URL answers 500 Internal Server Error.",
+              "constraint": "The errors started right after the redirect config went live.",
+              "reasons": [
+                {
+                  "text": "A 500 error usually means the shopper's browser has a problem.",
+                  "right": false
+                },
+                {
+                  "text": "A 5xx code means the server failed, so check its last change first.",
+                  "right": true
+                },
+                {
+                  "text": "The error body always names the exact fault.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                11,
+                10
+              ],
               "moves": [
                 {
                   "moveId": "client-server.user-agent",
@@ -4490,16 +4788,38 @@
               ]
             }
           ],
-          "hash": "fd03a1fb31cc5fcf"
+          "hash": "39dd59664dd62861"
         },
         {
           "id": "t01-broken-styles",
           "name": "Broken styles",
+          "source": {
+            "title": "MDN: Properly configuring server MIME types",
+            "url": "https://developer.mozilla.org/en-US/docs/Learn_web_development/Extensions/Server-side/Configuring_server_MIME_types"
+          },
           "opponentType": "outage",
           "problem": "After a move to a new server, the shop shows plain text with no design. All files are there.",
           "turns": [
             {
               "threat": "The new server sends style.css with Content-Type: text/plain, and browsers ignore the styles.",
+              "constraint": "The new server uses one default type for every file type it does not know.",
+              "reasons": [
+                {
+                  "text": "A file named style.css is always read as CSS.",
+                  "right": false
+                },
+                {
+                  "text": "Browsers use the MIME type, not the file extension.",
+                  "right": true
+                },
+                {
+                  "text": "The Accept header decides how the browser reads a file.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                11
+              ],
               "moves": [
                 {
                   "moveId": "content-type.negotiation",
@@ -4531,6 +4851,24 @@
             },
             {
               "threat": "Product photo uploads now fail with 415 Unsupported Media Type.",
+              "constraint": "The upload form sends photo files together with text fields.",
+              "reasons": [
+                {
+                  "text": "A form with files is sent as multipart/form-data.",
+                  "right": true
+                },
+                {
+                  "text": "A 415 error means the server is down, so a restart helps.",
+                  "right": false
+                },
+                {
+                  "text": "The Accept header tells the server what the client sends.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                11
+              ],
               "moves": [
                 {
                   "moveId": "http-method.post",
@@ -4562,6 +4900,25 @@
             },
             {
               "threat": "The mobile app asks for product data and gets an HTML page instead of JSON.",
+              "constraint": "The same URL serves HTML to browsers and JSON to apps.",
+              "reasons": [
+                {
+                  "text": "The Content-Type of a GET request says what the server sends back.",
+                  "right": false
+                },
+                {
+                  "text": "The server knows an app from a browser by the request method.",
+                  "right": false
+                },
+                {
+                  "text": "The client asks for a type with Accept, and the server picks one.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                11,
+                2
+              ],
               "moves": [
                 {
                   "moveId": "content-type.mime-type",
@@ -4592,16 +4949,39 @@
               ]
             }
           ],
-          "hash": "1642b714b446f04a"
+          "hash": "ddb2f9a0f51055f3"
         },
         {
           "id": "t01-lost-cart",
           "name": "The lost cart",
+          "source": {
+            "title": "OWASP: Session Management Cheat Sheet",
+            "url": "https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html"
+          },
           "opponentType": "data",
           "problem": "Shoppers add items, but the cart page is often empty. The shop runs on plain HTTP requests.",
           "turns": [
             {
               "threat": "The add-to-cart request and the cart page request share nothing that links them.",
+              "constraint": "Shoppers do not sign in before they add items, and the server can store carts.",
+              "reasons": [
+                {
+                  "text": "One open connection keeps the requests linked.",
+                  "right": false
+                },
+                {
+                  "text": "The page body can carry the cart to the next request.",
+                  "right": false
+                },
+                {
+                  "text": "A session cookie links separate requests to one cart.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                2,
+                3
+              ],
               "moves": [
                 {
                   "moveId": "http-version.persistent-connection",
@@ -4633,6 +5013,24 @@
             },
             {
               "threat": "Shoppers close the browser at lunch. In the evening, their cart is gone.",
+              "constraint": "Most shoppers use their own phone or laptop.",
+              "reasons": [
+                {
+                  "text": "A cookie with no Expires and no Max-Age ends with the session.",
+                  "right": true
+                },
+                {
+                  "text": "Sending the same Set-Cookie again makes a cookie last longer.",
+                  "right": false
+                },
+                {
+                  "text": "Secure and HttpOnly also decide how long a cookie lives.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                3
+              ],
               "moves": [
                 {
                   "moveId": "cookie.set-cookie",
@@ -4664,6 +5062,24 @@
             },
             {
               "threat": "A tester shows that a script on the page can read the session cookie with document.cookie.",
+              "constraint": "Only the server needs to read the session cookie.",
+              "reasons": [
+                {
+                  "text": "SameSite also hides a cookie from scripts on the page.",
+                  "right": false
+                },
+                {
+                  "text": "HttpOnly stops JavaScript from reading the cookie.",
+                  "right": true
+                },
+                {
+                  "text": "A shorter lifetime stops scripts from reading the cookie.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                12
+              ],
               "moves": [
                 {
                   "moveId": "cookie.secure-httponly",
@@ -4694,16 +5110,39 @@
               ]
             }
           ],
-          "hash": "5e86210cd9835352"
+          "hash": "d6ca2a3774b77eab"
         },
         {
           "id": "t01-partner-widget",
           "name": "The partner widget",
+          "source": {
+            "title": "The Chromium Projects: SameSite Updates",
+            "url": "https://www.chromium.org/updates/same-site/"
+          },
           "opponentType": "security",
           "problem": "Your chat widget runs inside partner sites. Users sign in to the widget there.",
           "turns": [
             {
               "threat": "The widget's session cookie has no SameSite attribute. Inside partner sites, users are signed out.",
+              "constraint": "Chrome now treats a cookie with no SameSite attribute as Lax.",
+              "reasons": [
+                {
+                  "text": "SameSite=None sends the cookie with cross-site requests too.",
+                  "right": true
+                },
+                {
+                  "text": "A longer cookie lifetime keeps users signed in on other sites.",
+                  "right": false
+                },
+                {
+                  "text": "A cookie with no SameSite attribute is sent with every request.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                11,
+                12
+              ],
               "moves": [
                 {
                   "moveId": "cookie.lifetime",
@@ -4735,6 +5174,25 @@
             },
             {
               "threat": "On the test site, which uses plain http, the browser rejects the new cookie.",
+              "constraint": "All partner sites run on HTTPS, but your test site does not.",
+              "reasons": [
+                {
+                  "text": "Lax works the same as None inside partner sites.",
+                  "right": false
+                },
+                {
+                  "text": "A plain http site can set any cookie it wants.",
+                  "right": false
+                },
+                {
+                  "text": "SameSite=None needs Secure, and a Secure cookie needs HTTPS.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                11,
+                8
+              ],
               "moves": [
                 {
                   "moveId": "cookie.samesite",
@@ -4761,6 +5219,25 @@
             },
             {
               "threat": "Partner sites ask for the user's whole profile inside one large widget cookie.",
+              "constraint": "Every widget request carries every widget cookie.",
+              "reasons": [
+                {
+                  "text": "Many small cookies cost less than one large cookie.",
+                  "right": false
+                },
+                {
+                  "text": "Keep the profile on the server, and let one cookie link the session.",
+                  "right": true
+                },
+                {
+                  "text": "A longer lifetime makes a large cookie cheaper to send.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                2,
+                3
+              ],
               "moves": [
                 {
                   "moveId": "stateless-http.session",
@@ -4791,16 +5268,39 @@
               ]
             }
           ],
-          "hash": "d010766384b800b6"
+          "hash": "1482b559b3487206"
         },
         {
           "id": "t01-busy-night",
           "name": "The busy night",
+          "source": {
+            "title": "Raspberry Pi: Launch day, what happened to the website?",
+            "url": "https://www.raspberrypi.com/news/launch-day-what-happened-to-the-website/"
+          },
           "opponentType": "traffic",
           "problem": "A TV advert brings many visitors tonight. Your shop runs on one web server.",
           "turns": [
             {
               "threat": "Tonight one server must answer every visitor. It cannot handle that load.",
+              "constraint": "The budget pays for two more web servers tonight.",
+              "reasons": [
+                {
+                  "text": "A forward proxy also protects your servers from load.",
+                  "right": false
+                },
+                {
+                  "text": "A reverse proxy in front of servers shares the load between them.",
+                  "right": true
+                },
+                {
+                  "text": "A 503 page is enough when a TV advert brings the visitors.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                2,
+                3
+              ],
               "moves": [
                 {
                   "moveId": "proxy.forward",
@@ -4832,6 +5332,24 @@
             },
             {
               "threat": "The new servers have a new IP address, but some visitors still reach the old server.",
+              "constraint": "The DNS record for the shop changed one hour ago.",
+              "reasons": [
+                {
+                  "text": "DNS answers are kept for some time before they expire.",
+                  "right": true
+                },
+                {
+                  "text": "A DNS change reaches every computer at the same moment.",
+                  "right": false
+                },
+                {
+                  "text": "A new subdomain moves visitors faster than a DNS change.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                11
+              ],
               "moves": [
                 {
                   "moveId": "dns.domain-name",
@@ -4863,6 +5381,25 @@
             },
             {
               "threat": "At the peak, all servers are full. New visitors wait and then see a timeout.",
+              "constraint": "No more servers can start before the peak ends.",
+              "reasons": [
+                {
+                  "text": "A redirect to a waiting page costs the busy servers nothing.",
+                  "right": false
+                },
+                {
+                  "text": "A 4xx code fits, because the visitors sent too many requests.",
+                  "right": false
+                },
+                {
+                  "text": "503 says the server is overloaded for now, so clients can try later.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                10,
+                3
+              ],
               "moves": [
                 {
                   "moveId": "status-code.server-error",
@@ -4893,16 +5430,38 @@
               ]
             }
           ],
-          "hash": "d9ffe7ab1e4afb8f"
+          "hash": "3ce208c2d62f1101"
         },
         {
           "id": "t01-office-network",
           "name": "The office network",
+          "source": {
+            "title": "Cloudflare: HTTP/3, the past, the present, and the future",
+            "url": "https://blog.cloudflare.com/http3-the-past-present-and-future/"
+          },
           "opponentType": "speed",
           "problem": "Your team of 40 works in one office. The internet line is slow, and staff also work on trains.",
           "turns": [
             {
               "threat": "Every laptop downloads the same large web pages and files again and again.",
+              "constraint": "All 40 laptops share one slow internet line in the office.",
+              "reasons": [
+                {
+                  "text": "A reverse proxy also saves bandwidth for the office laptops.",
+                  "right": false
+                },
+                {
+                  "text": "HTTP/2 stops the same file from crossing the line twice.",
+                  "right": false
+                },
+                {
+                  "text": "A forward proxy stores pages for a group of clients.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                2
+              ],
               "moves": [
                 {
                   "moveId": "proxy.reverse",
@@ -4934,6 +5493,24 @@
             },
             {
               "threat": "A new app on the laptops sends Connection: close, so each request needs a new TCP handshake.",
+              "constraint": "The app sends many small requests to the same server.",
+              "reasons": [
+                {
+                  "text": "HTTP/1.1 keeps a connection open unless the app asks to close it.",
+                  "right": true
+                },
+                {
+                  "text": "A faster DNS lookup removes the TCP handshake.",
+                  "right": false
+                },
+                {
+                  "text": "A reverse proxy keeps the laptops' connections open for them.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                11
+              ],
               "moves": [
                 {
                   "moveId": "dns.lookup",
@@ -4960,6 +5537,24 @@
             },
             {
               "threat": "Staff on the train use the app on a weak phone network. One lost packet stops every image.",
+              "constraint": "The servers and the app can both be updated to HTTP/3.",
+              "reasons": [
+                {
+                  "text": "HTTP/2 already stops one lost packet from blocking other streams.",
+                  "right": false
+                },
+                {
+                  "text": "In QUIC, a lost packet blocks only its own stream.",
+                  "right": true
+                },
+                {
+                  "text": "A connection that stays open is safe from packet loss.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                3
+              ],
               "moves": [
                 {
                   "moveId": "http-version.multiplexing",
@@ -4990,16 +5585,38 @@
               ]
             }
           ],
-          "hash": "30692110fc0c25ca"
+          "hash": "0bf9ebed2c3c113f"
         },
         {
           "id": "t01-public-wifi",
           "name": "Public Wi-Fi",
+          "source": {
+            "title": "RFC 6797: HTTP Strict Transport Security (HSTS)",
+            "url": "https://www.rfc-editor.org/rfc/rfc6797"
+          },
           "opponentType": "security",
           "problem": "Many customers shop on cafe and airport Wi-Fi. Someone on the same network may watch the traffic.",
           "turns": [
             {
               "threat": "The sign-in page still works over plain http. An attacker on the Wi-Fi can read passwords.",
+              "constraint": "Anyone on the same Wi-Fi can read unencrypted traffic.",
+              "reasons": [
+                {
+                  "text": "After the TLS handshake, every header and body is encrypted.",
+                  "right": true
+                },
+                {
+                  "text": "An HSTS header sent over plain http protects the sign-in page.",
+                  "right": false
+                },
+                {
+                  "text": "A Secure cookie also encrypts the password field.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                12
+              ],
               "moves": [
                 {
                   "moveId": "hsts.max-age",
@@ -5031,6 +5648,24 @@
             },
             {
               "threat": "Customers who type http://shop.example.com reach the plain site first. An attacker can stop the switch to HTTPS.",
+              "constraint": "Customers come back to the shop many times a month.",
+              "reasons": [
+                {
+                  "text": "A 301 to HTTPS also protects the first plain request.",
+                  "right": false
+                },
+                {
+                  "text": "A new certificate stops the attack on plain http.",
+                  "right": false
+                },
+                {
+                  "text": "HSTS makes the browser use HTTPS directly on later visits.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                12
+              ],
               "moves": [
                 {
                   "moveId": "hsts.max-age",
@@ -5062,6 +5697,25 @@
             },
             {
               "threat": "A security review says the very first visit of a new customer is still open to attack.",
+              "constraint": "Every subdomain of the shop already serves HTTPS.",
+              "reasons": [
+                {
+                  "text": "A longer max-age also protects the very first visit.",
+                  "right": false
+                },
+                {
+                  "text": "A preloaded domain uses HTTPS even on the very first visit.",
+                  "right": true
+                },
+                {
+                  "text": "TLS 1.3 removes the risk of the first plain request.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                12,
+                3
+              ],
               "moves": [
                 {
                   "moveId": "tls.version",
@@ -5087,16 +5741,39 @@
               ]
             }
           ],
-          "hash": "862bf8c74ce63440"
+          "hash": "14cf7776fc518a52"
         },
         {
           "id": "t01-certificate-warning",
           "name": "The certificate warning",
+          "source": {
+            "title": "USENIX Security 2013: Alice in Warningland, a field study of browser security warnings",
+            "url": "https://www.usenix.org/conference/usenixsecurity13/technical-sessions/presentation/akhawe"
+          },
           "opponentType": "security",
           "problem": "After a server move, some customers see a certificate warning. A few of them click through it.",
           "turns": [
             {
               "threat": "The new server's certificate is for old.example.com, not for shop.example.com.",
+              "constraint": "The DNS name points to the right server, and TLS 1.3 is on.",
+              "reasons": [
+                {
+                  "text": "A newer TLS version fixes the name on a certificate.",
+                  "right": false
+                },
+                {
+                  "text": "The browser only checks that a CA signed the certificate.",
+                  "right": false
+                },
+                {
+                  "text": "The certificate must name the site that the browser asked for.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                11,
+                12
+              ],
               "moves": [
                 {
                   "moveId": "tls.version",
@@ -5128,6 +5805,24 @@
             },
             {
               "threat": "Some customers still click through certificate warnings. An attacker could use a fake certificate the same way.",
+              "constraint": "Users click through many certificate warnings in real browsers.",
+              "reasons": [
+                {
+                  "text": "For an HSTS host, the browser blocks clicking through certificate errors.",
+                  "right": true
+                },
+                {
+                  "text": "A correct certificate stops users from clicking through later warnings.",
+                  "right": false
+                },
+                {
+                  "text": "Users stop at a warning when the site is important to them.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                12
+              ],
               "moves": [
                 {
                   "moveId": "tls.certificate",
@@ -5154,6 +5849,25 @@
             },
             {
               "threat": "A scan shows the server still allows TLS 1.0 and TLS 1.1.",
+              "constraint": "Every client the shop supports can use TLS 1.2 or TLS 1.3.",
+              "reasons": [
+                {
+                  "text": "A new certificate turns off the old TLS versions.",
+                  "right": false
+                },
+                {
+                  "text": "TLS 1.0 and TLS 1.1 should no longer be used.",
+                  "right": true
+                },
+                {
+                  "text": "The HSTS preload list also blocks old TLS versions.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                12,
+                3
+              ],
               "moves": [
                 {
                   "moveId": "tls.handshake",
@@ -5184,16 +5898,38 @@
               ]
             }
           ],
-          "hash": "127488174b846a7d"
+          "hash": "99ba93c2cffea600"
         },
         {
           "id": "t01-broken-menu",
           "name": "The broken menu",
+          "source": {
+            "title": "web.dev: Fixing mixed content",
+            "url": "https://web.dev/articles/fixing-mixed-content"
+          },
           "opponentType": "security",
           "problem": "The shop moved to HTTPS. Now the menu does not work, and the browser console shows warnings.",
           "turns": [
             {
               "threat": "The HTTPS page loads its menu script from http://cdn.example.com/menu.js.",
+              "constraint": "The browser console says the menu script request was blocked.",
+              "reasons": [
+                {
+                  "text": "The browser upgrades every http request to https by itself.",
+                  "right": false
+                },
+                {
+                  "text": "Browsers block a script over http on an HTTPS page.",
+                  "right": true
+                },
+                {
+                  "text": "A redirect from http to https makes the script load.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                11
+              ],
               "moves": [
                 {
                   "moveId": "mixed-content.upgradable",
@@ -5225,6 +5961,25 @@
             },
             {
               "threat": "Product photos use img with src on http URLs. The team plans a week of photo fixes first.",
+              "constraint": "The photos use img with src on a named host, not an IP address.",
+              "reasons": [
+                {
+                  "text": "Browsers upgrade images set with src to HTTPS by themselves.",
+                  "right": true
+                },
+                {
+                  "text": "Browsers block all mixed content in the same way.",
+                  "right": false
+                },
+                {
+                  "text": "A new certificate fixes the photo links.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                11,
+                5
+              ],
               "moves": [
                 {
                   "moveId": "mixed-content.blockable",
@@ -5251,6 +6006,24 @@
             },
             {
               "threat": "Visitors who type http://shop.example.com still get the old plain http pages.",
+              "constraint": "Old links on other sites still use http, and they must keep working.",
+              "reasons": [
+                {
+                  "text": "Mixed content rules also upgrade a plain http page.",
+                  "right": false
+                },
+                {
+                  "text": "A 403 on plain http makes visitors switch to HTTPS.",
+                  "right": false
+                },
+                {
+                  "text": "A 301 sends each plain http visit to the HTTPS URL.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                12
+              ],
               "moves": [
                 {
                   "moveId": "mixed-content.upgradable",
@@ -5281,16 +6054,39 @@
               ]
             }
           ],
-          "hash": "04891b5374f0ab5a"
+          "hash": "12e9a396c99bdb12"
         },
         {
           "id": "t01-new-blog",
           "name": "The new blog",
+          "source": {
+            "title": "Nick Craver: HTTPS on Stack Overflow, the end of a long road",
+            "url": "https://nickcraver.com/blog/2017/05/22/https-on-stack-overflow/"
+          },
           "opponentType": "security",
           "problem": "You launch a blog for the shop. It must be as safe as the shop itself.",
           "turns": [
             {
               "threat": "Marketing says you must buy a new domain name before the blog can start.",
+              "constraint": "The shop already controls the domain shop.example.com.",
+              "reasons": [
+                {
+                  "text": "You can create subdomains of a domain you control.",
+                  "right": true
+                },
+                {
+                  "text": "Every new site needs a new domain name of its own.",
+                  "right": false
+                },
+                {
+                  "text": "A reverse proxy gives the blog a name.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                19,
+                2
+              ],
               "moves": [
                 {
                   "moveId": "dns.domain-name",
@@ -5317,6 +6113,24 @@
             },
             {
               "threat": "The shop sends HSTS, but blog.shop.example.com still loads over plain http.",
+              "constraint": "The shop host already sends HSTS over HTTPS with a long max-age.",
+              "reasons": [
+                {
+                  "text": "HSTS on the shop host already covers all its subdomains.",
+                  "right": false
+                },
+                {
+                  "text": "The preload list accepts a header without includeSubDomains.",
+                  "right": false
+                },
+                {
+                  "text": "includeSubDomains applies the HSTS rule to the names under the host.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                12
+              ],
               "moves": [
                 {
                   "moveId": "hsts.preload",
@@ -5348,6 +6162,25 @@
             },
             {
               "threat": "The blog shows the shop logo with img and has a form that posts to the shop. Security asks if this is allowed.",
+              "constraint": "Security wants a yes or no for each use: the image and the form.",
+              "reasons": [
+                {
+                  "text": "A page of another origin cannot show any image from the shop.",
+                  "right": false
+                },
+                {
+                  "text": "Cross-origin embedding and form posts are typically allowed.",
+                  "right": true
+                },
+                {
+                  "text": "Every cross-origin request needs a preflight first.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                12,
+                19
+              ],
               "moves": [
                 {
                   "moveId": "same-origin-policy.origin",
@@ -5378,16 +6211,38 @@
               ]
             }
           ],
-          "hash": "6b90b967aee4a49c"
+          "hash": "b31a0981f88100b9"
         },
         {
           "id": "t01-new-front-end",
           "name": "The new front end",
+          "source": {
+            "title": "freeCodeCamp: How Cross-Origin Resource Sharing requests affect your app's performance",
+            "url": "https://www.freecodecamp.org/news/the-terrible-performance-cost-of-cors-api-on-the-single-page-application-spa-6fcf71e50147/"
+          },
           "opponentType": "security",
           "problem": "The new front end runs on https://app.example.com. It calls the API on https://api.example.com.",
           "turns": [
             {
               "threat": "Every fetch() to the API fails, and the console says the read was blocked.",
+              "constraint": "Both apps use https and the default port.",
+              "reasons": [
+                {
+                  "text": "Two subdomains of one domain share one origin.",
+                  "right": false
+                },
+                {
+                  "text": "SameSite rules decide if a script can read a reply.",
+                  "right": false
+                },
+                {
+                  "text": "An origin is the protocol, the host and the port together.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                11
+              ],
               "moves": [
                 {
                   "moveId": "dns.domain-name",
@@ -5419,6 +6274,25 @@
             },
             {
               "threat": "The front end sends a GET with the user's cookie, using credentials set to include. The API answers Access-Control-Allow-Origin: *.",
+              "constraint": "The API must see the user's cookie on every call.",
+              "reasons": [
+                {
+                  "text": "With credentials, name the exact origin and allow credentials.",
+                  "right": true
+                },
+                {
+                  "text": "The wildcard * allows every origin, also with cookies.",
+                  "right": false
+                },
+                {
+                  "text": "A GET is a simple request, so CORS rules do not apply.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                11,
+                12
+              ],
               "moves": [
                 {
                   "moveId": "cors.simple-request",
@@ -5450,6 +6324,24 @@
             },
             {
               "threat": "A JSON POST to the API fails, but a GET works. The console shows a failed OPTIONS request.",
+              "constraint": "The API team can change the API today, and the body must stay JSON.",
+              "reasons": [
+                {
+                  "text": "OPTIONS is a safe method, so the API can ignore it.",
+                  "right": false
+                },
+                {
+                  "text": "A JSON request is not simple, so the API must answer the OPTIONS preflight.",
+                  "right": true
+                },
+                {
+                  "text": "The right Access-Control-Allow-Origin alone lets the POST through.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                11
+              ],
               "moves": [
                 {
                   "moveId": "cors.preflight",
@@ -5480,7 +6372,2195 @@
               ]
             }
           ],
-          "hash": "a5bee6d7e45c1dca"
+          "hash": "78b496df72f21df5"
+        },
+        {
+          "id": "t01-account-errors-browser",
+          "name": "Confusing account errors, browser only",
+          "source": {
+            "title": "Google Search Central: How to deal with planned site downtime",
+            "url": "https://developers.google.com/search/blog/2011/01/how-to-deal-with-planned-site-downtime"
+          },
+          "twinOf": "t01-account-errors",
+          "opponentType": "security",
+          "problem": "Customers complain about the account pages. The API answers with the wrong status codes.",
+          "turns": [
+            {
+              "threat": "A customer who is not signed in opens /account and gets 403 Forbidden.",
+              "constraint": "Only the web shop opens /account, and shoppers need to land on the sign-in page.",
+              "reasons": [
+                {
+                  "text": "Only a 4xx code is allowed when a user is not signed in.",
+                  "right": false
+                },
+                {
+                  "text": "Shoppers know what to do when a page shows 401.",
+                  "right": false
+                },
+                {
+                  "text": "A browser follows a redirect to the sign-in page by itself.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                3,
+                19
+              ],
+              "moves": [
+                {
+                  "moveId": "status-code.client-error",
+                  "damage": 1,
+                  "counterattack": "The code is correct, but shoppers see a bare error page and no sign-in form."
+                },
+                {
+                  "moveId": "status-code.server-error",
+                  "damage": 0,
+                  "counterattack": "You return 500, so monitoring shows a server crash that did not happen."
+                },
+                {
+                  "moveId": "status-code.redirect",
+                  "damage": 2,
+                  "counterattack": "Shoppers land on the sign-in page, but each visit makes one more request."
+                },
+                {
+                  "moveId": "http-message.status-line",
+                  "damage": 0,
+                  "counterattack": "You change the reason phrase, but the code is still 403."
+                }
+              ],
+              "modelAnswer": "Only browsers open this page, so send a temporary redirect to the sign-in page. The Location header holds the sign-in URL, and the browser loads it at once. The cost: one extra request.",
+              "keyPoints": [
+                "Only browsers open this page.",
+                "A redirect with Location takes shoppers to sign-in.",
+                "Each redirect costs one extra request."
+              ]
+            },
+            {
+              "threat": "The sign-up API answers 200 OK with an empty body. The app cannot find the new user.",
+              "constraint": "Many old apps accept only 200, and nobody can update them.",
+              "reasons": [
+                {
+                  "text": "The body can carry the new user while the code stays 200.",
+                  "right": true
+                },
+                {
+                  "text": "201 Created never breaks an app that expects 200.",
+                  "right": false
+                },
+                {
+                  "text": "A response to a POST must not have a body.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                3
+              ],
+              "moves": [
+                {
+                  "moveId": "status-code.success",
+                  "damage": 1,
+                  "counterattack": "201 is the right code, but the old apps now treat every sign-up as a failure."
+                },
+                {
+                  "moveId": "http-message.headers-and-body",
+                  "damage": 2,
+                  "counterattack": "The new user is in the body, but the code still does not say a user was created."
+                },
+                {
+                  "moveId": "status-code.redirect",
+                  "damage": 0,
+                  "counterattack": "Each sign-up makes one more request, and the old apps still find no user data."
+                },
+                {
+                  "moveId": "http-method.post",
+                  "damage": 0,
+                  "counterattack": "You resend the POST to get the data, so a second user is created."
+                }
+              ],
+              "modelAnswer": "Keep 200 OK for the old apps, and put the new user in the response body. The body comes after the headers and an empty line. The cost: the code does not say a user was created.",
+              "keyPoints": [
+                "Old apps need 200 to keep working.",
+                "The response body can carry the new user.",
+                "The code no longer says a user was created."
+              ]
+            },
+            {
+              "threat": "During tonight's database work, the API will answer 500 Internal Server Error for one hour.",
+              "constraint": "The database work is planned and ends in about one hour.",
+              "reasons": [
+                {
+                  "text": "503 says the problem is temporary, and Retry-After says when to come back.",
+                  "right": true
+                },
+                {
+                  "text": "A 200 page with an error text keeps clients calm.",
+                  "right": false
+                },
+                {
+                  "text": "A 400 code tells clients to stop sending requests for a while.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                10,
+                3
+              ],
+              "moves": [
+                {
+                  "moveId": "status-code.client-error",
+                  "damage": 0,
+                  "counterattack": "You send 400, so clients think their own requests are wrong."
+                },
+                {
+                  "moveId": "status-code.server-error",
+                  "damage": 2,
+                  "counterattack": "Clients get 503 with a Retry-After time, but you should usually keep that reply out of caches."
+                },
+                {
+                  "moveId": "status-code.success",
+                  "damage": 0,
+                  "counterattack": "You send 200 with an error text, so monitoring sees no problem at all."
+                },
+                {
+                  "moveId": "status-code.redirect",
+                  "damage": 1,
+                  "counterattack": "You redirect to a status page, but API clients get no clear error code."
+                }
+              ],
+              "modelAnswer": "Use 503 Service Unavailable for maintenance. It is meant for temporary conditions. Add Retry-After with the expected recovery time. The cost: the 503 reply should usually not be cached.",
+              "keyPoints": [
+                "503 means the server is not ready for now.",
+                "Retry-After tells clients when to come back.",
+                "Temporary error replies should usually not be cached."
+              ]
+            }
+          ],
+          "hash": "2135b5b517a28a7f"
+        },
+        {
+          "id": "t01-moved-shop-replacements",
+          "name": "The moved shop, with replacements",
+          "source": {
+            "title": "Google Search Central: Site moves with URL changes",
+            "url": "https://developers.google.com/search/docs/crawling-indexing/site-move-with-url-changes"
+          },
+          "twinOf": "t01-moved-shop",
+          "opponentType": "traffic",
+          "problem": "Your shop moves all product pages to new URLs. Many other sites still link to the old ones.",
+          "turns": [
+            {
+              "threat": "Next week the old URLs will answer 404 Not Found. Search engines and bookmarks still use them.",
+              "constraint": "The move is permanent, and most visits come from search results.",
+              "reasons": [
+                {
+                  "text": "A permanent redirect tells browsers and search engines the new URL.",
+                  "right": true
+                },
+                {
+                  "text": "Two URLs for one page cause no problem for search engines.",
+                  "right": false
+                },
+                {
+                  "text": "A 404 page with a link works as well as a redirect.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                3
+              ],
+              "moves": [
+                {
+                  "moveId": "status-code.client-error",
+                  "damage": 0,
+                  "counterattack": "404 says the server cannot find the page, so old links and search visits break."
+                },
+                {
+                  "moveId": "status-code.success",
+                  "damage": 1,
+                  "counterattack": "You serve each page on both URLs, but every page now has two locations."
+                },
+                {
+                  "moveId": "status-code.redirect",
+                  "damage": 2,
+                  "counterattack": "Old URLs answer 301 with the new Location, but each old link costs one extra request."
+                }
+              ],
+              "modelAnswer": "Answer the old URLs with 301 Moved Permanently and a Location header. Browsers load the new URL at once, and search engines update the old one. The cost: one extra round trip.",
+              "keyPoints": [
+                "301 means the move is permanent.",
+                "The Location header holds the new URL.",
+                "Each redirect costs one extra request."
+              ]
+            },
+            {
+              "threat": "Some old products are gone for good. Their old URLs now redirect to the home page.",
+              "constraint": "Each gone product has one close replacement in the new shop.",
+              "reasons": [
+                {
+                  "text": "A gone product must answer 410, even when it has a replacement.",
+                  "right": false
+                },
+                {
+                  "text": "A permanent redirect to a close match keeps old links useful.",
+                  "right": true
+                },
+                {
+                  "text": "Sending every old link to the home page works just as well.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                3
+              ],
+              "moves": [
+                {
+                  "moveId": "status-code.client-error",
+                  "damage": 1,
+                  "counterattack": "410 is honest, but shoppers on old links miss a product they would buy."
+                },
+                {
+                  "moveId": "status-code.redirect",
+                  "damage": 2,
+                  "counterattack": "Old links land on the replacement product, but each one costs an extra request."
+                },
+                {
+                  "moveId": "status-code.success",
+                  "damage": 0,
+                  "counterattack": "The home page answers 200, so shoppers on old links never learn the product is gone."
+                },
+                {
+                  "moveId": "status-code.server-error",
+                  "damage": 0,
+                  "counterattack": "You send 500, so monitoring reports a crash that did not happen."
+                }
+              ],
+              "modelAnswer": "Answer each old product URL with a 301 to its own replacement product. The Location header holds the new URL. The cost: each old link costs one extra request.",
+              "keyPoints": [
+                "Each gone product has its own replacement.",
+                "A 301 with Location sends shoppers there.",
+                "Each redirect costs one extra request."
+              ]
+            },
+            {
+              "threat": "After a config change for the redirects, every new URL answers 500 Internal Server Error.",
+              "constraint": "The errors started right after the redirect config went live.",
+              "reasons": [
+                {
+                  "text": "A 500 error usually means the shopper's browser has a problem.",
+                  "right": false
+                },
+                {
+                  "text": "A 5xx code means the server failed, so check its last change first.",
+                  "right": true
+                },
+                {
+                  "text": "The error body always names the exact fault.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                11,
+                10
+              ],
+              "moves": [
+                {
+                  "moveId": "client-server.user-agent",
+                  "damage": 0,
+                  "counterattack": "You clear your own browser data, but every visitor still sees the error."
+                },
+                {
+                  "moveId": "status-code.server-error",
+                  "damage": 2,
+                  "counterattack": "You check the new server config, find the mistake, and roll the change back."
+                },
+                {
+                  "moveId": "status-code.client-error",
+                  "damage": 0,
+                  "counterattack": "You check the shoppers' requests, but the error comes from the server."
+                },
+                {
+                  "moveId": "http-message.headers-and-body",
+                  "damage": 0,
+                  "counterattack": "You read the error body, but it only says something went wrong."
+                }
+              ],
+              "modelAnswer": "5xx codes are server errors, and 500 is the generic one. So look first at what changed on the server, like the new redirect config. The cost: you roll the change back while you fix it.",
+              "keyPoints": [
+                "5xx means the server failed, not the client.",
+                "500 is a generic server error.",
+                "Check the last change on the server first."
+              ]
+            }
+          ],
+          "hash": "336d476bf4101a9e"
+        },
+        {
+          "id": "t01-office-network-http2",
+          "name": "The office network, HTTP/2 only",
+          "source": {
+            "title": "Cloudflare: HTTP/3, the past, the present, and the future",
+            "url": "https://blog.cloudflare.com/http3-the-past-present-and-future/"
+          },
+          "twinOf": "t01-office-network",
+          "opponentType": "speed",
+          "problem": "Your team of 40 works in one office. The internet line is slow, and staff also work on trains.",
+          "turns": [
+            {
+              "threat": "Every laptop downloads the same large web pages and files again and again.",
+              "constraint": "All 40 laptops share one slow internet line in the office.",
+              "reasons": [
+                {
+                  "text": "A reverse proxy also saves bandwidth for the office laptops.",
+                  "right": false
+                },
+                {
+                  "text": "HTTP/2 stops the same file from crossing the line twice.",
+                  "right": false
+                },
+                {
+                  "text": "A forward proxy stores pages for a group of clients.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                2
+              ],
+              "moves": [
+                {
+                  "moveId": "proxy.reverse",
+                  "damage": 0,
+                  "counterattack": "A reverse proxy protects servers, so the laptops still download everything."
+                },
+                {
+                  "moveId": "proxy.forward",
+                  "damage": 2,
+                  "counterattack": "The office proxy stores and forwards pages, but it is one more machine to run."
+                },
+                {
+                  "moveId": "http-version.multiplexing",
+                  "damage": 1,
+                  "counterattack": "Requests share one connection now, but the same files still cross the line many times."
+                },
+                {
+                  "moveId": "dns.lookup",
+                  "damage": 0,
+                  "counterattack": "Lookups come from the cache, but the same large files still cross the line."
+                }
+              ],
+              "modelAnswer": "A forward proxy works for a group of clients. It stores and forwards pages, so the group uses less bandwidth. The cost: one more machine to run.",
+              "keyPoints": [
+                "A forward proxy acts for the clients.",
+                "It stores and forwards pages for the group.",
+                "The proxy is one more machine to run."
+              ]
+            },
+            {
+              "threat": "A new app on the laptops sends Connection: close, so each request needs a new TCP handshake.",
+              "constraint": "The app sends many small requests to the same server.",
+              "reasons": [
+                {
+                  "text": "HTTP/1.1 keeps a connection open unless the app asks to close it.",
+                  "right": true
+                },
+                {
+                  "text": "A faster DNS lookup removes the TCP handshake.",
+                  "right": false
+                },
+                {
+                  "text": "A reverse proxy keeps the laptops' connections open for them.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                11
+              ],
+              "moves": [
+                {
+                  "moveId": "dns.lookup",
+                  "damage": 0,
+                  "counterattack": "Lookups come from the cache, but each request still waits for a new handshake."
+                },
+                {
+                  "moveId": "proxy.reverse",
+                  "damage": 0,
+                  "counterattack": "A reverse proxy stands in front of servers, so the laptops still open new connections."
+                },
+                {
+                  "moveId": "http-version.persistent-connection",
+                  "damage": 2,
+                  "counterattack": "The app reuses open connections now, but idle connections still use server resources."
+                }
+              ],
+              "modelAnswer": "In HTTP/1.1, connections are persistent by default. Connection: close ends the connection after each response. Remove it, so requests reuse one connection. The cost: idle connections still use resources.",
+              "keyPoints": [
+                "HTTP/1.1 keeps connections open by default.",
+                "Connection: close forces a new handshake each time.",
+                "Idle open connections still use resources."
+              ]
+            },
+            {
+              "threat": "Staff on the train use the app on a weak phone network. One lost packet stops every image.",
+              "constraint": "The servers can run HTTP/2 this year, but not HTTP/3.",
+              "reasons": [
+                {
+                  "text": "HTTP/2 sends parallel requests over one connection.",
+                  "right": true
+                },
+                {
+                  "text": "HTTP/3 works even when the server does not support it.",
+                  "right": false
+                },
+                {
+                  "text": "HTTP/1.1 sends the images in parallel on one connection.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                3
+              ],
+              "moves": [
+                {
+                  "moveId": "http-version.multiplexing",
+                  "damage": 2,
+                  "counterattack": "Requests share one connection in parallel, but one lost TCP packet still blocks all streams."
+                },
+                {
+                  "moveId": "http-version.persistent-connection",
+                  "damage": 1,
+                  "counterattack": "The connection stays open, but each image still waits for the one before it."
+                },
+                {
+                  "moveId": "proxy.forward",
+                  "damage": 0,
+                  "counterattack": "The office proxy cannot help staff on the train."
+                },
+                {
+                  "moveId": "http-version.quic",
+                  "damage": 0,
+                  "counterattack": "The servers cannot speak HTTP/3, so the app falls back and nothing changes."
+                }
+              ],
+              "modelAnswer": "HTTP/3 is not possible this year, so use HTTP/2. It sends parallel requests over the same connection. The cost: in HTTP/2, one lost TCP packet can still block all streams.",
+              "keyPoints": [
+                "The servers cannot run HTTP/3 yet.",
+                "HTTP/2 sends parallel requests over one connection.",
+                "One lost TCP packet can still block all streams."
+              ]
+            }
+          ],
+          "hash": "8d4d4d0466766a0a"
+        },
+        {
+          "id": "t01-public-wifi-old-subdomains",
+          "name": "Public Wi-Fi, old subdomains",
+          "source": {
+            "title": "RFC 6797: HTTP Strict Transport Security (HSTS)",
+            "url": "https://www.rfc-editor.org/rfc/rfc6797"
+          },
+          "twinOf": "t01-public-wifi",
+          "opponentType": "security",
+          "problem": "Many customers shop on cafe and airport Wi-Fi. Someone on the same network may watch the traffic.",
+          "turns": [
+            {
+              "threat": "The sign-in page still works over plain http. An attacker on the Wi-Fi can read passwords.",
+              "constraint": "Anyone on the same Wi-Fi can read unencrypted traffic.",
+              "reasons": [
+                {
+                  "text": "After the TLS handshake, every header and body is encrypted.",
+                  "right": true
+                },
+                {
+                  "text": "An HSTS header sent over plain http protects the sign-in page.",
+                  "right": false
+                },
+                {
+                  "text": "A Secure cookie also encrypts the password field.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                12
+              ],
+              "moves": [
+                {
+                  "moveId": "hsts.max-age",
+                  "damage": 0,
+                  "counterattack": "Browsers ignore HSTS sent over plain http, so nothing changes."
+                },
+                {
+                  "moveId": "cookie.secure-httponly",
+                  "damage": 1,
+                  "counterattack": "Secure keeps the cookie off plain http, but the password still travels in plain text."
+                },
+                {
+                  "moveId": "tls.handshake",
+                  "damage": 2,
+                  "counterattack": "Every header and body now travel encrypted, but each new connection starts with a handshake."
+                },
+                {
+                  "moveId": "status-code.redirect",
+                  "damage": 0,
+                  "counterattack": "You redirect to another http page, so the password is still in plain text."
+                }
+              ],
+              "modelAnswer": "Serve the sign-in page over HTTPS. The TLS handshake agrees on a secret key, and then every header and body is encrypted. The cost: each new connection begins with a handshake.",
+              "keyPoints": [
+                "HTTPS is HTTP over TLS.",
+                "After the handshake, headers and bodies are encrypted.",
+                "Each new TLS connection starts with a handshake."
+              ]
+            },
+            {
+              "threat": "Customers who type http://shop.example.com reach the plain site first. An attacker can stop the switch to HTTPS.",
+              "constraint": "Customers come back to the shop many times a month.",
+              "reasons": [
+                {
+                  "text": "A 301 to HTTPS also protects the first plain request.",
+                  "right": false
+                },
+                {
+                  "text": "A new certificate stops the attack on plain http.",
+                  "right": false
+                },
+                {
+                  "text": "HSTS makes the browser use HTTPS directly on later visits.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                12
+              ],
+              "moves": [
+                {
+                  "moveId": "hsts.max-age",
+                  "damage": 2,
+                  "counterattack": "Browsers now go straight to HTTPS until max-age ends, but the very first visit is still open."
+                },
+                {
+                  "moveId": "status-code.redirect",
+                  "damage": 1,
+                  "counterattack": "The 301 to HTTPS works, but an attacker can still catch that first plain request."
+                },
+                {
+                  "moveId": "tls.certificate",
+                  "damage": 0,
+                  "counterattack": "You renew the certificate, but the first plain http request is still open."
+                },
+                {
+                  "moveId": "mixed-content.upgradable",
+                  "damage": 0,
+                  "counterattack": "Browsers upgrade images, but the page request itself is still plain http."
+                }
+              ],
+              "modelAnswer": "A 301 to HTTPS alone leaves the first plain request open. Also send Strict-Transport-Security over HTTPS with a long max-age. Later visits then use HTTPS directly. The cost: the first visit can still be attacked.",
+              "keyPoints": [
+                "A 301 alone leaves the first request open.",
+                "HSTS makes the browser use HTTPS directly.",
+                "HSTS works only after one HTTPS visit."
+              ]
+            },
+            {
+              "threat": "A security review says the very first visit of a new customer is still open to attack.",
+              "constraint": "Two old subdomains serve only plain http, and they cannot change this year.",
+              "reasons": [
+                {
+                  "text": "Preload can cover the main domain and skip some subdomains.",
+                  "right": false
+                },
+                {
+                  "text": "Preload forces HTTPS on every subdomain, which breaks the old ones.",
+                  "right": true
+                },
+                {
+                  "text": "A longer max-age also protects the very first visit.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                12,
+                3
+              ],
+              "moves": [
+                {
+                  "moveId": "hsts.preload",
+                  "damage": 0,
+                  "counterattack": "Preload needs includeSubDomains, so the two old subdomains stop working for every visitor."
+                },
+                {
+                  "moveId": "tls.version",
+                  "damage": 0,
+                  "counterattack": "TLS 1.3 is current, but the first plain http request is still open."
+                },
+                {
+                  "moveId": "hsts.max-age",
+                  "damage": 2,
+                  "counterattack": "Later visits stay on HTTPS for a long time, but the very first visit is still open."
+                }
+              ],
+              "modelAnswer": "Preload needs includeSubDomains, and that would break the two plain http subdomains. So keep HSTS with a long max-age on the shop host only. The cost: the very first visit stays open.",
+              "keyPoints": [
+                "Preload needs includeSubDomains.",
+                "includeSubDomains would break the plain http subdomains.",
+                "The very first visit stays open to attack."
+              ]
+            }
+          ],
+          "hash": "bb45bf0be641ae3a"
+        },
+        {
+          "id": "t01-new-front-end-form",
+          "name": "The new front end, form data",
+          "source": {
+            "title": "freeCodeCamp: How Cross-Origin Resource Sharing requests affect your app's performance",
+            "url": "https://www.freecodecamp.org/news/the-terrible-performance-cost-of-cors-api-on-the-single-page-application-spa-6fcf71e50147/"
+          },
+          "twinOf": "t01-new-front-end",
+          "opponentType": "security",
+          "problem": "The new front end runs on https://app.example.com. It calls the API on https://api.example.com.",
+          "turns": [
+            {
+              "threat": "Every fetch() to the API fails, and the console says the read was blocked.",
+              "constraint": "Both apps use https and the default port.",
+              "reasons": [
+                {
+                  "text": "Two subdomains of one domain share one origin.",
+                  "right": false
+                },
+                {
+                  "text": "SameSite rules decide if a script can read a reply.",
+                  "right": false
+                },
+                {
+                  "text": "An origin is the protocol, the host and the port together.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                11
+              ],
+              "moves": [
+                {
+                  "moveId": "dns.domain-name",
+                  "damage": 0,
+                  "counterattack": "Both names end in example.com, but the policy compares the whole host."
+                },
+                {
+                  "moveId": "same-origin-policy.origin",
+                  "damage": 2,
+                  "counterattack": "You see the hosts differ, so the origins differ, and the API must now opt in."
+                },
+                {
+                  "moveId": "same-origin-policy.cross-origin-read",
+                  "damage": 1,
+                  "counterattack": "You know cross-origin reads are blocked, but not yet why these calls are cross-origin."
+                },
+                {
+                  "moveId": "cookie.samesite",
+                  "damage": 0,
+                  "counterattack": "You change SameSite, but the same-origin policy still blocks the read."
+                }
+              ],
+              "modelAnswer": "An origin is the protocol, host and port. app.example.com and api.example.com have different hosts, so they are different origins. Scripts cannot read cross-origin replies without CORS. The cost: the API must send CORS headers.",
+              "keyPoints": [
+                "An origin is protocol, host and port.",
+                "Different subdomains are different origins.",
+                "A cross-origin read needs CORS from the server."
+              ]
+            },
+            {
+              "threat": "The front end sends a GET with the user's cookie, using credentials set to include. The API answers Access-Control-Allow-Origin: *.",
+              "constraint": "The API must see the user's cookie on every call.",
+              "reasons": [
+                {
+                  "text": "With credentials, name the exact origin and allow credentials.",
+                  "right": true
+                },
+                {
+                  "text": "The wildcard * allows every origin, also with cookies.",
+                  "right": false
+                },
+                {
+                  "text": "A GET is a simple request, so CORS rules do not apply.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                11,
+                12
+              ],
+              "moves": [
+                {
+                  "moveId": "cors.simple-request",
+                  "damage": 0,
+                  "counterattack": "The GET is already a simple request, so the wildcard still blocks the reply."
+                },
+                {
+                  "moveId": "cors.allow-origin",
+                  "damage": 1,
+                  "counterattack": "You name the exact origin, but the browser still blocks the reply without Access-Control-Allow-Credentials."
+                },
+                {
+                  "moveId": "cookie.samesite",
+                  "damage": 0,
+                  "counterattack": "You change SameSite, but the wildcard still blocks the reply."
+                },
+                {
+                  "moveId": "cors.credentials",
+                  "damage": 2,
+                  "counterattack": "The API names the exact origin and allows credentials, but it must keep that list exact."
+                }
+              ],
+              "modelAnswer": "With credentials, the wildcard does not work. The API must name the exact origin and send Access-Control-Allow-Credentials: true. The cost: the API must keep a list of allowed origins.",
+              "keyPoints": [
+                "The wildcard fails for requests with credentials.",
+                "Name the exact origin in Access-Control-Allow-Origin.",
+                "Send Access-Control-Allow-Credentials: true."
+              ]
+            },
+            {
+              "threat": "A JSON POST to the API fails, but a GET works. The console shows a failed OPTIONS request.",
+              "constraint": "The API already accepts form data, and its team cannot change the API this month.",
+              "reasons": [
+                {
+                  "text": "Every cross-origin POST needs a preflight first.",
+                  "right": false
+                },
+                {
+                  "text": "The API may ignore OPTIONS, because OPTIONS is a safe method.",
+                  "right": false
+                },
+                {
+                  "text": "Form data keeps the POST simple, so the browser sends no preflight.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                11,
+                3
+              ],
+              "moves": [
+                {
+                  "moveId": "cors.preflight",
+                  "damage": 0,
+                  "counterattack": "The API team cannot change the API, so the OPTIONS request still fails."
+                },
+                {
+                  "moveId": "http-method.safe",
+                  "damage": 0,
+                  "counterattack": "OPTIONS is safe, so you ignore it, and the POST still never goes out."
+                },
+                {
+                  "moveId": "cors.simple-request",
+                  "damage": 2,
+                  "counterattack": "The POST sends form data with no preflight, but the front end must build form bodies."
+                },
+                {
+                  "moveId": "cors.allow-origin",
+                  "damage": 0,
+                  "counterattack": "The origin header is already right, so the JSON POST still fails."
+                }
+              ],
+              "modelAnswer": "Send the body as application/x-www-form-urlencoded. A POST with that Content-Type can be a simple request, so the browser sends no preflight. The cost: the front end must send form data, not JSON.",
+              "keyPoints": [
+                "Form data can keep a request simple.",
+                "A simple request needs no preflight.",
+                "The front end must send form data, not JSON."
+              ]
+            }
+          ],
+          "hash": "402445767be89a75"
+        },
+        {
+          "id": "t01-meeting-deleted-sites",
+          "name": "The deleted sites",
+          "kind": "meeting",
+          "person": "client",
+          "source": {
+            "title": "Atlassian: Post-incident review on the April 2022 outage",
+            "url": "https://www.atlassian.com/blog/atlassian-engineering/post-incident-review-april-2022-outage"
+          },
+          "opponentType": "outage",
+          "problem": "A script deleted many customer sites by mistake. A client who is not technical calls you.",
+          "turns": [
+            {
+              "threat": "Our site has been gone for a day. Why did nobody tell us?",
+              "constraint": "You do not know the full restore time yet.",
+              "reasons": [
+                {
+                  "text": "A date you are not sure of is better than no date.",
+                  "right": false
+                },
+                {
+                  "text": "Early facts, with what is still unknown, keep the client's trust.",
+                  "right": true
+                },
+                {
+                  "text": "Full technical detail shows the client that the team is skilled.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                20,
+                19
+              ],
+              "moves": [
+                {
+                  "moveId": "answer.wait-for-date",
+                  "label": "We will send an update as soon as we know the restore date.",
+                  "damage": 0,
+                  "counterattack": "The client hears nothing for days and starts to fear the worst."
+                },
+                {
+                  "moveId": "answer.say-what-we-know",
+                  "label": "We deleted your site by mistake. Here is what we know, and what we do not know yet.",
+                  "damage": 2,
+                  "counterattack": "The client is angry, but now trusts your updates."
+                },
+                {
+                  "moveId": "answer.full-technical-detail",
+                  "label": "The script got site IDs instead of app IDs, so the delete API removed whole sites.",
+                  "damage": 1,
+                  "counterattack": "The facts are true, but the client cannot follow them."
+                }
+              ],
+              "modelAnswer": "Acknowledge the incident at once. Say what happened in plain words, what you know and what you do not know yet. The cost: you admit a mistake before you have all the answers.",
+              "keyPoints": [
+                "Acknowledge the incident early.",
+                "Say what you know and what you do not know.",
+                "Use plain words for a client who is not technical."
+              ]
+            },
+            {
+              "threat": "When will we get our data back?",
+              "constraint": "Sites come back one by one, and you can count how many are back.",
+              "reasons": [
+                {
+                  "text": "A firm date calms the client, even when it may slip.",
+                  "right": false
+                },
+                {
+                  "text": "Saying nothing new is safer than sharing early numbers.",
+                  "right": false
+                },
+                {
+                  "text": "Real progress numbers help the client plan without a false promise.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                20
+              ],
+              "moves": [
+                {
+                  "moveId": "answer.promise-tomorrow",
+                  "label": "Everything will be back tomorrow.",
+                  "damage": 0,
+                  "counterattack": "The date slips, and the client stops believing you."
+                },
+                {
+                  "moveId": "answer.no-estimate",
+                  "label": "We cannot say anything until the work is done.",
+                  "damage": 1,
+                  "counterattack": "The client knows you are careful, but cannot plan anything."
+                },
+                {
+                  "moveId": "answer.share-progress",
+                  "label": "Part of the sites are back now. I will send the share that is back, and the next steps.",
+                  "damage": 2,
+                  "counterattack": "The client still waits, but can plan around real numbers."
+                }
+              ],
+              "modelAnswer": "Share the restore progress you can measure, like the share of sites that are back. Do not promise a date you cannot keep. The cost: the client still has no exact date.",
+              "keyPoints": [
+                "Share the restore progress you can measure.",
+                "Do not promise a date you cannot keep.",
+                "Tell the client what comes next."
+              ]
+            },
+            {
+              "threat": "How do we know this will not happen again?",
+              "constraint": "The review found the delete tool gave no warning about what it would delete.",
+              "reasons": [
+                {
+                  "text": "Name the exact changes that stop this cause.",
+                  "right": true
+                },
+                {
+                  "text": "A strong promise is what an angry client needs most.",
+                  "right": false
+                },
+                {
+                  "text": "Naming the person who made the mistake shows you take it seriously.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                20,
+                10
+              ],
+              "moves": [
+                {
+                  "moveId": "answer.name-the-changes",
+                  "label": "The tool will now confirm what it deletes, and we will keep your contacts outside the product.",
+                  "damage": 2,
+                  "counterattack": "The client wants proof later, but sees real changes."
+                },
+                {
+                  "moveId": "answer.promise-never",
+                  "label": "This will never happen again.",
+                  "damage": 0,
+                  "counterattack": "The client has heard this before and does not believe it."
+                },
+                {
+                  "moveId": "answer.test-more",
+                  "label": "We will test our scripts more from now on.",
+                  "damage": 1,
+                  "counterattack": "It sounds good, but the client cannot check what changes."
+                },
+                {
+                  "moveId": "answer.blame-engineer",
+                  "label": "The engineer who ran the script no longer works on it.",
+                  "damage": 0,
+                  "counterattack": "The client now thinks the problem was one person, not the tool."
+                }
+              ],
+              "modelAnswer": "Name the changes that fix the cause. The delete tool gave no warning, so it will confirm what it deletes. Keep contacts outside the product, so you can reach clients. The cost: you must deliver these changes.",
+              "keyPoints": [
+                "Name the real cause.",
+                "Name the exact changes.",
+                "Keep the contacts where you can still reach them."
+              ]
+            }
+          ],
+          "hash": "ac57290c498477c0"
+        },
+        {
+          "id": "t01-meeting-surprise",
+          "name": "The surprised manager",
+          "kind": "meeting",
+          "person": "manager",
+          "source": {
+            "title": "StaffEng: Staying aligned with authority",
+            "url": "https://staffeng.com/guides/staying-aligned-with-authority/"
+          },
+          "opponentType": "speed",
+          "problem": "The move of the shop to HTTPS slipped by two weeks. Your manager heard it from another team first.",
+          "turns": [
+            {
+              "threat": "Why did I hear about the delay from another team?",
+              "constraint": "Your manager trusts you, but this is the second surprise this quarter.",
+              "reasons": [
+                {
+                  "text": "A surprise is an incident to learn from, so own it and prevent the next one.",
+                  "right": true
+                },
+                {
+                  "text": "A delay is not worth sharing until it is certain.",
+                  "right": false
+                },
+                {
+                  "text": "A busy team is a good reason to skip updates.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                21
+              ],
+              "moves": [
+                {
+                  "moveId": "answer.team-was-busy",
+                  "label": "The team was busy fixing the problem, so there was no time for updates.",
+                  "damage": 0,
+                  "counterattack": "The manager hears an excuse and expects more surprises."
+                },
+                {
+                  "moveId": "answer.own-it",
+                  "label": "You should have heard it from me first. I will treat this as an incident and fix how I share news.",
+                  "damage": 2,
+                  "counterattack": "The manager is still unhappy, but sees that you take it seriously."
+                },
+                {
+                  "moveId": "answer.small-delay",
+                  "label": "It is a small delay, so I did not think it mattered.",
+                  "damage": 1,
+                  "counterattack": "The manager wonders what else you think is too small to share."
+                }
+              ],
+              "modelAnswer": "Own the surprise. Say your manager should have heard it from you first. Treat it as an incident to learn from, and say how you will stop the next one. The cost: you admit a mistake.",
+              "keyPoints": [
+                "Never surprise your manager.",
+                "Own it, and do not make excuses.",
+                "Treat a surprise as an incident to learn from."
+              ]
+            },
+            {
+              "threat": "How do I avoid this next time?",
+              "constraint": "Your manager wants to know your focus without more meetings.",
+              "reasons": [
+                {
+                  "text": "Only big problems are worth your manager's time.",
+                  "right": false
+                },
+                {
+                  "text": "More meetings are the best way to avoid surprises.",
+                  "right": false
+                },
+                {
+                  "text": "A short written update each week keeps your manager informed without meetings.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                21
+              ],
+              "moves": [
+                {
+                  "moveId": "answer.only-big-news",
+                  "label": "I will tell you when there is a big problem.",
+                  "damage": 0,
+                  "counterattack": "You still decide alone what is big, so surprises continue."
+                },
+                {
+                  "moveId": "answer.daily-meeting",
+                  "label": "Let us meet every morning for half an hour.",
+                  "damage": 1,
+                  "counterattack": "Your manager knows more, but both of you lose time every day."
+                },
+                {
+                  "moveId": "answer.weekly-update",
+                  "label": "I will send a short weekly update with my focus and my risks.",
+                  "damage": 2,
+                  "counterattack": "It takes you some time each week, but your manager sees problems early."
+                }
+              ],
+              "modelAnswer": "Offer a short weekly update, like an email or a Slack thread. Share your focus and your risks. The cost: you spend some time each week on it.",
+              "keyPoints": [
+                "Send a short weekly update.",
+                "Share your focus and your risks.",
+                "Use writing, not more meetings."
+              ]
+            },
+            {
+              "threat": "Should the team change its priorities to catch up?",
+              "constraint": "You have the numbers on where the two weeks went.",
+              "reasons": [
+                {
+                  "text": "Deciding alone is fine, because you know the work best.",
+                  "right": false
+                },
+                {
+                  "text": "Data and a question about shared priorities beat an opinion alone.",
+                  "right": true
+                },
+                {
+                  "text": "A strong opinion saves your manager's time.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                21,
+                3
+              ],
+              "moves": [
+                {
+                  "moveId": "answer.bring-data",
+                  "label": "Here are the numbers on the delay. How do our priorities fit with yours?",
+                  "damage": 2,
+                  "counterattack": "The talk takes longer, but you and your manager agree on a plan."
+                },
+                {
+                  "moveId": "answer.opinion-only",
+                  "label": "I feel we should drop the blog work and move faster.",
+                  "damage": 1,
+                  "counterattack": "Your manager hears an opinion with nothing to check."
+                },
+                {
+                  "moveId": "answer.already-decided",
+                  "label": "I already moved two people from the blog to the HTTPS work.",
+                  "damage": 0,
+                  "counterattack": "Your manager is surprised a second time in one meeting."
+                }
+              ],
+              "modelAnswer": "Bring the numbers, not only an opinion. Then ask how the team's priorities fit with your manager's. The cost: the decision takes one more talk.",
+              "keyPoints": [
+                "Bring data, not only an opinion.",
+                "Ask how your priorities fit your manager's.",
+                "Do not decide alone and surprise again."
+              ]
+            }
+          ],
+          "hash": "82fbac83cc1462a8"
+        },
+        {
+          "id": "t01-meeting-cto-https",
+          "name": "Five minutes with the CTO",
+          "kind": "meeting",
+          "person": "cto",
+          "source": {
+            "title": "StaffEng: Getting in the room, presenting to executives",
+            "url": "https://staffeng.com/guides/present-to-executives/"
+          },
+          "opponentType": "security",
+          "problem": "You present a plan to move every company site to HTTPS. The CTO has a short slot for it.",
+          "turns": [
+            {
+              "threat": "So, what do you need from me?",
+              "constraint": "The meeting has only a few minutes for your topic.",
+              "reasons": [
+                {
+                  "text": "Executives want the full history before a decision.",
+                  "right": false
+                },
+                {
+                  "text": "Give the summary first, then the details.",
+                  "right": true
+                },
+                {
+                  "text": "A list of options with no proposal respects the CTO's choice.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                26
+              ],
+              "moves": [
+                {
+                  "moveId": "answer.history-first",
+                  "label": "Let me first explain how our setup grew over the years.",
+                  "damage": 0,
+                  "counterattack": "The time runs out before you reach your point."
+                },
+                {
+                  "moveId": "answer.answer-first",
+                  "label": "We should move every site to HTTPS this quarter. I need your yes on the plan today.",
+                  "damage": 2,
+                  "counterattack": "The CTO asks hard questions, but can decide now."
+                },
+                {
+                  "moveId": "answer.question-only",
+                  "label": "There are three ways to do it. Which one do you like?",
+                  "damage": 1,
+                  "counterattack": "The CTO must do your thinking, and the room cannot align."
+                }
+              ],
+              "modelAnswer": "Start with the summarizing idea: the proposal and the decision you need. A short SCQA opening works well. The cost: you must cut most of your details.",
+              "keyPoints": [
+                "Give the answer first.",
+                "Bring a proposal, not only a question.",
+                "Say what you need from the CTO."
+              ]
+            },
+            {
+              "threat": "I think this plan is too slow.",
+              "constraint": "You disagree, and you have more data on the risks.",
+              "reasons": [
+                {
+                  "text": "A strong defence shows the CTO that the plan is solid.",
+                  "right": false
+                },
+                {
+                  "text": "Agreeing at once is the fastest way to keep the CTO happy.",
+                  "right": false
+                },
+                {
+                  "text": "Gather the feedback first, and decide later if you agree.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                26
+              ],
+              "moves": [
+                {
+                  "moveId": "answer.fight-back",
+                  "label": "The plan is right, and here is why that view is wrong.",
+                  "damage": 0,
+                  "counterattack": "The CTO stops giving you honest comments."
+                },
+                {
+                  "moveId": "answer.agree-at-once",
+                  "label": "OK, we will do it in half the time.",
+                  "damage": 1,
+                  "counterattack": "You avoid a fight, but you promise a date you never checked."
+                },
+                {
+                  "moveId": "answer.dig-for-feedback",
+                  "label": "Thank you. What would make it fast enough for you?",
+                  "damage": 2,
+                  "counterattack": "You do not win the point now, but you learn what the CTO needs."
+                }
+              ],
+              "modelAnswer": "Never fight feedback. Ask questions to learn what the CTO needs. Decide later, with more time, whether you agree. The cost: you do not win the point in the room.",
+              "keyPoints": [
+                "Never fight feedback.",
+                "Ask what the CTO needs.",
+                "Decide later whether you agree."
+              ]
+            },
+            {
+              "threat": "What is the biggest risk in this plan?",
+              "constraint": "One old partner system may break, and nobody has tested it yet.",
+              "reasons": [
+                {
+                  "text": "Name the problem and your answer to it.",
+                  "right": true
+                },
+                {
+                  "text": "Admitting a risk makes the CTO reject the plan.",
+                  "right": false
+                },
+                {
+                  "text": "Risks are details that executives do not need.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                26,
+                3
+              ],
+              "moves": [
+                {
+                  "moveId": "answer.no-big-risks",
+                  "label": "There are no big risks in this plan.",
+                  "damage": 0,
+                  "counterattack": "The CTO finds the risk later and trusts you less."
+                },
+                {
+                  "moveId": "answer.name-the-risk",
+                  "label": "One old partner system may break. We test it first and keep a way back.",
+                  "damage": 2,
+                  "counterattack": "The plan looks less perfect, but the CTO trusts it more."
+                },
+                {
+                  "moveId": "answer.come-back-later",
+                  "label": "I will come back to you on the risks next week.",
+                  "damage": 1,
+                  "counterattack": "The decision waits a week."
+                }
+              ],
+              "modelAnswer": "Do not evade problems. Name the biggest risk and your answer to it. The cost: the plan looks less perfect in the room.",
+              "keyPoints": [
+                "Do not hide the problem.",
+                "Name the biggest risk.",
+                "Give your answer to the risk."
+              ]
+            }
+          ],
+          "hash": "dd2cdb1e2070b81e"
+        },
+        {
+          "id": "t01-meeting-scope",
+          "name": "The growing wish list",
+          "kind": "meeting",
+          "person": "client",
+          "source": {
+            "title": "Shape Up: Decide when to stop",
+            "url": "https://basecamp.com/shapeup/3.5-chapter-14"
+          },
+          "opponentType": "speed",
+          "problem": "A client's new checkout must launch at the end of a fixed six-week project. The client keeps adding wishes.",
+          "turns": [
+            {
+              "threat": "Can you also add saved cards before launch?",
+              "constraint": "The launch date is fixed, and the must-haves fill the six weeks.",
+              "reasons": [
+                {
+                  "text": "A good team always finds time for one more feature.",
+                  "right": false
+                },
+                {
+                  "text": "Moving the date is the safe way to add scope.",
+                  "right": false
+                },
+                {
+                  "text": "With a fixed date, a new wish is a nice-to-have, not a must-have.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                20,
+                5
+              ],
+              "moves": [
+                {
+                  "moveId": "answer.extra-hours",
+                  "label": "Yes, the team will work extra hours to fit it in.",
+                  "damage": 1,
+                  "counterattack": "Saved cards may arrive, but tired people make more mistakes."
+                },
+                {
+                  "moveId": "answer.move-date",
+                  "label": "Yes, if we move the launch by two weeks.",
+                  "damage": 0,
+                  "counterattack": "The fixed date is gone, and the next wish moves it again."
+                },
+                {
+                  "moveId": "answer.nice-to-have",
+                  "label": "Saved cards go on the nice-to-have list. We add them if time is left.",
+                  "damage": 2,
+                  "counterattack": "The client is a little unhappy, but the launch date holds."
+                }
+              ],
+              "modelAnswer": "Keep the date and vary the scope. Put saved cards on the nice-to-have list, and do them only if time is left. The cost: the client may not get them in this launch.",
+              "keyPoints": [
+                "The date is fixed, and the scope can change.",
+                "A new wish is a nice-to-have.",
+                "Nice-to-haves are cut if there is no time."
+              ]
+            },
+            {
+              "threat": "The new checkout is not perfect. Should we wait?",
+              "constraint": "Today, shoppers must phone the shop to place a large order.",
+              "reasons": [
+                {
+                  "text": "Compare the new checkout to what shoppers have today, not to the ideal.",
+                  "right": true
+                },
+                {
+                  "text": "A launch must wait until there are no gaps.",
+                  "right": false
+                },
+                {
+                  "text": "A full list of gaps is the most honest answer.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                20,
+                19
+              ],
+              "moves": [
+                {
+                  "moveId": "answer.compare-to-baseline",
+                  "label": "It is not perfect, but it is much better than phoning in an order today.",
+                  "damage": 2,
+                  "counterattack": "The client still sees the gaps, but agrees to launch."
+                },
+                {
+                  "moveId": "answer.wait-for-perfect",
+                  "label": "Yes, we wait until every detail is perfect.",
+                  "damage": 0,
+                  "counterattack": "The launch slips again and again."
+                },
+                {
+                  "moveId": "answer.list-every-gap",
+                  "label": "Here is a list of every gap we know about.",
+                  "damage": 1,
+                  "counterattack": "The client sees only problems and loses confidence."
+                }
+              ],
+              "modelAnswer": "Compare down to the baseline, the shoppers' life today, not up to the ideal. The new checkout is better than phoning in an order. The cost: you launch with known gaps.",
+              "keyPoints": [
+                "Compare to the baseline, not the ideal.",
+                "Better than today is a reason to ship.",
+                "You launch with some known gaps."
+              ]
+            },
+            {
+              "threat": "The team needs two more weeks. Can we just extend the project?",
+              "constraint": "All the must-haves are done. Only nice-to-haves are left.",
+              "reasons": [
+                {
+                  "text": "A project should always be extended until it is complete.",
+                  "right": false
+                },
+                {
+                  "text": "When the must-haves are done, the nice-to-haves can be cut.",
+                  "right": true
+                },
+                {
+                  "text": "A project that runs late must be stopped at once.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                20,
+                5
+              ],
+              "moves": [
+                {
+                  "moveId": "answer.extend",
+                  "label": "Yes, two more weeks makes the checkout complete.",
+                  "damage": 1,
+                  "counterattack": "The checkout gets nicer, but the next project starts late."
+                },
+                {
+                  "moveId": "answer.cut-the-rest",
+                  "label": "The must-haves are done, so we launch now and cut the rest.",
+                  "damage": 2,
+                  "counterattack": "A few wishes wait, but the checkout ships on time."
+                },
+                {
+                  "moveId": "answer.cancel",
+                  "label": "No, we stop the project here.",
+                  "damage": 0,
+                  "counterattack": "The client loses a checkout that was ready to ship."
+                }
+              ],
+              "modelAnswer": "The must-haves are done, so the scope is done. Cut the nice-to-haves and launch. The cost: a few wishes wait for a later project.",
+              "keyPoints": [
+                "The must-haves are done.",
+                "Cut the nice-to-haves.",
+                "Ship on the fixed date."
+              ]
+            }
+          ],
+          "hash": "ecdb0ed189b2d1b1"
+        },
+        {
+          "id": "t01-meeting-incident-status",
+          "name": "The VP on the phone",
+          "kind": "meeting",
+          "person": "manager",
+          "source": {
+            "title": "Google SRE book: Managing incidents",
+            "url": "https://sre.google/sre-book/managing-incidents/"
+          },
+          "opponentType": "outage",
+          "problem": "The shop's sign-in is down. Your manager, a VP, calls you in the middle of the incident.",
+          "turns": [
+            {
+              "threat": "What is happening? Should I join the call?",
+              "constraint": "Three teams are on the call, and nobody owns the updates yet.",
+              "reasons": [
+                {
+                  "text": "A VP on the call makes the fix faster.",
+                  "right": false
+                },
+                {
+                  "text": "Leaders need every detail to decide well.",
+                  "right": false
+                },
+                {
+                  "text": "One lead and regular short updates keep leaders informed without the details.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                10,
+                21
+              ],
+              "moves": [
+                {
+                  "moveId": "answer.join-the-call",
+                  "label": "Yes, join the call and hear everything.",
+                  "damage": 0,
+                  "counterattack": "One more voice joins, and the call gets slower."
+                },
+                {
+                  "moveId": "answer.full-detail",
+                  "label": "Let me walk you through every log line we have seen so far.",
+                  "damage": 1,
+                  "counterattack": "Your manager is informed, but you stop fixing the problem."
+                },
+                {
+                  "moveId": "answer.roles-and-updates",
+                  "label": "One person now leads the incident. I will email you short status updates on a schedule.",
+                  "damage": 2,
+                  "counterattack": "Your manager waits for news, but the team can work."
+                }
+              ],
+              "modelAnswer": "Name one incident lead, and give one person the job of updates. Send short status emails to a fixed list. The cost: your manager does not hear every detail.",
+              "keyPoints": [
+                "One person leads the incident.",
+                "One person sends regular updates.",
+                "Keep updates high-level for leaders."
+              ]
+            },
+            {
+              "threat": "An engineer wants to try his own fix right now. Can he?",
+              "constraint": "Nobody else on the call knows what he wants to change.",
+              "reasons": [
+                {
+                  "text": "A good engineer should fix things without waiting.",
+                  "right": false
+                },
+                {
+                  "text": "Changes go through the incident lead, so the team knows what changes.",
+                  "right": true
+                },
+                {
+                  "text": "No changes at all is the safest rule in an incident.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                10
+              ],
+              "moves": [
+                {
+                  "moveId": "answer.let-him-try",
+                  "label": "Yes, every minute counts.",
+                  "damage": 0,
+                  "counterattack": "His change surprises the others and makes the outage worse."
+                },
+                {
+                  "moveId": "answer.through-the-lead",
+                  "label": "Yes, but only after he tells the incident lead what he will change.",
+                  "damage": 2,
+                  "counterattack": "The fix starts a few minutes later, but nobody is surprised."
+                },
+                {
+                  "moveId": "answer.stop-everything",
+                  "label": "No, nobody changes anything until the outage is over.",
+                  "damage": 1,
+                  "counterattack": "Nothing gets worse, but nothing gets fixed either."
+                }
+              ],
+              "modelAnswer": "Every change goes through the incident lead. A change made alone, even with good intentions, can make a bad situation worse. The cost: the fix starts a few minutes later.",
+              "keyPoints": [
+                "Do not let people fix things alone.",
+                "Changes go through the incident lead.",
+                "Everyone must know what is changing."
+              ]
+            },
+            {
+              "threat": "It was small in the end. Was it worth calling an incident?",
+              "constraint": "The fix took ten minutes once the right person looked at it.",
+              "reasons": [
+                {
+                  "text": "It is better to declare early, find a simple fix and close it.",
+                  "right": true
+                },
+                {
+                  "text": "Declaring an incident should wait until the cause is known.",
+                  "right": false
+                },
+                {
+                  "text": "An incident is only for problems that customers can see.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                10,
+                21
+              ],
+              "moves": [
+                {
+                  "moveId": "answer.declare-early",
+                  "label": "Yes. Declaring it early cost little, and we closed it fast.",
+                  "damage": 2,
+                  "counterattack": "Some calls will turn out small, but none grow out of control."
+                },
+                {
+                  "moveId": "answer.wait-next-time",
+                  "label": "No, next time we wait until we are sure it is big.",
+                  "damage": 0,
+                  "counterattack": "The next big outage starts with nobody in charge."
+                },
+                {
+                  "moveId": "answer.only-if-customers",
+                  "label": "Only when customers can see the problem.",
+                  "damage": 1,
+                  "counterattack": "That is one good rule, but hidden problems now grow alone."
+                }
+              ],
+              "modelAnswer": "Yes. It is better to declare an incident early, find a simple fix and close it. Set clear conditions for declaring one. The cost: some incidents turn out small.",
+              "keyPoints": [
+                "Declare incidents early.",
+                "Close them fast when the fix is simple.",
+                "Set clear conditions for declaring one."
+              ]
+            }
+          ],
+          "hash": "e3336c5c3e579578"
+        },
+        {
+          "id": "t01-diff-cors-origin",
+          "name": "The open CORS door",
+          "kind": "agent-diff",
+          "diff": "app.use((req, res, next) => {\n-  res.set(\"Access-Control-Allow-Origin\", \"https://app.example.com\");\n+  res.set(\"Access-Control-Allow-Origin\", req.headers.origin);\n+  res.set(\"Access-Control-Allow-Credentials\", \"true\");\n   next();\n });",
+          "source": {
+            "title": "PortSwigger Research: Exploiting CORS misconfigurations for Bitcoins and bounties",
+            "url": "https://portswigger.net/research/exploiting-cors-misconfigurations-for-bitcoins-and-bounties"
+          },
+          "opponentType": "security",
+          "problem": "A partner site cannot call your API. An AI agent changed the CORS headers to make it work.",
+          "turns": [
+            {
+              "threat": "The API now copies any Origin header into Access-Control-Allow-Origin, with credentials.",
+              "constraint": "The API returns private API keys to signed-in users, and the release is tonight.",
+              "reasons": [
+                {
+                  "text": "With credentials on, the browser checks the origin for the server.",
+                  "right": false
+                },
+                {
+                  "text": "CORS headers matter only for old browsers.",
+                  "right": false
+                },
+                {
+                  "text": "Copying any origin with credentials lets every site read private data.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                14,
+                15
+              ],
+              "moves": [
+                {
+                  "moveId": "verdict.approve",
+                  "damage": 0,
+                  "counterattack": "Any site can now read a signed-in user's private API key."
+                },
+                {
+                  "moveId": "verdict.ask-for-test",
+                  "damage": 1,
+                  "counterattack": "A test may catch it, but the open door ships tonight if nobody looks."
+                },
+                {
+                  "moveId": "verdict.block",
+                  "damage": 2,
+                  "counterattack": "The partner waits one more day, but no other site can read user data."
+                }
+              ],
+              "modelAnswer": "Block it. Copying the Origin header into Access-Control-Allow-Origin, with credentials, trusts every site. Any site can then read a signed-in user's data. The cost: the partner waits.",
+              "keyPoints": [
+                "Copying the Origin header trusts every site.",
+                "With credentials, other sites can read private data.",
+                "Block the change before the release."
+              ]
+            },
+            {
+              "threat": "The agent now trusts every origin that ends in example.com.",
+              "constraint": "No test sends a request from an origin like evilexample.com.",
+              "reasons": [
+                {
+                  "text": "A check on the end of the name also trusts names an attacker can buy.",
+                  "right": true
+                },
+                {
+                  "text": "Every name that ends in example.com belongs to your company.",
+                  "right": false
+                },
+                {
+                  "text": "A string check on the origin is always safe.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                14,
+                15
+              ],
+              "moves": [
+                {
+                  "moveId": "verdict.block",
+                  "damage": 1,
+                  "counterattack": "You stop it again, but the agent does not learn which case is wrong."
+                },
+                {
+                  "moveId": "verdict.ask-for-test",
+                  "damage": 2,
+                  "counterattack": "The test fails for evilexample.com, and the agent must fix the check."
+                },
+                {
+                  "moveId": "verdict.approve",
+                  "damage": 0,
+                  "counterattack": "A site named evilexample.com can now read user data."
+                }
+              ],
+              "modelAnswer": "Ask for a test with an origin like evilexample.com. A check on the end of the name trusts names that an attacker can register. The test shows the bug, so the agent can fix it. The cost: one more round.",
+              "keyPoints": [
+                "An end-of-name check is not safe.",
+                "Ask for a test with a lookalike origin.",
+                "A failing test shows the agent what to fix."
+              ]
+            },
+            {
+              "threat": "The agent now allows only one exact origin from a fixed list, and adds Vary: Origin.",
+              "constraint": "A test shows that an unknown origin gets no CORS headers.",
+              "reasons": [
+                {
+                  "text": "Any change to CORS headers must be blocked.",
+                  "right": false
+                },
+                {
+                  "text": "An exact list, with a test for unknown origins, is evidence the change is safe.",
+                  "right": true
+                },
+                {
+                  "text": "A test is needed even when it already exists.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                15
+              ],
+              "moves": [
+                {
+                  "moveId": "verdict.ask-for-test",
+                  "damage": 1,
+                  "counterattack": "The test you want is already there, so the partner waits for nothing."
+                },
+                {
+                  "moveId": "verdict.block",
+                  "damage": 0,
+                  "counterattack": "You block a safe change, and the partner still cannot call the API."
+                },
+                {
+                  "moveId": "verdict.approve",
+                  "damage": 2,
+                  "counterattack": "The partner site works, and you must keep the list up to date."
+                }
+              ],
+              "modelAnswer": "Approve it. The API trusts one exact origin from a fixed list, and sends Vary: Origin. A test proves an unknown origin gets nothing. The cost: someone must keep the list up to date.",
+              "keyPoints": [
+                "Trust exact origins from a fixed list.",
+                "Send Vary: Origin with a dynamic header.",
+                "Approve when a test is the evidence."
+              ]
+            }
+          ],
+          "hash": "edaaf3d809bde411"
+        },
+        {
+          "id": "t01-diff-cached-account",
+          "name": "The cached account page",
+          "kind": "agent-diff",
+          "diff": "router.get(\"/account\", requireSignIn, (req, res) => {\n+  res.set(\"Cache-Control\", \"public, max-age=300\");\n   res.render(\"account\", { user: req.user });\n });",
+          "source": {
+            "title": "Game Informer: Valve provides more information on Steam's troubled Christmas",
+            "url": "https://gameinformer.com/b/news/archive/2015/12/30/valve-provides-more-information-on-steams-troubled-christmas-that-affected-34000"
+          },
+          "opponentType": "data",
+          "problem": "The store is under heavy load. An AI agent added caching rules to make pages faster.",
+          "turns": [
+            {
+              "threat": "The account page, which shows a billing address, is now cached for every user.",
+              "constraint": "A shared web cache sits in front of the store.",
+              "reasons": [
+                {
+                  "text": "A shared cache can serve one user's page to another user.",
+                  "right": true
+                },
+                {
+                  "text": "A page behind sign-in is never stored in a cache.",
+                  "right": false
+                },
+                {
+                  "text": "A short max-age makes a public cache safe for private pages.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                14,
+                15
+              ],
+              "moves": [
+                {
+                  "moveId": "verdict.block",
+                  "damage": 2,
+                  "counterattack": "The account page stays slower, but no user sees another user's page."
+                },
+                {
+                  "moveId": "verdict.approve",
+                  "damage": 0,
+                  "counterattack": "Users start to see account pages that were made for other users."
+                },
+                {
+                  "moveId": "verdict.ask-for-test",
+                  "damage": 1,
+                  "counterattack": "A test may show it, but the risk is clear from the diff."
+                }
+              ],
+              "modelAnswer": "Block it. A shared cache that stores pages for signed-in users can serve one user's page to another. On Steam, this showed personal data to other users. The cost: the account page stays slower.",
+              "keyPoints": [
+                "Pages for signed-in users must not be shared.",
+                "A shared cache can show one user's page to another.",
+                "Block it before it ships."
+              ]
+            },
+            {
+              "threat": "The agent's diff also caches the public product pages, which are the same for every user.",
+              "constraint": "Most of the load hits the product pages, and the account part is still in the diff.",
+              "reasons": [
+                {
+                  "text": "A diff must be approved or blocked as a whole.",
+                  "right": false
+                },
+                {
+                  "text": "Keep the safe part of the diff and remove the risky part.",
+                  "right": true
+                },
+                {
+                  "text": "Caching is safe as soon as most pages are public.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                14,
+                15
+              ],
+              "moves": [
+                {
+                  "moveId": "verdict.approve",
+                  "damage": 0,
+                  "counterattack": "The product pages get faster, and the account pages leak too."
+                },
+                {
+                  "moveId": "verdict.narrow",
+                  "damage": 2,
+                  "counterattack": "Only the product page caching ships, so the account change waits."
+                },
+                {
+                  "moveId": "verdict.block",
+                  "damage": 1,
+                  "counterattack": "Nothing leaks, but the product pages stay slow under the load."
+                }
+              ],
+              "modelAnswer": "Narrow it. Keep the caching for the public product pages, and remove the account page change. The cost: the agent must split its work.",
+              "keyPoints": [
+                "Split the safe part from the risky part.",
+                "Public pages can be cached.",
+                "The account page change must go."
+              ]
+            },
+            {
+              "threat": "The agent now leaves the account page out of the cache, and says all tests pass.",
+              "constraint": "No test checks that a second user never gets the first user's page.",
+              "reasons": [
+                {
+                  "text": "All tests pass, so the change must be safe.",
+                  "right": false
+                },
+                {
+                  "text": "An agent's claim is the same as evidence.",
+                  "right": false
+                },
+                {
+                  "text": "Passing tests prove nothing about a case that no test checks.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                14,
+                15
+              ],
+              "moves": [
+                {
+                  "moveId": "verdict.block",
+                  "damage": 0,
+                  "counterattack": "You block a fix that may be right, and the slow store stays slow."
+                },
+                {
+                  "moveId": "verdict.approve",
+                  "damage": 1,
+                  "counterattack": "The change is probably right, but nothing proves it."
+                },
+                {
+                  "moveId": "verdict.ask-for-test",
+                  "damage": 2,
+                  "counterattack": "The release waits for one test, but the leak cannot come back unseen."
+                }
+              ],
+              "modelAnswer": "Ask for a test with two users. The test must show that the second user never gets the first user's page. Passing tests mean little when no test checks this case. The cost: the release waits for one test.",
+              "keyPoints": [
+                "Passing tests do not cover this case.",
+                "Ask for a test with two users.",
+                "Ask for evidence, not a claim."
+              ]
+            }
+          ],
+          "hash": "7fa3b47593800a55"
+        },
+        {
+          "id": "t01-diff-retry-charge",
+          "name": "The double charge",
+          "kind": "agent-diff",
+          "diff": "async function charge(order) {\n-  return post(\"/v1/charges\", order);\n+  for (let i = 0; i < 3; i++) {\n+    try { return await post(\"/v1/charges\", order); }\n+    catch (error) { /* network error: try again */ }\n+  }\n }",
+          "source": {
+            "title": "Stripe: Designing robust and predictable APIs with idempotency",
+            "url": "https://stripe.com/blog/idempotency"
+          },
+          "opponentType": "data",
+          "problem": "Some card charges fail with network errors. An AI agent added retries to the charge call.",
+          "turns": [
+            {
+              "threat": "The client may now send the same charge up to three times.",
+              "constraint": "A network error can come after the payment API already charged the card.",
+              "reasons": [
+                {
+                  "text": "A failed request never reached the server.",
+                  "right": false
+                },
+                {
+                  "text": "After a network error, a retry can charge the customer a second time.",
+                  "right": true
+                },
+                {
+                  "text": "Retrying a POST is always safe, like a GET.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                14,
+                15
+              ],
+              "moves": [
+                {
+                  "moveId": "verdict.ask-for-test",
+                  "damage": 1,
+                  "counterattack": "A test may find it later, but the diff already shows the risk."
+                },
+                {
+                  "moveId": "verdict.block",
+                  "damage": 2,
+                  "counterattack": "The failed charges stay failed for now, but no customer pays twice."
+                },
+                {
+                  "moveId": "verdict.approve",
+                  "damage": 0,
+                  "counterattack": "Some customers are charged two or three times."
+                }
+              ],
+              "modelAnswer": "Block it. After a network error, the client cannot know if the charge happened. A blind retry can charge the customer twice. The cost: failed charges stay failed until there is a safe fix.",
+              "keyPoints": [
+                "A network error does not mean the charge failed.",
+                "A blind retry can charge twice.",
+                "Block until the retry is safe."
+              ]
+            },
+            {
+              "threat": "The agent adds an Idempotency-Key header, the same on every retry of one order.",
+              "constraint": "No test makes the first try fail after the charge has already succeeded.",
+              "reasons": [
+                {
+                  "text": "Adding the header is enough proof by itself.",
+                  "right": false
+                },
+                {
+                  "text": "Idempotency keys are only needed for GET requests.",
+                  "right": false
+                },
+                {
+                  "text": "Only a test of a lost reply after a charge proves the key works.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                14,
+                15
+              ],
+              "moves": [
+                {
+                  "moveId": "verdict.approve",
+                  "damage": 1,
+                  "counterattack": "The key is probably right, but nothing proves one charge per order."
+                },
+                {
+                  "moveId": "verdict.block",
+                  "damage": 0,
+                  "counterattack": "You block the right idea, and charges keep failing."
+                },
+                {
+                  "moveId": "verdict.ask-for-test",
+                  "damage": 2,
+                  "counterattack": "The release waits for one test, but a double charge cannot hide."
+                }
+              ],
+              "modelAnswer": "Ask for a test where the first try fails after the charge succeeds. The server should see the same key and charge only once. The cost: the release waits for one test.",
+              "keyPoints": [
+                "The same key on every retry of one order.",
+                "The server uses the key to spot a retry.",
+                "Ask for a test of the lost reply."
+              ]
+            },
+            {
+              "threat": "The agent adds exponential backoff with random jitter between retries.",
+              "constraint": "The test now shows one charge after a lost reply, and the retries wait longer each time.",
+              "reasons": [
+                {
+                  "text": "The key, backoff with jitter and a passing test make the retry safe.",
+                  "right": true
+                },
+                {
+                  "text": "Retries should never wait, so the user does not wait.",
+                  "right": false
+                },
+                {
+                  "text": "Random waits make a payment system unsafe.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                15
+              ],
+              "moves": [
+                {
+                  "moveId": "verdict.narrow",
+                  "damage": 1,
+                  "counterattack": "You cut part of a safe change, and the agent has to redo it."
+                },
+                {
+                  "moveId": "verdict.approve",
+                  "damage": 2,
+                  "counterattack": "Retries now help, but the code is longer to read."
+                },
+                {
+                  "moveId": "verdict.block",
+                  "damage": 0,
+                  "counterattack": "You block a safe fix, and charges keep failing."
+                }
+              ],
+              "modelAnswer": "Approve it. The idempotency key stops double charges, and the test proves it. Backoff with jitter stops all clients from retrying at the same moment. The cost: more code to read.",
+              "keyPoints": [
+                "The key stops double charges.",
+                "Backoff with jitter spreads retries out.",
+                "Approve when a test is the evidence."
+              ]
+            }
+          ],
+          "hash": "0152116350e43b41"
+        },
+        {
+          "id": "t01-diff-open-redirect",
+          "name": "The open redirect",
+          "kind": "agent-diff",
+          "diff": "router.get(\"/signin/done\", (req, res) => {\n-  res.redirect(\"/account\");\n+  res.redirect(req.query.next);\n });",
+          "source": {
+            "title": "OWASP: Unvalidated Redirects and Forwards Cheat Sheet",
+            "url": "https://cheatsheetseries.owasp.org/cheatsheets/Unvalidated_Redirects_and_Forwards_Cheat_Sheet.html"
+          },
+          "opponentType": "security",
+          "problem": "Users want to return to their last page after sign-in. An AI agent added a next parameter.",
+          "turns": [
+            {
+              "threat": "The sign-in page now redirects to any URL in the next parameter.",
+              "constraint": "Phishing emails already copy the shop's look and name.",
+              "reasons": [
+                {
+                  "text": "A link with the shop's real name can send users to a fake site.",
+                  "right": true
+                },
+                {
+                  "text": "Users always check where a redirect goes.",
+                  "right": false
+                },
+                {
+                  "text": "A redirect cannot hurt, because it only changes the page.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                14,
+                15
+              ],
+              "moves": [
+                {
+                  "moveId": "verdict.block",
+                  "damage": 2,
+                  "counterattack": "Users still land on their account page for now, but no link can send them away."
+                },
+                {
+                  "moveId": "verdict.ask-for-test",
+                  "damage": 1,
+                  "counterattack": "A test may show it, but the risk is clear from the diff."
+                },
+                {
+                  "moveId": "verdict.approve",
+                  "damage": 0,
+                  "counterattack": "A phishing link now shows the shop's own name and lands on a fake site."
+                }
+              ],
+              "modelAnswer": "Block it. The redirect takes its target from user input. A phishing link then starts on the real shop, so users trust it. The cost: users do not return to their last page yet.",
+              "keyPoints": [
+                "The target comes from user input.",
+                "The link shows the trusted shop name.",
+                "Block it until the target is checked."
+              ]
+            },
+            {
+              "threat": "The agent now uses the framework helper that rejects non-local URLs, and also renames twenty files.",
+              "constraint": "The renames are not part of this task, and the review is due today.",
+              "reasons": [
+                {
+                  "text": "Bigger diffs are better, because they fix more things at once.",
+                  "right": false
+                },
+                {
+                  "text": "A safe line makes the whole diff safe.",
+                  "right": false
+                },
+                {
+                  "text": "Ask for only the part of the change the task needs.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                14,
+                15
+              ],
+              "moves": [
+                {
+                  "moveId": "verdict.approve",
+                  "damage": 1,
+                  "counterattack": "The redirect is safe, but twenty unrelated renames hide in the same change."
+                },
+                {
+                  "moveId": "verdict.block",
+                  "damage": 0,
+                  "counterattack": "You block a safe fix because of the renames."
+                },
+                {
+                  "moveId": "verdict.narrow",
+                  "damage": 2,
+                  "counterattack": "Only the redirect fix ships today, and the renames wait for their own review."
+                }
+              ],
+              "modelAnswer": "Narrow it. Keep the redirect fix with the helper, and move the renames to their own change. The cost: the agent must split its work.",
+              "keyPoints": [
+                "The helper rejects non-local URLs.",
+                "The renames are outside the task.",
+                "Ask for a smaller diff."
+              ]
+            },
+            {
+              "threat": "The diff now has only the redirect change with the helper.",
+              "constraint": "A test shows that a next value with another site's URL goes to the account page.",
+              "reasons": [
+                {
+                  "text": "Any redirect from user input must always be blocked.",
+                  "right": false
+                },
+                {
+                  "text": "A local-only helper, with a test for outside URLs, is evidence the change is safe.",
+                  "right": true
+                },
+                {
+                  "text": "A test is only needed when the diff is long.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                15
+              ],
+              "moves": [
+                {
+                  "moveId": "verdict.approve",
+                  "damage": 2,
+                  "counterattack": "Users return to their last page, and you own the decision."
+                },
+                {
+                  "moveId": "verdict.block",
+                  "damage": 0,
+                  "counterattack": "You block a safe change, and users still lose their page."
+                },
+                {
+                  "moveId": "verdict.ask-for-test",
+                  "damage": 1,
+                  "counterattack": "The test you want is already there, so the change waits for nothing."
+                }
+              ],
+              "modelAnswer": "Approve it. The framework helper rejects non-local targets, and a test proves an outside URL goes nowhere. The cost: you own this decision now.",
+              "keyPoints": [
+                "Use a helper that rejects non-local URLs.",
+                "A test is the evidence.",
+                "Approve and own the verdict."
+              ]
+            }
+          ],
+          "hash": "3643077c69f1700e"
         }
       ]
     },
