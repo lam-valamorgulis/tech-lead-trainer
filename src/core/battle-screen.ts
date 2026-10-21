@@ -57,9 +57,14 @@ export function turnResultText({
   };
 }
 
+/** The battle as it stood after its first `turns` turns, for example before or after one turn's result. */
+export function battleAfter(battle: BattleV2, turns: number): BattleV2 {
+  return { ...battle, played: battle.played.slice(0, turns) };
+}
+
 function hitBackText(battle: BattleV2, turnNumber: number, opponentName: string, nameOf: NameOf): string {
   const played = battle.played[turnNumber - 1];
-  const after = progressV2({ ...battle, played: battle.played.slice(0, turnNumber) });
+  const after = progressV2(battleAfter(battle, turnNumber));
   if (after.won) return `${opponentName} is down!`;
   if (played.hpLost === 0) return played.bestMove ? "Best move. No hit back." : "No hit back.";
   const faints = played.fainted.map((id) => ` ${nameOf(id)} fainted!`).join("");
@@ -69,7 +74,7 @@ function hitBackText(battle: BattleV2, turnNumber: number, opponentName: string,
 
 /** The team member who was in at the start of a turn: the one who takes that turn's hit. */
 export function activeBefore(battle: BattleV2, turnNumber: number): string | null {
-  return progressV2({ ...battle, played: battle.played.slice(0, turnNumber - 1) }).active;
+  return progressV2(battleAfter(battle, turnNumber - 1)).active;
 }
 
 /** The colour of an HP bar: full above two thirds, low at one third or less. */

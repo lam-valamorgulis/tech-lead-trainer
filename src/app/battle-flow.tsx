@@ -10,7 +10,7 @@ import { opponentTypes, scenarioTwist } from "@/core/twist";
 import type { OpponentType } from "@/content/schema";
 import { postEvents } from "@/lib/events/post-events";
 import type { BattleEventFields, LearningEvent } from "@/lib/events/write-events";
-import { BattleScene } from "./battle-scene";
+import { BattleScene, type PlayChoice } from "./battle-scene";
 import { CreatureSprite } from "./creature-sprite";
 import { DiscussInClaude } from "./discuss-in-claude";
 import { Fx, useMusic } from "./effects";
@@ -70,7 +70,7 @@ export function BattleFlow({
   });
 
   /** Plays and saves one turn. The best move and whether the Reason was right are fixed here, at play time. */
-  function play(moveId: string | null, reasonIndex: number | null, note: string) {
+  const play: PlayChoice = (moveId, reasonIndex, note) => {
     if (!battle) return;
     const turnNumber = battle.played.length + 1;
     const next = playTurnV2(battle, moveId, reasonIndex);
@@ -111,7 +111,7 @@ export function BattleFlow({
     }
     void postEvents(events);
     setBattle(next);
-  }
+  };
 
   /** Saves the self-check of every turn. The ticks change only the review schedule, never the result. */
   function saveChecks(ticked: Record<number, number[]>) {

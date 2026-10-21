@@ -5,7 +5,7 @@ import { reviewItem } from "@/content";
 import type { BundledScenario } from "@/content/bundle";
 import type { OpponentType } from "@/content/schema";
 import { creatureOf, MAX_TURNS, OPPONENT_HP } from "@/core/battle";
-import { activeBefore, hpLevel, turnResultText, turnTimeline, type NameOf, type TurnTimeline } from "@/core/battle-screen";
+import { activeBefore, battleAfter, hpLevel, turnResultText, turnTimeline, type NameOf, type TurnTimeline } from "@/core/battle-screen";
 import { BAR_NAMES, CREATURE_HP, progressV2, teamHp, usableMovesV2, type BattleV2, type PlayedTurnV2 } from "@/core/battle-v2";
 import { EFFECTS, soundForDamage, type EffectName } from "@/core/effects";
 import { OPPONENT_SPECIES } from "@/core/sprite";
@@ -13,10 +13,17 @@ import { scenarioTwist, threatTypeOf } from "@/core/twist";
 import { CreatureSprite } from "./creature-sprite";
 import { fxStyle } from "./effects";
 import { GlossaryText } from "./glossary-text";
+import { keepAboveKeyboard } from "./keyboard";
 import { OPPONENT_LOOK } from "./opponent-look";
 import { playSound } from "./sound";
 
 const nameOf: NameOf = (id) => reviewItem(id)?.name ?? id;
+
+/**
+ * The learner's pick for one turn: a move (null when the team has none for this threat), the
+ * Reason by its index in the content file (null on a turn with no Reasons), and their own words, or "".
+ */
+export type PlayChoice = (moveId: string | null, reasonIndex: number | null, note: string) => void;
 
 /**
  * The Battle scene v2 (#103, design 9 rules 1 to 6, layout C "Panel" of the approved prototype).
@@ -33,8 +40,7 @@ export function BattleScene({
 }: {
   scenario: BundledScenario;
   battle: BattleV2;
-  /** The learner picked a move and, on a turn with Reasons, a Reason. `note` is their own words, or "". */
-  onPlay: (moveId: string | null, reasonIndex: number | null, note: string) => void;
+  onPlay: PlayChoice;
   /** The learner leaves the scene after the last turn's result. */
   onEnd: () => void;
 }) {
@@ -45,12 +51,12 @@ export function BattleScene({
   const progress = progressV2(battle);
   const showing = resultFor ?? progress.turnNumber;
 
-  function play(moveId: string | null, reasonIndex: number | null, note: string) {
+  const play: PlayChoice = (moveId, reasonIndex, note) => {
     playSound("select");
     setSkipped(false);
     setResultFor(battle.played.length + 1);
     onPlay(moveId, reasonIndex, note);
-  }
+  };
 
   function next() {
     playSound("tap");
@@ -85,17 +91,25 @@ export function BattleScene({
   );
 }
 
-/** Plays each sound of a turn's result at the moment its effect and its text show (UI rule 13). */
+/**
+ * Plays each sound of a turn's result at the moment its effect and its text show (UI rule 13).
+ * With no effects, the text is all on screen at once, so the sounds follow each other closely.
+ */
 function useTurnSounds(played: PlayedTurnV2 | null, skipped: boolean) {
   useEffect(() => {
     if (!played || skipped) return;
-    const timeline = turnTimeline(played);
+    const still =
+      document.documentElement.dataset.effects === "reduced" || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const timeline = still ? STILL_SOUNDS : turnTimeline(played);
     const timers = [setTimeout(() => playSound(soundForDamage(played.damage)), timeline.hitAt)];
-    if (timeline.counterAt !== null) timers.push(setTimeout(() => playSound("hurt"), timeline.counterAt));
-    if (timeline.faintAt !== null) timers.push(setTimeout(() => playSound("faint"), timeline.faintAt));
+    if (played.hpLost > 0) timers.push(setTimeout(() => playSound("hurt"), timeline.counterAt!));
+    if (played.fainted.length > 0) timers.push(setTimeout(() => playSound("faint"), timeline.faintAt!));
     return () => timers.forEach(clearTimeout);
   }, [played, skipped]);
 }
+
+/** When the sounds play with no effects: one after the other, each one short. */
+const STILL_SOUNDS = { hitAt: 0, counterAt: 300, faintAt: 600 };
 
 /** The scene: both creatures on their pads, both HP boxes, and the effects of a played turn. */
 function Stage({
@@ -112,8 +126,8 @@ function Stage({
   timeline: TurnTimeline | null;
 }) {
   const kind = battle.kind;
-  const before = { ...battle, played: battle.played.slice(0, turnNumber - 1) };
-  const after = { ...battle, played: battle.played.slice(0, result ?? turnNumber - 1) };
+  const before = battleAfter(battle, turnNumber - 1);
+  const after = battleAfter(battle, result ?? turnNumber - 1);
   const played = result === null ? null : battle.played[result - 1];
   // During a result, the scene shows the creature that took the hit, even when it Fainted.
   const mine = activeBefore(battle, turnNumber) ?? battle.team[battle.team.length - 1];
@@ -272,7 +286,7 @@ function ChoicePanel({
 }: {
   scenario: BundledScenario;
   battle: BattleV2;
-  onPlay: (moveId: string | null, reasonIndex: number | null, note: string) => void;
+  onPlay: PlayChoice;
 }) {
   const turnNumber = battle.played.length + 1;
   const turn = scenario.turns[turnNumber - 1];
@@ -316,7 +330,13 @@ function ChoicePanel({
         {noteOpen ? (
           <label className="field">
             <span className="field-label">Your own words (optional)</span>
-            <textarea rows={2} maxLength={1000} value={note} onChange={(event) => setNote(event.target.value)} />
+            <textarea
+              rows={2}
+              maxLength={1000}
+              value={note}
+              onFocus={(event) => keepAboveKeyboard(event.currentTarget)}
+              onChange={(event) => setNote(event.target.value)}
+            />
           </label>
         ) : (
           <button type="button" className="button-quiet battle-small" onClick={() => setNoteOpen(true)}>
