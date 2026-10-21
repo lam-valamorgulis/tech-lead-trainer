@@ -77,8 +77,9 @@ test("the map reopens the Town Intro of the current town (#98)", async ({ page }
     await expect(page.getByRole("heading", { name: /^Town 2:/ })).toBeVisible();
     await page.getByRole("link", { name: "Town Intro" }).click();
     // The dev server builds this page on its first visit, which can take a few seconds.
-    await expect(page.getByText("Town 2: Fixture Town Two")).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByRole("heading", { name: "How an API keeps partners safe" })).toBeVisible();
+    // The production build keeps the map page hidden in the page, so look for what only the intro page has.
+    await expect(page.getByRole("heading", { level: 1, name: "Town Intro" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "How an API keeps partners safe" })).toBeVisible();
     const accessibility = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
     expect(accessibility.violations).toEqual([]);
     await page.getByRole("link", { name: "Back to the map" }).click();
