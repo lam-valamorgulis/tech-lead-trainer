@@ -3933,11 +3933,11 @@
         },
         {
           "threatType": "traffic",
-          "threat": "Create tells the app nothing about the new book. So the app searches the whole list every second.",
-          "constraint": "The app must open the new book at once, with no search.",
+          "threat": "Your create endpoint does not follow the industry standard for a create response. Developers cannot guess what it returns.",
+          "constraint": "Your design rule: be consistent with industry standards first.",
           "reasons": [
             {
-              "text": "An empty 200 tells the app where the new book is.",
+              "text": "An empty 200 already tells the app where the new book is.",
               "right": false
             },
             {
@@ -3979,53 +3979,53 @@
         },
         {
           "threatType": "data",
-          "threat": "Your docs let developers try any endpoint in the browser. But the browser hides every API response from the docs page.",
-          "constraint": "The docs and the API are on different origins, and the test calls send no cookies.",
+          "threat": "You renamed /getBook to /books/{id}. App builds that worked yesterday get 404 today.",
+          "constraint": "Your rule: what worked yesterday should work tomorrow. The app only reads with the old URL.",
           "reasons": [
             {
-              "text": "Once the preflight passes, the browser lets the docs page read the responses.",
+              "text": "A 404 with a helpful message tells the app where the book went.",
               "right": false
             },
             {
-              "text": "The browser needs cookies before it shows a response.",
+              "text": "Bringing back /getBook next to the new endpoint keeps the design clean.",
               "right": false
             },
             {
-              "text": "The browser shows a cross-origin response only when the server allows that origin.",
+              "text": "A permanent redirect sends the app to the new URL by itself.",
               "right": true
             }
           ],
           "skills": [
             2,
-            12
+            20
           ],
           "moves": [
             {
-              "moveId": "cors.preflight",
+              "moveId": "resource-design.resource-name",
               "damage": 1,
-              "counterattack": "OPTIONS requests now pass, but the real responses still have no allow header."
+              "counterattack": "Book names are clean, but the old builds still get 404."
             },
             {
-              "moveId": "cors.allow-origin",
+              "moveId": "status-code.client-error",
+              "damage": 0,
+              "counterattack": "You explain the 404 in the docs, and the old builds still fail."
+            },
+            {
+              "moveId": "status-code.redirect",
               "damage": 2,
-              "counterattack": "The docs page can read the responses, but every API response must carry the header."
+              "counterattack": "Old builds reach the new URL, but you must keep the old route as a redirect."
             },
             {
-              "moveId": "cors.credentials",
+              "moveId": "api-status-code.created",
               "damage": 0,
-              "counterattack": "You turn on credentials that the calls never send, and the page still cannot read."
-            },
-            {
-              "moveId": "resource-design.custom-method",
-              "damage": 0,
-              "counterattack": "You add a :tryIt method, and the browser hides its answer too."
+              "counterattack": "Creates return 201, but reads of /getBook still fail."
             }
           ],
-          "modelAnswer": "Send Access-Control-Allow-Origin with the docs origin. The calls carry no credentials, so the * wildcard also works. If you name one origin, also send Vary: Origin. The cost: every response needs the header.",
+          "modelAnswer": "Answer the old URL with a permanent redirect, 301 or 308, and a Location header with the new URL. The client then loads the new URL at once. The cost: you keep the old route for the redirect.",
           "keyPoints": [
-            "The header names the origin that may read the response.",
-            "The * wildcard works only without credentials.",
-            "Send Vary: Origin when you name one origin."
+            "A redirect has a status code that starts with 3.",
+            "The Location header names the new URL.",
+            "301 and 308 are permanent redirects."
           ]
         }
       ]
@@ -4140,19 +4140,19 @@
         },
         {
           "threatType": "data",
-          "threat": "Two staff members change the same order at once. The second save wins, and the first change is lost.",
-          "constraint": "Saves have no version check yet, and staff can merge two changes by hand.",
+          "threat": "Two staff members create an order label with the same name at once. The second create fails, and the app shows Try again.",
+          "constraint": "The name was free when the user started, but another create took it first.",
           "reasons": [
             {
-              "text": "The last save should win, because it is the newest one.",
+              "text": "Try again works, because the next create gets a new chance.",
               "right": false
             },
             {
-              "text": "A new method can merge the two changes by itself.",
+              "text": "A new method can merge the two creates by itself.",
               "right": false
             },
             {
-              "text": "A 409 tells the second user that the order changed.",
+              "text": "A 409 tells the user that the name is already in use.",
               "right": true
             }
           ],
@@ -4162,31 +4162,31 @@
           ],
           "moves": [
             {
-              "moveId": "api-status-code.conflict",
-              "damage": 2,
-              "counterattack": "The second PUT now gets 409, but the staff must merge the two changes by hand."
-            },
-            {
               "moveId": "api-status-code.created",
               "damage": 0,
-              "counterattack": "You answer 201, but nothing new was created, and the change is still lost."
+              "counterattack": "You answer 201 for both, and now two labels share one name."
             },
             {
               "moveId": "resource-design.custom-method",
               "damage": 0,
-              "counterattack": "You add an :updateSafely method, but it also saves over the first change."
+              "counterattack": "You add a :createSafely method, and it fails the same way."
+            },
+            {
+              "moveId": "api-status-code.conflict",
+              "damage": 2,
+              "counterattack": "The second create gets 409, and the user must pick another name."
             },
             {
               "moveId": "resource-design.standard-methods",
               "damage": 0,
-              "counterattack": "Update returns the saved order now, but the first change is still lost."
+              "counterattack": "Create returns the label now, but the second create still fails with no reason."
             }
           ],
-          "modelAnswer": "Answer the conflicting PUT with 409 Conflict. Give enough detail, so the user can see the other change and merge. The cost: users must resolve the conflict themselves and send again.",
+          "modelAnswer": "Answer the second create with 409 Conflict. The request conflicts with the current state: the name is taken. Give enough detail, so the user can see the source of the conflict. The cost: the user must pick another name.",
           "keyPoints": [
             "409 means a conflict with the current state.",
-            "The response shows the source of the conflict.",
-            "The user resolves it and sends the request again."
+            "Say what caused the conflict.",
+            "The user changes the request and sends it again."
           ]
         }
       ]
@@ -4204,8 +4204,8 @@
       "turns": [
         {
           "threatType": "data",
-          "threat": "The app picks its next step by reading the error title. One small wording change broke the top-up flow.",
-          "constraint": "Writers improve the error titles often, so the wording keeps changing.",
+          "threat": "Your errors have only human-readable text, with no stable code. The app picks its next step by matching those words.",
+          "constraint": "Your rule: errors are unambiguous, with codes next to the human-readable text.",
           "reasons": [
             {
               "text": "Code should match a stable type URI, not human text.",
@@ -4409,19 +4409,19 @@
         },
         {
           "threatType": "traffic",
-          "threat": "After the reset, users with new keys still cannot open other teams' reports. Their app signs in again and again.",
-          "constraint": "The new keys are valid; they only lack access to these reports.",
+          "threat": "With two-factor authentication on, a valid API key is not enough to push a gem. The push tool asks for a new key again and again.",
+          "constraint": "The key is valid; this action also needs the second factor.",
           "reasons": [
             {
-              "text": "A 401 and a 403 mean the same thing to an app.",
+              "text": "A 401 and a 403 mean the same thing to a client tool.",
               "right": false
             },
             {
-              "text": "A 401 asks for new credentials, so the app signs in again.",
+              "text": "A 401 asks for new credentials, so the tool asks for a key again.",
               "right": true
             },
             {
-              "text": "A 409 tells the app to stop and wait.",
+              "text": "A 409 tells the tool to stop and wait.",
               "right": false
             }
           ],
@@ -4460,19 +4460,19 @@
         },
         {
           "threatType": "security",
-          "threat": "Users type the dashboard address without https. Their first request goes out over plain http.",
-          "constraint": "Every page and subdomain of the dashboard already works over HTTPS.",
+          "threat": "A teammate says API keys in the query string are fine, because HTTPS encrypts the URL on the network.",
+          "constraint": "Your Nginx and CDN access logs store the full request URL, query string included.",
           "reasons": [
             {
-              "text": "A redirect from http to https also protects the very first request.",
+              "text": "HTTPS keeps the URL encrypted in the logs as well.",
               "right": false
             },
             {
-              "text": "An HTTPS-only API protects the typed address too.",
+              "text": "Access logs store the path of each request, but they drop the query string.",
               "right": false
             },
             {
-              "text": "The browser must learn to skip http before it sends that request.",
+              "text": "The request target is part of the request line that gets logged.",
               "right": true
             }
           ],
@@ -4483,29 +4483,29 @@
             {
               "moveId": "api-auth.https-only",
               "damage": 1,
-              "counterattack": "The API answers only over HTTPS, but typed addresses still start over http."
+              "counterattack": "The network is safe, but the logs still store the full request line."
             },
             {
-              "moveId": "api-auth.key-not-in-url",
+              "moveId": "problem-details.safe-detail",
               "damage": 0,
-              "counterattack": "Keys leave the URL, but the first request still goes over plain http."
+              "counterattack": "Error bodies are safe, but the keys still sit in the logs."
             },
             {
-              "moveId": "mixed-content.upgradable",
-              "damage": 0,
-              "counterattack": "Images upgrade to https, but the first page request still goes over http."
-            },
-            {
-              "moveId": "hsts.max-age",
+              "moveId": "http-message.request-line",
               "damage": 2,
-              "counterattack": "Return visits use only HTTPS, but a first visit is still open until the browser gets the header."
+              "counterattack": "The team sees why the logs hold keys, but every client must move its key out of the URL."
+            },
+            {
+              "moveId": "api-auth.unauthorized-vs-forbidden",
+              "damage": 0,
+              "counterattack": "The status codes are right, but the logs still hold the keys."
             }
           ],
-          "modelAnswer": "Send Strict-Transport-Security with a long max-age and includeSubDomains. The browser then uses only HTTPS for that time. The cost: HSTS works only after the browser gets the header once over HTTPS.",
+          "modelAnswer": "The first line of an HTTP/1.x request is the request line: method, request target and protocol. The request target is usually a URL. So a log of request lines also holds any key in that URL. The cost: clients must move their keys.",
           "keyPoints": [
-            "max-age is how long the browser uses only HTTPS.",
-            "includeSubDomains covers the subdomains too.",
-            "The very first visit is still open."
+            "The request line has a method, a target and a protocol.",
+            "The request target is usually a URL.",
+            "A log of request lines stores keys in URLs."
           ]
         }
       ]
@@ -4730,53 +4730,53 @@
         },
         {
           "threatType": "data",
-          "threat": "A teammate wants each server to remember where every client is in the order list.",
-          "constraint": "Calls from one client can reach any of 20 servers behind the load balancer.",
+          "threat": "A task app calls users.list again and again to retrieve all users. A teammate fears that the repeated calls change data.",
+          "constraint": "The list call is a GET, and it only reads users.",
           "reasons": [
             {
-              "text": "A connection that stays open keeps the client's place between calls.",
+              "text": "Each repeated call needs an idempotency key to be safe.",
               "right": false
             },
             {
-              "text": "HTTP does not link a request to the one before it.",
+              "text": "A safe method only reads, so repeated calls change nothing.",
               "right": true
             },
             {
-              "text": "A smaller page size makes server memory safe.",
+              "text": "Repeated list calls can move the cursor on the server and skip users.",
               "right": false
             }
           ],
           "skills": [
             2,
-            3
+            20
           ],
           "moves": [
             {
-              "moveId": "stateless-http.session",
+              "moveId": "idempotency-key.saved-response",
               "damage": 1,
-              "counterattack": "A session cookie links the calls, but all 20 servers must now share session state."
+              "counterattack": "Keys work, but this read-only call never needed one."
             },
             {
-              "moveId": "paging.page-size",
+              "moveId": "http-method.safe",
+              "damage": 2,
+              "counterattack": "The app keeps calling, but your servers still log and count every call."
+            },
+            {
+              "moveId": "paging.page-token",
               "damage": 0,
-              "counterattack": "Pages get smaller, but the servers still lose the client's place."
+              "counterattack": "The token stays opaque, but the teammate still fears the calls."
             },
             {
               "moveId": "rate-limit.token-bucket",
               "damage": 0,
-              "counterattack": "Calls spread out, but the next server still does not know the place."
-            },
-            {
-              "moveId": "stateless-http.no-memory",
-              "damage": 2,
-              "counterattack": "Each request carries its own place, but the token must hold all the state the server needs."
+              "counterattack": "Calls spread out, but nobody knows yet if they change data."
             }
           ],
-          "modelAnswer": "In HTTP, each request stands alone. HTTP does not link a request to the request before it. So do not keep the place on one server. Put it in each request, in the page token. The cost: the token must carry the state.",
+          "modelAnswer": "GET is a safe method: it does not change the state of the server. It is read-only. So repeated list calls change no data. The cost: the server can still log or count the calls.",
           "keyPoints": [
-            "Each HTTP request stands alone.",
-            "Do not keep the client's place on one server.",
-            "The request itself carries the place."
+            "GET, HEAD and OPTIONS are safe.",
+            "Safe means read-only.",
+            "The server can still log or count calls."
           ]
         },
         {
@@ -4831,17 +4831,17 @@
       "id": "t02-two-editors",
       "name": "Two editors",
       "source": {
-        "title": "Google Cloud: Understanding allow policies (Using etags in a policy)",
-        "url": "https://docs.cloud.google.com/iam/docs/policies"
+        "title": "Microsoft: Azure REST API Guidelines",
+        "url": "https://github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md"
       },
       "opponentType": "data",
-      "secondType": "speed",
-      "problem": "Several systems change the same records through your API. They read, change and write each record.",
+      "secondType": "outage",
+      "problem": "Support agents change the same records through your API. It follows the Azure guidelines, where ETags offer optimistic concurrency.",
       "turns": [
         {
           "threatType": "data",
-          "threat": "Two systems change one record at the same time. The second write erases the first system's change.",
-          "constraint": "Each system keeps the ETag of the record that it read.",
+          "threat": "Two agents change one record at the same time. The second save erases the first agent's change.",
+          "constraint": "Each agent's app keeps the ETag of the record that it read.",
           "reasons": [
             {
               "text": "If-Match lets the server refuse a save based on old data.",
@@ -4890,60 +4890,60 @@
           ]
         },
         {
-          "threatType": "speed",
-          "threat": "The support app loads 30 records, one request after another. Agents wait for every one of them.",
-          "constraint": "The API and the support app already support HTTP/2.",
+          "threatType": "outage",
+          "threat": "An agent's save times out, so the app is not sure if it worked. The app drops the change and shows an error.",
+          "constraint": "Your guidelines say every operation is idempotent, so clients can retry.",
           "reasons": [
             {
-              "text": "A kept-alive connection already sends requests in parallel.",
+              "text": "A save that timed out has to be checked by hand.",
               "right": false
             },
             {
-              "text": "HTTP/2 can send parallel requests on one connection.",
+              "text": "An idempotent request can be sent again with the same effect.",
               "right": true
             },
             {
-              "text": "Fewer bytes per record remove the waiting line.",
+              "text": "A retry is safe after the agent reloads the page, not before.",
               "right": false
             }
           ],
           "skills": [
             2,
-            3
+            10
           ],
           "moves": [
             {
-              "moveId": "http-version.persistent-connection",
-              "damage": 1,
-              "counterattack": "The connection is reused, but each request still waits for the one before."
+              "moveId": "http-method.post",
+              "damage": 0,
+              "counterattack": "You switch the save to POST, which is not guaranteed to be idempotent."
+            },
+            {
+              "moveId": "http-method.idempotent",
+              "damage": 2,
+              "counterattack": "The app retries the save, but each response may differ."
             },
             {
               "moveId": "conditional-request.if-none-match",
               "damage": 0,
-              "counterattack": "Unchanged records return 304, but each request still waits in line."
-            },
-            {
-              "moveId": "http-version.multiplexing",
-              "damage": 2,
-              "counterattack": "The records load in parallel on one connection, but you can no longer read the traffic by hand."
+              "counterattack": "Reads are cheaper, but the save is still dropped."
             },
             {
               "moveId": "paging.page-size",
               "damage": 0,
-              "counterattack": "Pages get smaller, but the records still load one after another."
+              "counterattack": "Pages get smaller, but the save is still dropped."
             }
           ],
-          "modelAnswer": "Use HTTP/2. It is multiplexed, so parallel requests share one connection. In HTTP/1.1, a client waits for each resource before it asks for the next. The cost: HTTP/2 is binary, so you cannot read it by hand.",
+          "modelAnswer": "A request is idempotent if several identical requests have the same intended effect as one. A client can safely retry it when it is not sure the request arrived. So the app retries the save. The cost: the response can still differ between calls.",
           "keyPoints": [
-            "HTTP/2 sends parallel requests on one connection.",
-            "HTTP/1.1 waits for each response, which is head-of-line blocking.",
-            "HTTP/2 is binary, not text."
+            "Identical requests have the same effect as one.",
+            "A client can retry an idempotent request.",
+            "The response can still differ."
           ]
         },
         {
           "threatType": "data",
-          "threat": "An update worked, but its reply was lost. The identical retry is now rejected as a conflict.",
-          "constraint": "The ETag is a version number, and a retry must not look like a conflict.",
+          "threat": "An update worked, but its reply was lost. The identical retry is now seen as a conflict.",
+          "constraint": "The ETag is the record's version number.",
           "reasons": [
             {
               "text": "A version number is the most precise ETag, so retries can trust it.",
@@ -5415,53 +5415,53 @@
         },
         {
           "threatType": "traffic",
-          "threat": "Right after each deploy, a few calls time out. The timeout is about 20 milliseconds.",
-          "constraint": "The timer includes setting up a new secure connection, which later calls reuse.",
+          "threat": "A worker drops a call for good after one 503 Service Unavailable. The work is lost.",
+          "constraint": "The 503 came from a short overload, and the call has no side effects.",
           "reasons": [
             {
-              "text": "A retry after a short wait fixes a slow first connection by itself.",
+              "text": "A 503 means that the request itself is wrong.",
               "right": false
             },
             {
-              "text": "A newer TLS version needs no handshake.",
+              "text": "A server error means the client should fix its call before it tries again.",
               "right": false
             },
             {
-              "text": "Only the first call on a new connection pays for the setup.",
+              "text": "A 503 is for temporary conditions, so a later try can work.",
               "right": true
             }
           ],
           "skills": [
-            11,
-            10
+            10,
+            2
           ],
           "moves": [
             {
-              "moveId": "rate-limit.retry-after",
+              "moveId": "status-code.client-error",
               "damage": 0,
-              "counterattack": "Workers wait longer, and the first call on a new connection still times out."
-            },
-            {
-              "moveId": "http-version.persistent-connection",
-              "damage": 2,
-              "counterattack": "Calls reuse open connections, but idle connections still close after some time."
-            },
-            {
-              "moveId": "tls.version",
-              "damage": 0,
-              "counterattack": "You allow only TLS 1.3, but each new connection still needs its handshake."
+              "counterattack": "You treat the 503 as a bad request, and the work stays lost."
             },
             {
               "moveId": "repeatability.request-id",
+              "damage": 1,
+              "counterattack": "A retry would be safe now, but the worker still drops the call."
+            },
+            {
+              "moveId": "status-code.server-error",
+              "damage": 2,
+              "counterattack": "The worker retries after a wait, so the work finishes later."
+            },
+            {
+              "moveId": "rate-limit.api-key-quota",
               "damage": 0,
-              "counterattack": "Duplicates are safe now, but the first calls still time out."
+              "counterattack": "Each key is limited, but the dropped work never comes back."
             }
           ],
-          "modelAnswer": "Open the connections before traffic arrives, and keep them open. A persistent connection is reused for several requests, so the setup does not repeat. The cost: idle connections still close after some time.",
+          "modelAnswer": "A 503 Service Unavailable means the server is not ready, for example from too much traffic. It is for temporary conditions. So wait, then try the call again. The cost: the work finishes later.",
           "keyPoints": [
-            "A persistent connection is reused for many requests.",
-            "Set up connections before traffic arrives.",
-            "Idle connections still close after a while."
+            "5xx codes are server errors.",
+            "503 is for temporary conditions.",
+            "Retry after a wait."
           ]
         }
       ]
@@ -5898,19 +5898,19 @@
         },
         {
           "threatType": "data",
-          "threat": "Your browser app starts to send the version in a new request header. Since then, its calls fail before they reach the API.",
-          "constraint": "The browser app and the API are on different origins.",
+          "threat": "Your API now reads the version from a request header. A partner's script sends the version as a field in the JSON body instead.",
+          "constraint": "The API reads the version only from the request headers, not from the body.",
           "reasons": [
             {
-              "text": "Browsers send OPTIONS first just for DELETE and PUT calls.",
+              "text": "The API should look for the version in every part of the request.",
               "right": false
             },
             {
-              "text": "The version header belongs in the request body, where browsers accept any field.",
+              "text": "A version in the body works, because the body comes first.",
               "right": false
             },
             {
-              "text": "A custom header makes the browser ask the server first.",
+              "text": "Headers and the body are separate parts of a request.",
               "right": true
             }
           ],
@@ -5921,30 +5921,30 @@
           "moves": [
             {
               "moveId": "versioning.api-version",
-              "damage": 0,
-              "counterattack": "You require the version, but the browser still stops the call before it is sent."
-            },
-            {
-              "moveId": "cors.simple-request",
               "damage": 1,
-              "counterattack": "The call is simple without the header, but the app can no longer send its version that way."
+              "counterattack": "A query parameter would work too, but this API reads a header."
             },
             {
-              "moveId": "cors.credentials",
+              "moveId": "versioning.deprecation-header",
               "damage": 0,
-              "counterattack": "You allow credentials, but the preflight still gets no answer."
+              "counterattack": "Partners get a warning header, and the script still sends no version header."
             },
             {
-              "moveId": "cors.preflight",
+              "moveId": "content-type.mime-type",
+              "damage": 0,
+              "counterattack": "The body is labeled JSON, but the version is still in the wrong place."
+            },
+            {
+              "moveId": "http-message.headers-and-body",
               "damage": 2,
-              "counterattack": "The preflight now passes, but each new call can cost one more round trip."
+              "counterattack": "The script now sends the header, but its code must change."
             }
           ],
-          "modelAnswer": "A custom header makes the request not simple, so the browser sends a preflight first. Answer the OPTIONS request with Access-Control-Allow-Headers that names the header. The cost: one more round trip, unless Access-Control-Max-Age keeps the answer.",
+          "modelAnswer": "Send the version as a request header. A header is a case-insensitive name, a colon and a value, on one line. An empty line ends the headers, and the optional body comes after it. The cost: the script must change its code.",
           "keyPoints": [
-            "A custom header triggers a preflight.",
-            "The preflight is an OPTIONS request.",
-            "Access-Control-Allow-Headers names the allowed headers."
+            "Headers come before the body.",
+            "A header is a name, a colon and a value.",
+            "An empty line ends the headers."
           ]
         }
       ]

@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { catchQueue } from "../core/catch.ts";
+import { buildBundle } from "./bundle.ts";
 import { glossarySegments } from "./glossary.ts";
 import { glossarySchema, townSchema, type Creature, type Move, type Town } from "./schema.ts";
 
@@ -61,6 +63,8 @@ const bestRow = (turn: Town["scenarios"][number]["turns"][number]) =>
 
 const kindOf = (scenario: Town["scenarios"][number]) => scenario.kind ?? "battle";
 const battles = town.scenarios.filter((scenario) => kindOf(scenario) === "battle");
+/** A town 1 best move in a town 2 Battle must be in this many first town 1 catch items (review of PR #127). */
+const EARLY_TOWN_ONE_ITEMS = 20;
 const meetings = town.scenarios.filter((scenario) => kindOf(scenario) === "meeting");
 const agentDiffs = town.scenarios.filter((scenario) => kindOf(scenario) === "agent-diff");
 
@@ -130,7 +134,8 @@ describe("town 2 content", () => {
 
   it("orders scenarios by the day they can start, so early days have a battle", () => {
     // The app offers a scenario once the creature of each best move is caught, in catch order.
-    // A town 1 creature (index -1) is caught before town 2 starts.
+    // This order counts town 2 creatures only. A town 1 best move is checked by its own test below:
+    // it must be early in town 1, so a learner has caught it before town 2 starts.
     const catchOrder = town.creatures.map((creature) => creature.id);
     const readyAfter = battles.map((scenario) =>
       Math.max(...scenario.turns.map((turn) => catchOrder.indexOf(bestRow(turn).moveId.split(".")[0]))),
@@ -182,6 +187,23 @@ describe("town 2 battles v1.5", () => {
     for (const scenario of battles) {
       const oldTown = scenario.turns.filter((turn) => townOneCreatures.has(bestRow(turn).moveId.split(".")[0]));
       expect(oldTown.length, scenario.id).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it("uses only town 1 creatures and moves from the first 20 town 1 catch items, so the battle becomes ready", () => {
+    // Town 1 offers 1 catch a day and no catch on a 3-minute day, so a learner meets only its early items
+    // before town 2 starts. A Battle is ready only when the creature of each best move is caught (design 7.5).
+    const townOneOrder = catchQueue(buildBundle([townOne]).towns[0]).map((item) => item.id);
+    for (const scenario of town.scenarios.filter((s) => kindOf(s) === "battle" && s.turns.some((turn) => turn.constraint))) {
+      scenario.turns.forEach((turn, index) => {
+        const moveId = bestRow(turn).moveId;
+        const creatureId = moveId.split(".")[0];
+        if (!townOneCreatures.has(creatureId)) return;
+        const where = `${scenario.id} turn ${index}: ${moveId}`;
+        expect(townOneOrder.indexOf(creatureId), where).toBeLessThan(EARLY_TOWN_ONE_ITEMS);
+        expect(townOneOrder.indexOf(moveId), where).toBeGreaterThanOrEqual(0);
+        expect(townOneOrder.indexOf(moveId), where).toBeLessThan(EARLY_TOWN_ONE_ITEMS);
+      });
     }
   });
 
