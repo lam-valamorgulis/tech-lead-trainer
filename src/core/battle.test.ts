@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildBundle } from "@/content/bundle";
-import { fixtureTown } from "@/content/fixture-town";
+import { fixtureTown, fixtureTownV2 } from "@/content/fixture-town";
 import { townSchema } from "@/content/schema";
 import {
   battleProgress,
@@ -69,6 +69,20 @@ describe("nextBattle", () => {
     Object.assign(content.creatures[2], { retired: true });
     const retired = buildBundle([townSchema.parse(content)]).towns[0];
     expect(nextBattle({ town: retired, catches: caught("cache", "proxy"), battles: [], today: TODAY, committedMinutes: 15 })).toBeNull();
+  });
+
+  it("offers only normal Battles until Meeting Battle and Agent Diff Battle ship (#93)", () => {
+    // Every normal Battle of the v2 fixture was played, so a Meeting or Agent Diff Battle would come first.
+    const content = fixtureTownV2();
+    const meetingFirst = { ...structuredClone(content.scenarios[0]), id: "t99-meeting-twin", kind: "meeting" as const };
+    content.scenarios.push(meetingFirst);
+    const v2 = buildBundle([content]).towns[0];
+    const battles: BattleRecord[] = v2.scenarios
+      .filter((s) => s.kind === undefined)
+      .map((s, i) => ({ battleId: `b${i}`, scenarioId: s.id, learningDay: "2026-10-19" }));
+    const offer = nextBattle({ town: v2, catches: caught("cache", "proxy"), battles, today: TODAY, committedMinutes: 15 });
+    expect(offer).not.toBeNull();
+    expect(offer?.scenario.kind).toBeUndefined();
   });
 
   it("never offers a retired scenario", () => {
