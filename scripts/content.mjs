@@ -5,7 +5,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildBundle } from "../src/content/bundle.ts";
 import { checkContent, contentIds } from "../src/content/check.ts";
-import { fixtureBossMarkdown, fixtureGlossary, fixtureTown, fixtureTwistTown } from "../src/content/fixture-town.ts";
+import { fixtureBossMarkdown, fixtureGlossary, fixtureTownV2, fixtureTwistTown } from "../src/content/fixture-town.ts";
 import { parseBoss, parseCoachPrompt } from "../src/content/weekend.ts";
 import { addNewIds } from "../src/content/ledger.ts";
 import { glossarySchema, townSchema } from "../src/content/schema.ts";
@@ -13,7 +13,8 @@ import { glossarySchema, townSchema } from "../src/content/schema.ts";
 const CONTENT = "content";
 const LEDGER = join(CONTENT, "ledger.json");
 const BUNDLE = join("src", "content", "bundle.generated.json");
-// The fixture towns as a bundle, for seam C only (NEXT_PUBLIC_CONTENT_SET=fixture). Town 2 has the twist.
+// The fixture towns as a bundle, for seam C only (NEXT_PUBLIC_CONTENT_SET=fixture). Town 1 has every
+// v1.5 field (#93), so seam C proves the app still runs with them. Town 2 has the twist.
 const FIXTURE_BUNDLE = join("src", "content", "fixture.generated.json");
 
 const mode = process.argv[2];
@@ -65,7 +66,7 @@ if (problems.length > 0) {
 
 const toJson = (value) => `${JSON.stringify(value, null, 2)}\n`;
 const bundle = toJson(buildBundle(towns.map((town) => townSchema.parse(town)), glossarySchema.parse(glossary).words, weekends));
-const fixtureTowns = [fixtureTown(), fixtureTwistTown()].map((town) => townSchema.parse(town));
+const fixtureTowns = [fixtureTownV2(), fixtureTwistTown()].map((town) => townSchema.parse(town));
 const fixtureBundle = toJson(
   buildBundle(fixtureTowns, glossarySchema.parse(fixtureGlossary()).words, [
     { townId: "t99", boss: parseBoss(fixtureBossMarkdown()), adrCoachPrompt: null },

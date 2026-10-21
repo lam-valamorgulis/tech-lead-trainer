@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { checkContent } from "./check.ts";
-import { fixtureGlossary, fixtureLedger, fixtureTown, fixtureTwistLedger, fixtureTwistTown } from "./fixture-town.ts";
+import {
+  fixtureGlossary,
+  fixtureLedger,
+  fixtureLedgerV2,
+  fixtureTown,
+  fixtureTownV2,
+  fixtureTwistLedger,
+  fixtureTwistTown,
+} from "./fixture-town.ts";
 
 function check(town: unknown = fixtureTown(), ledger = fixtureLedger, glossary: unknown = fixtureGlossary()) {
   return checkContent({ towns: [town], ledger, glossary });
@@ -427,5 +435,204 @@ describe("checkContent", () => {
         { where: "t98.t98-public-api", message: "Both types must attack in at least one turn. security never does." },
       ]);
     });
+  });
+});
+
+describe("checkContent for v1.5 content (#93)", () => {
+  const checkV2 = (town: unknown = fixtureTownV2()) => check(town, fixtureLedgerV2);
+  const turn = (town: ReturnType<typeof fixtureTownV2>, index = 0) =>
+    town.scenarios[0].turns[index] as Record<string, unknown> & { reasons: { text: string; right: boolean }[] };
+
+  it("accepts the v2 fixture town, with every new field", () => {
+    expect(checkV2()).toEqual([]);
+  });
+
+  it("fails when a turn of a v1.5 scenario has no Constraint", () => {
+    const town = fixtureTownV2();
+    delete turn(town, 1).constraint;
+    expect(checkV2(town)).toEqual([
+      { where: "t99.t99-sale-day.turns.1.constraint", message: "Every turn of a v1.5 scenario has one Constraint." },
+    ]);
+  });
+
+  it("fails when a Constraint is more than one sentence", () => {
+    const town = fixtureTownV2();
+    turn(town).constraint = "The logo changes once a year. The team is small.";
+    expect(checkV2(town)).toEqual([
+      { where: "t99.t99-sale-day.turns.0.constraint", message: "A Constraint is one sentence. This has 2." },
+    ]);
+  });
+
+  it("fails when a turn has 2 right Reasons", () => {
+    const town = fixtureTownV2();
+    turn(town).reasons[1].right = true;
+    expect(checkV2(town)).toEqual([
+      { where: "t99.t99-sale-day.turns.0.reasons", message: "Exactly 1 of the 3 Reasons is right. Here 2 are." },
+    ]);
+  });
+
+  it("fails when a turn does not have exactly 3 Reasons", () => {
+    const town = fixtureTownV2();
+    turn(town).reasons.pop();
+    expect(checkV2(town)).toEqual([{ where: "t99.scenarios.0.turns.0.reasons", message: "There are exactly 3 Reasons." }]);
+  });
+
+  it("fails when a turn of a v1.5 scenario names no Skills, or a Skill that does not exist", () => {
+    const town = fixtureTownV2();
+    delete turn(town, 0).skills;
+    turn(town, 2).skills = [27];
+    expect(checkV2(town)).toEqual([
+      { where: "t99.scenarios.0.turns.2.skills.0", message: "A Skill id is a number from 1 to 26." },
+    ]);
+    const missing = fixtureTownV2();
+    delete turn(missing, 0).skills;
+    expect(checkV2(missing)).toEqual([
+      { where: "t99.t99-sale-day.turns.0.skills", message: "Every turn of a v1.5 scenario names the Skills it trains." },
+    ]);
+  });
+
+  it("fails when a v1.5 scenario has no source link", () => {
+    const town = fixtureTownV2();
+    delete (town.scenarios[0] as { source?: unknown }).source;
+    expect(checkV2(town)).toEqual([
+      { where: "t99.t99-sale-day.source", message: "A v1.5 scenario has a source link to the real incident or situation." },
+    ]);
+  });
+
+  it("fails when a Lesson screen has more than 50 words", () => {
+    const town = fixtureTownV2();
+    town.creatures[0].lesson!.screens[1].text = `${words(50)} more.`;
+    expect(checkV2(town)).toContainEqual({ where: "t99.cache.lesson.screens.1.text", message: "The screen has 51 words. The limit is 50." });
+  });
+
+  it("fails when a Lesson does not have exactly 3 screens, or has no source", () => {
+    const town = fixtureTownV2();
+    town.creatures[0].lesson!.screens.pop();
+    delete (town.creatures[1].lesson as { source?: unknown }).source;
+    expect(checkV2(town)).toEqual([
+      { where: "t99.creatures.0.lesson.screens", message: "A Lesson has exactly 3 screens." },
+      { where: "t99.creatures.1.lesson.source", message: expect.any(String) },
+    ]);
+  });
+
+  it("fails when a diagram does not start with a Mermaid type, and lets a diagram keep its line breaks", () => {
+    const town = fixtureTownV2();
+    town.creatures[0].lesson!.screens[0].diagram = "Browser --> Server\nServer --> Database";
+    expect(checkV2(town)).toEqual([
+      {
+        where: "t99.cache.lesson.screens.0.diagram",
+        message: 'A diagram starts with its Mermaid type, such as flowchart LR or sequenceDiagram. This starts with "Browser".',
+      },
+    ]);
+  });
+
+  it("from Town 2 on, fails a v1.5 scenario with no turn whose best move is from an earlier town", () => {
+    const town2 = fixtureTwistTown();
+    const [publicApi] = town2.scenarios;
+    Object.assign(publicApi, { source: fixtureTownV2().scenarios[0].source });
+    publicApi.turns.forEach((t, i) => Object.assign(t, fixtureTownV2().scenarios[0].turns[i], { moves: t.moves, threat: t.threat }));
+    const both = (second: unknown) => checkContent({ towns: [fixtureTownV2(), second], ledger: [...fixtureLedgerV2, ...fixtureTwistLedger], glossary: fixtureGlossary() });
+    expect(both(town2)).toEqual([
+      { where: "t98.t98-public-api", message: "From Town 2 on, one turn's best move must be a move of a creature from an earlier town." },
+    ]);
+
+    // proxy.cdn is a Town 1 move: make it the best move of the first turn.
+    publicApi.turns[0].moves = [
+      { moveId: "proxy.cdn", damage: 2, counterattack: "Copies near partners answer, but writes still pile up." },
+      { moveId: "rate-limit.quota", damage: 1, counterattack: "The partner slows down, but its big jobs take longer." },
+      { moveId: "api-key.rotate", damage: 0, counterattack: "The partner gets a new key and sends just as much." },
+    ];
+    expect(both(town2)).toEqual([]);
+  });
+
+  it("fails a Meeting Battle with no person, or with a move that is not a labelled answer", () => {
+    const town = fixtureTownV2();
+    const meeting = town.scenarios.find((s) => s.id === "t99-late-launch") as { person?: string; turns: { moves: { moveId: string; label?: string }[] }[] };
+    delete meeting.person;
+    meeting.turns[0].moves[0].moveId = "cache.ttl";
+    delete meeting.turns[0].moves[1].label;
+    expect(checkV2(town)).toEqual([
+      { where: "t99.t99-late-launch.turns.0.moves.0", message: "A Meeting Battle move is an answer: its id starts with answer." },
+      { where: "t99.t99-late-launch.turns.0.moves.1", message: "A Meeting answer needs a label: the words on its button." },
+      { where: "t99.t99-late-launch.person", message: "A Meeting Battle names its person: client, manager or cto." },
+    ]);
+  });
+
+  it("fails an Agent Diff Battle with no diff, or with a move that is not a review verdict", () => {
+    const town = fixtureTownV2();
+    const agent = town.scenarios.find((s) => s.id === "t99-cache-diff") as { diff?: string; turns: { moves: { moveId: string }[] }[] };
+    delete agent.diff;
+    agent.turns[2].moves[1].moveId = "verdict.merge";
+    expect(checkV2(town)).toEqual([
+      {
+        where: "t99.t99-cache-diff.turns.2.moves.1",
+        message: "An Agent Diff Battle move is a review verdict: one of verdict.approve, verdict.ask-for-test, verdict.block, verdict.narrow.",
+      },
+      { where: "t99.t99-cache-diff.diff", message: "An Agent Diff Battle has the diff the agent wrote." },
+    ]);
+  });
+
+  it("fails a normal Battle with a person, a diff or a labelled move", () => {
+    const town = fixtureTownV2();
+    Object.assign(town.scenarios[0], { person: "client", diff: "+ x" });
+    (turn(town).moves as { label?: string }[])[0].label = "Use a TTL.";
+    expect(checkV2(town)).toEqual([
+      { where: "t99.t99-sale-day.turns.0.moves.0.label", message: "Only a Meeting answer has a label." },
+      { where: "t99.t99-sale-day.person", message: "Only a Meeting Battle has a person." },
+      { where: "t99.t99-sale-day.diff", message: "Only an Agent Diff Battle has a diff." },
+    ]);
+  });
+
+  it("fails a Gym twin that reverses a scenario not in its town", () => {
+    const town = fixtureTownV2();
+    Object.assign(town.scenarios[1], { reverses: "t99-nowhere" });
+    expect(checkV2(town)).toEqual([{ where: "t99.t99-flash-sale.reverses", message: "t99-nowhere is not another scenario of t99." }]);
+  });
+
+  it("fails a Decision Card with a wrong id or 2 right Reasons, and keeps its id in the ledger", () => {
+    const town = fixtureTownV2();
+    town.creatures[0].decisionCards![0].reasons[2].right = true;
+    expect(checkV2(town)).toEqual([
+      { where: "t99.cache.decision.logo.reasons", message: "Exactly 1 of the 3 Reasons is right. Here 2 are." },
+    ]);
+
+    const renamed = fixtureTownV2();
+    renamed.creatures[0].decisionCards![0].id = "cookie.decision.logo";
+    expect(checkV2(renamed)).toEqual([
+      { where: "t99.cookie.decision.logo", message: "cookie.decision.logo is not in content/ledger.json. Run `npm run content:build`." },
+      { where: "ledger", message: "cache.decision.logo shipped before, but it is missing. Mark it retired instead of deleting it." },
+      { where: "t99.cookie.decision.logo", message: "A card of cache must have an id that starts with cache." },
+    ]);
+
+    const badShape = fixtureTownV2();
+    badShape.creatures[0].tradeOff!.id = "cache.fresh-prices";
+    expect(checkV2(badShape)).toEqual([
+      {
+        where: "t99.creatures.0.tradeOff.id",
+        message: "A trade-off question id is <creature>.trade-off.<name>, for example cache.trade-off.fresh-prices.",
+      },
+    ]);
+  });
+
+  it("fails a trade-off question that does not have 3 options", () => {
+    const town = fixtureTownV2();
+    town.creatures[0].tradeOff!.options.pop();
+    expect(checkV2(town)).toEqual([{ where: "t99.creatures.0.tradeOff.options", message: "There are exactly 3 options." }]);
+  });
+
+  it("keeps the ids answer and verdict free for Meeting answers and review verdicts", () => {
+    const town = fixtureTownV2();
+    Object.assign(town.creatures[2], { id: "verdict" });
+    town.creatures[2].moves = [];
+    expect(checkV2(town)).toContainEqual({
+      where: "t99.verdict",
+      message: "verdict is kept for Meeting answers and review verdicts. Give the creature another id.",
+    });
+  });
+
+  it("fails a town with more than 2 Skills", () => {
+    const town = fixtureTownV2();
+    town.skills = [1, 2, 3];
+    expect(checkV2(town)).toEqual([{ where: "t99.skills", message: expect.any(String) }]);
   });
 });

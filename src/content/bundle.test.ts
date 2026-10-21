@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildBundle } from "./bundle.ts";
-import { fixtureTown, fixtureTwistTown } from "./fixture-town.ts";
+import { fixtureTown, fixtureTownV2, fixtureTwistTown } from "./fixture-town.ts";
 import { townSchema } from "./schema.ts";
 
 const town = () => townSchema.parse(fixtureTown());
@@ -84,5 +84,43 @@ describe("buildBundle", () => {
     const boss = { title: "Boss", situation: [{ kind: "paragraph" as const, text: "A shop breaks." }], mermaidStarter: "graph TD", coachPrompt: null, modelAnswer: null };
     expect(buildBundle([town()], [], [{ townId: "t99", boss, adrCoachPrompt: null }]).weekends).toEqual([{ townId: "t99", boss, adrCoachPrompt: null }]);
     expect(buildBundle([town()]).weekends).toEqual([]);
+  });
+
+  describe("v1.5 content (#93)", () => {
+    const v2 = () => townSchema.parse(fixtureTownV2());
+    const v1Cache = () => buildBundle([town()]).towns[0].creatures[0];
+
+    it("keeps the hash of a creature and its moves when only the sprite or the System Map node is added", () => {
+      const placed = town();
+      Object.assign(placed.creatures[0], { sprite: 12, mapNode: "cache" });
+      const after = buildBundle([placed]).towns[0].creatures[0];
+      expect(after.hash).toBe(v1Cache().hash);
+      expect(after.moves[0].hash).toBe(v1Cache().moves[0].hash);
+    });
+
+    it("changes the hash of an item when its Lesson is added, because the learner reads it", () => {
+      const [cache] = buildBundle([v2()]).towns[0].creatures;
+      expect(cache.hash).not.toBe(v1Cache().hash);
+      expect(cache.moves[0].hash).not.toBe(v1Cache().moves[0].hash);
+    });
+
+    it("gives the trade-off question and each Decision Card their own hash, outside the creature's hash", () => {
+      const [cache] = buildBundle([v2()]).towns[0].creatures;
+      expect(cache.tradeOff?.hash).toMatch(/^[0-9a-f]{16}$/);
+      expect(cache.decisionCards?.[0].hash).toMatch(/^[0-9a-f]{16}$/);
+
+      const edited = v2();
+      edited.creatures[0].decisionCards![0].explanation = "A long TTL saves a download.";
+      const after = buildBundle([edited]).towns[0].creatures[0];
+      expect(after.hash).toBe(cache.hash);
+      expect(after.decisionCards?.[0].hash).not.toBe(cache.decisionCards?.[0].hash);
+    });
+
+    it("changes a scenario's hash with its Constraints and Reasons", () => {
+      const before = buildBundle([v2()]).towns[0].scenarios[0];
+      const edited = v2();
+      edited.scenarios[0].turns[0].constraint = "The logo changes every day.";
+      expect(buildBundle([edited]).towns[0].scenarios[0].hash).not.toBe(before.hash);
+    });
   });
 });

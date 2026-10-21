@@ -90,8 +90,12 @@ export function readyOffers({
   const caught = caughtIds(catches);
   // A retired creature cannot join a team, even when it was caught.
   const choices = town.creatures.filter((creature) => !creature.retired && caught.has(creature.id)).map((c) => c.id);
+  // Only normal Battles for now: Meeting Battle and Agent Diff Battle come with their own screens (#105, #106).
   const ready = town.scenarios.filter(
-    (scenario) => !scenario.retired && [...conceptsOf(scenario)].every((concept) => choices.includes(concept)),
+    (scenario) =>
+      !scenario.retired &&
+      (scenario.kind ?? "battle") === "battle" &&
+      [...conceptsOf(scenario)].every((concept) => choices.includes(concept)),
   );
   const plays = (scenario: BundledScenario) => battles.filter((battle) => battle.scenarioId === scenario.id).length;
   // A stable sort keeps file order between scenarios played equally often.

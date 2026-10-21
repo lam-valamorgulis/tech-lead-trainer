@@ -1,3 +1,5 @@
+import { townSchema, type Town } from "./schema.ts";
+
 // A small valid town for tests. It never ships in the app.
 // Tests copy it with `fixtureTown()` and break one thing at a time.
 
@@ -371,3 +373,151 @@ export function fixtureTwistTown() {
 }
 
 export const fixtureTwistLedger = ["t98", "rate-limit", "rate-limit.quota", "api-key", "api-key.rotate", "t98-public-api"];
+
+/** A 3-screen Lesson for a fixture item. Screen 2 holds the catch answer. */
+function fixtureLesson(name: string, answer: string) {
+  return {
+    screens: [
+      { text: `${name} is a tool of the web.`, diagram: "flowchart LR\n  Browser --> Server" },
+      { text: `Shops use ${name.toLowerCase()} every day.` },
+      { text: answer },
+    ],
+    answerScreen: 2,
+    source,
+  };
+}
+
+const reasons = (right: string, wrong: [string, string]) => [
+  { text: right, right: true },
+  { text: wrong[0], right: false },
+  { text: wrong[1], right: false },
+];
+
+/** The v1.5 fields of one fixture turn, in turn order: a Constraint, 3 Reasons and the Skills. */
+const SALE_DAY_V2 = [
+  {
+    constraint: "The logo changes once a year.",
+    reasons: reasons("A rarely changed file is safe to keep for long.", ["A long TTL makes prices fresh.", "Browsers never keep logos."]),
+    skills: [3],
+  },
+  {
+    constraint: "The price changes every minute during the sale.",
+    reasons: reasons("A price must never come from an old copy.", ["No store makes every page faster.", "A CDN always has the newest price."]),
+    skills: [3, 10],
+  },
+  {
+    constraint: "Half the visitors live on another continent.",
+    reasons: reasons("A copy near the visitor cuts the travel time.", ["No store makes far pages faster.", "A cookie makes the page lighter."]),
+    skills: [2],
+  },
+];
+
+/**
+ * The fixture town with every v1.5 field (#93): a Town Intro, Skills, Lessons, sprites, System
+ * Map nodes, a trade-off question, Decision Cards, v1.5 battles, a Gym twin, a Meeting Battle and
+ * an Agent Diff Battle. Seam C uses it in place of fixtureTown(), so the app must run with it.
+ */
+export function fixtureTownV2(): Town {
+  const town = fixtureTown();
+  const [cache, cookie, proxy] = town.creatures;
+  const saleDay = town.scenarios[0];
+  saleDay.turns.forEach((turn, i) => Object.assign(turn, structuredClone(SALE_DAY_V2[i])));
+  const saleSource = { title: "Cloudflare: What is a CDN?", url: "https://www.cloudflare.com/learning/cdn/what-is-a-cdn/" };
+  Object.assign(saleDay, { source: saleSource });
+  const [, ...copies] = town.scenarios;
+  for (const copy of copies) Object.assign(copy, structuredClone({ turns: saleDay.turns, source: saleSource }));
+  Object.assign(copies[0], { reverses: "t99-sale-day" });
+
+  const v2 = {
+    ...town,
+    intro: {
+      title: "How a page reaches you",
+      screens: ["A page travels from a server to your browser.", "Caches and proxies keep copies on the way, so pages load faster."],
+      diagram: "flowchart LR\n  Browser --> CDN\n  CDN --> Server",
+      source,
+    },
+    skills: [2, 3],
+    creatures: [
+      {
+        ...cache,
+        sprite: 12,
+        mapNode: "cache",
+        lesson: fixtureLesson("Cache", "A cache keeps a copy, so the next visit loads faster."),
+        tradeOff: {
+          id: "cache.trade-off.fresh-prices",
+          situation: "Prices change every minute. The product page is slow.",
+          options: ["Cache the page for one hour", "Cache the page but not the price", "Cache nothing"],
+          rightOption: 1,
+          reasons: reasons("The page is fast and the price stays fresh.", ["One hour is short enough for prices.", "Caching nothing is always safest."]),
+          explanation: "Cache what rarely changes. Fetch the price each time.",
+          skills: [3],
+        },
+        decisionCards: [
+          {
+            id: "cache.decision.logo",
+            situation: "The shop logo changes once a year.",
+            options: ["Give it a long TTL", "Mark it no-store"],
+            rightOption: 0,
+            reasons: reasons("A file that rarely changes can be kept for long.", ["No store makes it load faster.", "Logos must always be fresh."]),
+            explanation: "A long TTL saves a download on every visit.",
+            skills: [3],
+          },
+        ],
+        moves: cache.moves.map((move) => ({ ...move, lesson: fixtureLesson(move.name, move.catch.explanation) })),
+      },
+      { ...cookie, sprite: 7, mapNode: "browser", lesson: fixtureLesson("Cookie", "A cookie is small data the browser sends back.") },
+      { ...proxy, sprite: 30, mapNode: "cdn" },
+    ],
+    scenarios: [
+      ...town.scenarios,
+      {
+        id: "t99-late-launch",
+        name: "Late launch",
+        kind: "meeting",
+        person: "client",
+        opponentType: "outage",
+        source: { title: "Atlassian: Incident communication", url: "https://www.atlassian.com/incident-management/incident-communication" },
+        problem: "The client asks why the sale page is late.",
+        turns: [0, 1, 2].map((i) => ({
+          threat: "Why is the sale page late?",
+          constraint: "The client launches on Friday.",
+          moves: [
+            { moveId: `answer.facts-${i}`, label: "Give the cause, the new date and the risk.", damage: 2, counterattack: "The client trusts the new date." },
+            { moveId: `answer.blame-${i}`, label: "Say the server team was slow.", damage: 0, counterattack: "The client now doubts the whole team." },
+            { moveId: `answer.vague-${i}`, label: "Say it will be ready soon.", damage: 1, counterattack: "The client asks again tomorrow." },
+          ],
+          reasons: reasons("A clear cause and date let the client plan.", ["Blame protects the team.", "A vague answer avoids a fight."]),
+          skills: [20],
+          modelAnswer: "Say what went wrong, the new date and the one risk left.",
+          keyPoints: ["Name the cause.", "Give a new date.", "Say the risk left."],
+        })),
+      },
+      {
+        id: "t99-cache-diff",
+        name: "Cache diff",
+        kind: "agent-diff",
+        opponentType: "data",
+        source: { title: "MDN: Cache-Control", url: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control" },
+        problem: "An agent added caching to the price endpoint.",
+        diff: '+ res.set("Cache-Control", "max-age=3600");\n  res.json(price);',
+        turns: [0, 1, 2].map(() => ({
+          threat: "The price response is now cached for one hour.",
+          constraint: "The release goes out tonight.",
+          moves: [
+            { moveId: "verdict.block", damage: 2, counterattack: "The release waits, but no old price reaches a shopper." },
+            { moveId: "verdict.approve", damage: 0, counterattack: "Shoppers see old prices for an hour." },
+            { moveId: "verdict.ask-for-test", damage: 1, counterattack: "A test finds it, but the release is late." },
+          ],
+          reasons: reasons("A cached price shows shoppers the wrong amount.", ["Caching always makes an API safer.", "A test is never needed for headers."]),
+          skills: [14, 15],
+          modelAnswer: "Block it. A price must never be cached for an hour.",
+          keyPoints: ["The price must stay fresh.", "One hour of old prices is a real loss.", "Ask for no-store on prices."],
+        })),
+      },
+    ],
+  };
+  // Parsed, so tests get the typed town and can change one field at a time.
+  return townSchema.parse(v2);
+}
+
+export const fixtureLedgerV2 = [...fixtureLedger, "cache.trade-off.fresh-prices", "cache.decision.logo", "t99-late-launch", "t99-cache-diff"];

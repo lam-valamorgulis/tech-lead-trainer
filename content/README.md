@@ -4,7 +4,7 @@ All learning content lives here. Towns are JSON, with the schema in `src/content
 
 | File | What it holds |
 | --- | --- |
-| `towns/t01.json`, `towns/t02.json` | One town per file: its creatures, their moves, 10 placement questions, the confusable pairs and the battle scenarios |
+| `towns/t01.json`, `towns/t02.json` | One town per file: its creatures, their moves, 10 placement questions, the confusable pairs and the battle scenarios, plus the v1.5 fields below |
 | `glossary.json` | Hard words with a simple English definition |
 | `ledger.json` | Every id that ever shipped. Never edit it by hand |
 | `weekends/month-01/` | Markdown tasks for the month 1 weekends, used until the weekend editor exists (Sprint 4) |
@@ -56,6 +56,86 @@ Example scenario of a `two-types` town, with the other fields as above:
 | `turns[0].threatType` | `traffic` |
 | `turns[1].threatType` | `security` |
 | `turns[2].threatType` | `traffic` |
+
+## v1.5 fields
+
+Design v1.5 adds the fields below. All of them are optional, so Town 1 and Town 2 as they are today still pass. `npm run content:check` checks each rule. The test fixture `fixtureTownV2()` in `src/content/fixture-town.ts` has every field.
+
+All text is plain text, as above. Only a `diagram` and a `diff` may have line breaks.
+
+### Town
+
+| Field | What it holds | Rules |
+| --- | --- | --- |
+| `intro` | The Town Intro, shown on the town's first day (design 6.1) | `title`, `screens` (1 or more texts), one `diagram`, one `source` |
+| `skills` | The tech lead Skills the town adds | 1 or 2 Skill ids |
+
+### Creature and move
+
+| Field | On | What it holds | Rules |
+| --- | --- | --- | --- |
+| `lesson` | creature and move | What the learner reads before the catch question (design 6.3) | Exactly 3 `screens`. Each screen has a `text` of at most 50 words and an optional `diagram`. `answerScreen` (0, 1 or 2) is the screen that holds the catch answer. One `source` for the whole Lesson |
+| `sprite` | creature | The species number in the creature art pack | A whole number from 1. Display only: changing it does not change the content hash |
+| `mapNode` | creature | Where the creature sits on the System Map (design 6.2) | One of `browser`, `cdn`, `api`, `cache`, `database`, `queue`, `link`, `layer` |
+| `tradeOff` | creature | The hard trade-off question for Stage 3 (design 6.5) | 3 `options`, see "Scored cards" below |
+| `decisionCards` | creature | Decision Cards for review (design 6.4) | Each has 2 `options`, see "Scored cards" below |
+
+The old `card` stays. Review and "Discuss in Claude" still use it. A Lesson is added next to it.
+
+### Scored cards: Decision Cards and trade-off questions
+
+The app scores these by itself: the learner picks one option, then one Reason.
+
+| Field | Rules |
+| --- | --- |
+| `id` | Never changes, because review stores it. A Decision Card is `<creature>.decision.<name>`, for example `cache.decision.logo`. A trade-off question is `<creature>.trade-off.<name>`, for example `cache.trade-off.fresh-prices`. To replace one, retire it and add one with a new name |
+| `situation` | A short situation |
+| `options`, `rightOption` | 2 options for a Decision Card, 3 for a trade-off question. `rightOption` is the index of the right one |
+| `reasons` | Exactly 3 Reasons, each `{ "text": "…", "right": true or false }`. Exactly 1 is right |
+| `explanation` | Shown after the answer |
+| `skills` | 1 or more Skill ids |
+
+### Skills
+
+A Skill id is a fixed number from 1 to 26. The numbers match the list in `research/tech-lead-skills.md`, and the names live in `src/content/skills.ts`. A number never changes its meaning.
+
+### Battle scenarios
+
+A scenario becomes a **v1.5 scenario** when one of its turns has a `constraint`, `reasons` or `skills`, or when it has a `kind` other than `battle`, or a `reverses`. A v1.5 scenario must follow every rule here.
+
+| Field | On | What it holds | Rules |
+| --- | --- | --- | --- |
+| `kind` | scenario | `battle` (the default when left out), `meeting` or `agent-diff` (design 7.1) | Until the Meeting Battle and Agent Diff Battle screens ship, the app offers only `battle` |
+| `source` | scenario | The real incident or situation the battle comes from (design 7.6) | Required in a v1.5 scenario |
+| `person` | scenario | Who asks in a Meeting Battle | Only in `meeting`, and required there: `client`, `manager` or `cto` |
+| `diff` | scenario | The short diff an AI agent wrote, with one planted problem | Only in `agent-diff`, and required there. May have line breaks |
+| `reverses` | scenario | A Gym twin: the id of a scenario in the same town whose Constraints this one reverses (design 7.5) | Another scenario of the same town |
+| `constraint` | turn | The one-line situation that decides the best move (design 7.2) | Required on every turn. One sentence, at most 20 words |
+| `reasons` | turn | The 3 Reasons the learner picks from before the result | Exactly 3, exactly 1 `right` |
+| `skills` | turn | The Skills the turn trains | 1 or more Skill ids |
+| `label` | move row | The words on the button of a Meeting answer | Only in `meeting`, and required there |
+
+Moves in each kind:
+
+- `battle`: a `moveId` is a real creature move, as before.
+- `meeting`: a `moveId` is `answer.<name>`, for example `answer.give-new-date`. The `label` holds the answer.
+- `agent-diff`: a `moveId` is a review verdict: `verdict.approve`, `verdict.ask-for-test`, `verdict.block` or `verdict.narrow`.
+
+So no creature may have the id `answer` or `verdict`.
+
+From Town 2 on, every v1.5 `battle` has at least one turn whose best move is a move of a creature from an earlier town (design 7.5).
+
+A Reason is logged by its index in the file's `reasons` list (0, 1 or 2), next to the scenario's content hash. Moving a Reason changes the hash, so an old log still says which list its index points into. The app may show the Reasons in another order, but it logs the file index.
+
+Example v1.5 turn, with the other fields as above:
+
+| Field | Value |
+| --- | --- |
+| `constraint` | `"The price changes every minute during the sale."` |
+| `reasons[0]` | `{ "text": "A price must never come from an old copy.", "right": true }` |
+| `reasons[1]` | `{ "text": "No store makes every page faster.", "right": false }` |
+| `reasons[2]` | `{ "text": "A CDN always has the newest price.", "right": false }` |
+| `skills` | `[3, 10]` |
 
 ## Commands
 
