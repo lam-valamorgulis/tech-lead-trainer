@@ -2,7 +2,7 @@
 
 ## Source of truth
 
-`docs/design-v1.4.md` is the confirmed design (in Vietnamese, with numbered sections). It wins over spec #1 and every ticket. When they disagree, say so in the PR; a one-way gap follows step 6 below. One exception: design sections 16 and 17 still have agents wait for the owner on one-way doors, content review and "ship". On 2026-10-20 the owner replaced those rows with the factory rules below and in `docs/agents/factory.md`. Research notes are in `research/`.
+`docs/design-v1.5.md` is the confirmed design (in Vietnamese, with numbered sections). It wins over spec #1 and every ticket. When they disagree, say so in the PR; a one-way gap follows step 6 below. Research notes are in `research/`.
 
 ## Factory rules
 
