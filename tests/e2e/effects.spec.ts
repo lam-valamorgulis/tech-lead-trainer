@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { battlePanel, catchItems, playMove, SALE_DAY_REASONS } from "../support/battle";
+import { battlePanel, catchItems, nextTurn, playMove, SALE_DAY_REASONS } from "../support/battle";
 import { local, readLesson, signInNewUser } from "../support/e2e";
 import { sql } from "../support/local-admin";
 
@@ -138,7 +138,7 @@ test("sound starts at the first tap after sign-in, and a strong hit plays next t
       expect(effect.seconds).toBeLessThanOrEqual(0.5);
     }
     // The result panel comes up when the effects end, under a second later, and its button works.
-    await page.getByRole("button", { name: "Next turn" }).click();
+    await nextTurn(page);
     await expect(page.getByRole("heading", { name: "Turn 2 of 3" })).toBeVisible();
   } finally {
     await user.forget();

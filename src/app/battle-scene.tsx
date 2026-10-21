@@ -13,7 +13,6 @@ import { scenarioTwist, threatTypeOf } from "@/core/twist";
 import { CreatureSprite } from "./creature-sprite";
 import { fxStyle } from "./effects";
 import { GlossaryText } from "./glossary-text";
-import { keepAboveKeyboard } from "./keyboard";
 import { OPPONENT_LOOK } from "./opponent-look";
 import { playSound } from "./sound";
 
@@ -67,6 +66,7 @@ export function BattleScene({
   const result = resultFor !== null && battle.played.length >= resultFor ? resultFor : null;
   const timeline = result === null ? null : turnTimeline(battle.played[result - 1]);
   useTurnSounds(result === null ? null : battle.played[result - 1], skipped);
+  const panelOpen = useResultPanel(result, timeline, skipped);
 
   return (
     <section className={skipped ? "battle-scene battle-skip" : "battle-scene"} aria-label={`Battle: ${scenario.name}`}>
@@ -74,21 +74,40 @@ export function BattleScene({
       <div className="battle-stage" onClick={() => result !== null && setSkipped(true)}>
         <Stage scenario={scenario} battle={battle} turnNumber={showing} result={result} timeline={timeline} />
       </div>
-      {result === null ? (
-        <ChoicePanel key={`turn-${showing}`} scenario={scenario} battle={battle} onPlay={play} />
-      ) : (
+      {result === null && <ChoicePanel key={`turn-${showing}`} scenario={scenario} battle={battle} onPlay={play} />}
+      {result !== null && panelOpen && (
         <ResultPanel
           key={`result-${result}`}
           scenario={scenario}
           battle={battle}
           turnNumber={result}
-          delayMs={skipped ? 0 : timeline!.resultAt}
           finished={progress.finished && result === battle.played.length}
           onNext={next}
         />
       )}
     </section>
   );
+}
+
+/** True when no effect plays: the phone asks for reduced motion, or "Reduce effects" is on (UI rule 12). */
+function effectsOff(): boolean {
+  return document.documentElement.dataset.effects === "reduced" || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+/**
+ * Design 9 rule 2: the panel stays closed while a turn's effects run, then the result panel opens.
+ * With no effects, or after a tap to skip, it opens at once. Only the timing is in code; the
+ * effects themselves are CSS.
+ */
+function useResultPanel(result: number | null, timeline: TurnTimeline | null, skipped: boolean): boolean {
+  const [openFor, setOpenFor] = useState<number | null>(null);
+  const resultAt = timeline?.resultAt ?? 0;
+  useEffect(() => {
+    if (result === null) return;
+    const timer = setTimeout(() => setOpenFor(result), skipped || effectsOff() ? 0 : resultAt);
+    return () => clearTimeout(timer);
+  }, [result, resultAt, skipped]);
+  return result !== null && openFor === result;
 }
 
 /**
@@ -98,9 +117,7 @@ export function BattleScene({
 function useTurnSounds(played: PlayedTurnV2 | null, skipped: boolean) {
   useEffect(() => {
     if (!played || skipped) return;
-    const still =
-      document.documentElement.dataset.effects === "reduced" || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const timeline = still ? STILL_SOUNDS : turnTimeline(played);
+    const timeline = effectsOff() ? STILL_SOUNDS : turnTimeline(played);
     const timers = [setTimeout(() => playSound(soundForDamage(played.damage)), timeline.hitAt)];
     if (played.hpLost > 0) timers.push(setTimeout(() => playSound("hurt"), timeline.counterAt!));
     if (played.fainted.length > 0) timers.push(setTimeout(() => playSound("faint"), timeline.faintAt!));
@@ -334,7 +351,7 @@ function ChoicePanel({
               rows={2}
               maxLength={1000}
               value={note}
-              onFocus={(event) => keepAboveKeyboard(event.currentTarget)}
+              onFocus={(event) => boxToPanelTop(event.currentTarget)}
               onChange={(event) => setNote(event.target.value)}
             />
           </label>
@@ -395,6 +412,17 @@ function ChoicePanel({
   );
 }
 
+/**
+ * The iPhone keyboard covers the bottom of the screen. The box moves to the top of the panel,
+ * so it stays above the keyboard. Only the panel scrolls: the scene itself never moves.
+ */
+function boxToPanelTop(box: HTMLTextAreaElement) {
+  const panel = box.closest<HTMLElement>(".battle-panel");
+  const align = () => panel?.scrollTo({ top: box.offsetTop - 8 });
+  align();
+  setTimeout(align, 400);
+}
+
 function AttackType({ type }: { type: OpponentType }) {
   const look = OPPONENT_LOOK[type];
   return (
@@ -409,20 +437,18 @@ function AttackType({ type }: { type: OpponentType }) {
 
 /**
  * After the effects: the damage, "You chose X. Y happens.", the right Reason when yours was wrong,
- * and what the opponent did back (UI rules 4 and 5). It slides up when the effects are done.
+ * and what the opponent did back (UI rules 4 and 5). It opens when the effects are done.
  */
 function ResultPanel({
   scenario,
   battle,
   turnNumber,
-  delayMs,
   finished,
   onNext,
 }: {
   scenario: BundledScenario;
   battle: BattleV2;
   turnNumber: number;
-  delayMs: number;
   finished: boolean;
   onNext: () => void;
 }) {
@@ -433,7 +459,7 @@ function ResultPanel({
   }, []);
 
   return (
-    <Panel slide delayMs={delayMs}>
+    <Panel slide>
       <h2 ref={heading} tabIndex={-1} className="battle-heading">
         Turn {turnNumber} result
       </h2>
@@ -451,11 +477,14 @@ function ResultPanel({
 }
 
 /** The panel over the lower half of the scene: at most half the screen, never over the creatures. */
-function Panel({ slide = false, delayMs = 0, children }: { slide?: boolean; delayMs?: number; children: ReactNode }) {
-  const style: CSSProperties | undefined = slide ? fxStyle("slide", delayMs) : undefined;
+function Panel({ slide = false, children }: { slide?: boolean; children: ReactNode }) {
+  const style: CSSProperties | undefined = slide ? fxStyle("slide") : undefined;
+  // The slot slides and the panel inside it scrolls. One element doing both can paint in the wrong place.
   return (
-    <div className={slide ? "battle-panel fx fx-slide" : "battle-panel"} style={style} data-testid="battle-panel">
-      {children}
+    <div className={slide ? "battle-slot fx fx-slide" : "battle-slot"} style={style}>
+      <div className="battle-panel" data-testid="battle-panel">
+        {children}
+      </div>
     </div>
   );
 }

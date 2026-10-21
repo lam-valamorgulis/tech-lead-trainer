@@ -16,12 +16,30 @@ export const SALE_DAY_REASONS = [
 export const battlePanel = (page: Page) => page.getByTestId("battle-panel");
 
 /**
+ * Waits until the panel is on screen and has stopped sliding. The panel slides up in steps, and a
+ * tap while it moves can land next to the button. (Chrome's viewport check sometimes reports a
+ * sliding panel as off screen after it stopped, so this asks the animations instead.)
+ */
+export async function panelSettled(page: Page) {
+  await expect(battlePanel(page)).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          document
+            .getAnimations()
+            .filter((animation) => (animation as CSSAnimation).animationName === "fx-slide" && animation.playState !== "finished").length,
+      ),
+    )
+    .toBe(0);
+}
+
+/**
  * Plays one turn of the Battle scene: a move, then a Reason when the turn has Reasons. `note`
  * fills the optional box for the learner's own words first.
  */
 export async function playMove(page: Page, move: string, reason?: string, note?: string) {
-  // The panel slides up in steps. A tap while it moves can land next to the button, so wait until it is all in view.
-  await expect(battlePanel(page)).toBeInViewport({ ratio: 1 });
+  await panelSettled(page);
   await battlePanel(page).getByRole("button", { name: move }).click();
   if (reason === undefined) return;
   if (note !== undefined) {
@@ -31,10 +49,11 @@ export async function playMove(page: Page, move: string, reason?: string, note?:
   await battlePanel(page).getByRole("button", { name: reason, exact: true }).click();
 }
 
-/** Waits for the result panel to slide up after the effects, then goes on. */
+/** Waits for the result panel to open after the effects, then goes on. */
 export async function nextTurn(page: Page, last = false) {
   const next = page.getByRole("button", { name: last ? "See how it ended" : "Next turn" });
-  await expect(battlePanel(page)).toBeInViewport({ ratio: 1 });
+  await expect(next).toBeVisible();
+  await panelSettled(page);
   await next.click();
 }
 

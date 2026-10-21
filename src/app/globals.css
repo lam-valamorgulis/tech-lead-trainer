@@ -925,7 +925,8 @@ a[aria-current="page"] {
   display: flex;
   justify-content: center;
   background: var(--battle-night);
-  overflow: hidden;
+  /* Clip, not hidden: nothing can scroll the scene, not even a script. */
+  overflow: clip;
 }
 
 /* While the scene is open, the page under it stays still and hidden. Only the scene and the
@@ -953,7 +954,7 @@ html:has(.battle-scene) {
   width: 100%;
   max-width: 460px;
   height: 100%;
-  overflow: hidden;
+  overflow: clip;
   /* Sky over the top third, then grass. */
   background: linear-gradient(#79c3ee, #d4f0fb 33%, #8fd16f 33%);
 }
@@ -1157,17 +1158,27 @@ html:has(.battle-scene) {
 }
 
 /* The panel slides up over the bottom half (design 9 rule 2): threat, Constraint, moves, Reasons. */
-.battle-panel {
+.battle-slot {
   position: absolute;
-  left: 50%;
+  left: 0;
+  right: 0;
   bottom: 0;
   z-index: 6;
-  width: 100%;
   max-width: 460px;
-  max-height: 50%;
+  height: 50%;
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  /* A short panel leaves the top of the slot empty: taps there reach the scene. */
+  pointer-events: none;
+}
+
+.battle-panel {
+  max-height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
-  translate: -50% 0;
+  pointer-events: auto;
   display: flex;
   flex-direction: column;
   gap: 10px;

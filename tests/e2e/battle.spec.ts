@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { battlePanel, catchItems, nextTurn, playMove, SALE_DAY_REASONS } from "../support/battle";
+import { battlePanel, catchItems, nextTurn, panelSettled, playMove, SALE_DAY_REASONS } from "../support/battle";
 import { local, signInNewUser } from "../support/e2e";
 import { sql } from "../support/local-admin";
 
@@ -21,10 +21,12 @@ async function startSaleDay(page: Page) {
 /** Design 9 rule 2: the panel takes at most half the screen and never covers a creature or an HP box. */
 async function expectPanelBelowTheCreatures(page: Page) {
   const panel = battlePanel(page);
-  await expect(panel).toBeInViewport({ ratio: 1 });
+  await panelSettled(page);
   const height = page.viewportSize()!.height;
-  const top = (await panel.boundingBox())!.y;
-  expect(top).toBeGreaterThanOrEqual(height / 2 - 1);
+  const box = (await panel.boundingBox())!;
+  expect(box.y).toBeGreaterThanOrEqual(height / 2 - 1);
+  expect(box.y + box.height).toBeLessThanOrEqual(height + 1);
+  const top = box.y;
   for (const part of [page.getByTestId("opponent"), page.getByTestId("my-creature"), page.locator(".battle-hp-mine")]) {
     const box = (await part.boundingBox())!;
     expect(box.height).toBeGreaterThan(0);
@@ -67,7 +69,7 @@ test("a full Battle on the scene: Constraint before the moves, Reasons, HP on bo
     const panel = battlePanel(page);
     await expect(panel.getByRole("heading", { name: "Turn 1 of 3" })).toBeFocused();
     // Measure once the panel has slid all the way up.
-    await expect(panel).toBeInViewport({ ratio: 1 });
+    await panelSettled(page);
     await expect(panel.getByText("Every visitor downloads the same logo and styles again.")).toBeVisible();
     const constraint = panel.getByText("The logo changes once a year.");
     const firstMove = panel.getByRole("button", { name: "TTL (Cache)" });
@@ -267,7 +269,7 @@ test.describe("with reduce motion on in the phone", () => {
 
       await playMove(page, "HttpOnly (Cookie)", SALE_DAY_REASONS[0].right);
       // The result shows at once: nothing waits for an effect.
-      await expect(page.getByRole("button", { name: "Next turn" })).toBeInViewport();
+      await expect(page.getByRole("button", { name: "Next turn" })).toBeVisible();
       await page.getByRole("button", { name: "Next turn" }).click();
       await playMove(page, "TTL (Cache)", SALE_DAY_REASONS[1].right);
       await expect(panel.getByText("The opponent hits back: −2 HP. Cache fainted! Cookie comes in next.")).toBeVisible();
