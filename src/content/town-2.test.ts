@@ -59,6 +59,11 @@ function texts(value: unknown): string[] {
 const bestRow = (turn: Town["scenarios"][number]["turns"][number]) =>
   turn.moves.reduce((top, row) => (row.damage > top.damage ? row : top));
 
+const kindOf = (scenario: Town["scenarios"][number]) => scenario.kind ?? "battle";
+const battles = town.scenarios.filter((scenario) => kindOf(scenario) === "battle");
+const meetings = town.scenarios.filter((scenario) => kindOf(scenario) === "meeting");
+const agentDiffs = town.scenarios.filter((scenario) => kindOf(scenario) === "agent-diff");
+
 describe("town 2 content", () => {
   it("is town number 2, API design, with the two-types twist", () => {
     expect(town).toMatchObject({ id: "t02", number: 2, name: "API design", twist: { kind: "two-types" } });
@@ -105,12 +110,12 @@ describe("town 2 content", () => {
 
   // The battles of town 2.
   it("has at least 12 battle scenarios, enough for most days of month 2 and the Gym", () => {
-    expect(town.scenarios.length).toBeGreaterThanOrEqual(12);
+    expect(battles.length).toBeGreaterThanOrEqual(12);
   });
 
-  it("uses only moves of town 2 creatures in its move tables", () => {
-    const moveIds = new Set(town.creatures.flatMap((creature) => creature.moves.map((move) => move.id)));
-    for (const scenario of town.scenarios) {
+  it("uses only moves of town 1 and town 2 creatures in its normal Battles", () => {
+    const moveIds = new Set([town, townOne].flatMap((t) => t.creatures.flatMap((creature) => creature.moves.map((move) => move.id))));
+    for (const scenario of battles) {
       for (const turn of scenario.turns) {
         for (const row of turn.moves) expect(moveIds.has(row.moveId), `${scenario.id}: ${row.moveId}`).toBe(true);
       }
@@ -125,8 +130,9 @@ describe("town 2 content", () => {
 
   it("orders scenarios by the day they can start, so early days have a battle", () => {
     // The app offers a scenario once the creature of each best move is caught, in catch order.
+    // A town 1 creature (index -1) is caught before town 2 starts.
     const catchOrder = town.creatures.map((creature) => creature.id);
-    const readyAfter = town.scenarios.map((scenario) =>
+    const readyAfter = battles.map((scenario) =>
       Math.max(...scenario.turns.map((turn) => catchOrder.indexOf(bestRow(turn).moveId.split(".")[0]))),
     );
     expect(readyAfter).toEqual([...readyAfter].sort((a, b) => a - b));
@@ -153,5 +159,54 @@ describe("town 2 content", () => {
       const tapped = townTexts.some((text) => glossarySegments(text, glossary).some((s) => "word" in s && s.word === word));
       expect(tapped, word).toBe(true);
     }
+  });
+});
+
+// Ticket #108: the v1.5 battles of town 2, on top of the rules the checker enforces for every town.
+describe("town 2 battles v1.5", () => {
+  const townOneCreatures = new Set(townOne.creatures.map((creature) => creature.id));
+  const turns = town.scenarios.flatMap((scenario) => scenario.turns);
+
+  it("gives every scenario a source, and every turn a Constraint, 3 Reasons and Skills", () => {
+    for (const scenario of town.scenarios) {
+      expect(scenario.source, scenario.id).toBeDefined();
+      for (const turn of scenario.turns) {
+        expect(turn.constraint, scenario.id).toBeDefined();
+        expect(turn.reasons?.filter((reason) => reason.right), scenario.id).toHaveLength(1);
+        expect(turn.skills?.length, scenario.id).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("needs a town 1 creature in one turn of every normal Battle (design 7.5)", () => {
+    for (const scenario of battles) {
+      const oldTown = scenario.turns.filter((turn) => townOneCreatures.has(bestRow(turn).moveId.split(".")[0]));
+      expect(oldTown.length, scenario.id).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it("spreads the right Reason over positions 0, 1 and 2, so the file order gives no hint", () => {
+    const positions = turns.map((turn) => turn.reasons!.findIndex((reason) => reason.right));
+    for (const position of [0, 1, 2]) {
+      const share = positions.filter((p) => p === position).length / positions.length;
+      expect(share, `position ${position}`).toBeGreaterThan(0.25);
+      expect(share, `position ${position}`).toBeLessThan(0.42);
+    }
+  });
+
+  it("has 4 to 8 Meeting Battles, most with a client, that train Skills 19, 20, 21 and 26", () => {
+    expect(meetings.length).toBeGreaterThanOrEqual(4);
+    expect(meetings.length).toBeLessThanOrEqual(8);
+    expect(meetings.filter((scenario) => scenario.person === "client").length).toBeGreaterThanOrEqual(4);
+    const skills = new Set(meetings.flatMap((scenario) => scenario.turns.flatMap((turn) => turn.skills ?? [])));
+    for (const skill of [19, 20, 21, 26]) expect(skills.has(skill), `Skill ${skill}`).toBe(true);
+  });
+
+  it("has 4 Agent Diff Battles that train Skills 14 and 15 and use every verdict as a best move", () => {
+    expect(agentDiffs).toHaveLength(4);
+    const skills = new Set(agentDiffs.flatMap((scenario) => scenario.turns.flatMap((turn) => turn.skills ?? [])));
+    expect(skills.has(14) && skills.has(15)).toBe(true);
+    const verdicts = new Set(agentDiffs.flatMap((scenario) => scenario.turns.map((turn) => bestRow(turn).moveId)));
+    expect([...verdicts].sort()).toEqual(["verdict.approve", "verdict.ask-for-test", "verdict.block", "verdict.narrow"]);
   });
 });
