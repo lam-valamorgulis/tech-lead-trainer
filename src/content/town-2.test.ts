@@ -194,6 +194,15 @@ describe("town 2 battles v1.5", () => {
     }
   });
 
+  it("does not make the right Reason the longest one in most turns, so its length gives no hint", () => {
+    const words = (text: string) => text.split(/\s+/).length;
+    const longest = turns.filter((turn) => {
+      const right = turn.reasons!.find((reason) => reason.right)!;
+      return turn.reasons!.every((reason) => reason === right || words(right.text) > words(reason.text));
+    });
+    expect(longest.length / turns.length).toBeLessThanOrEqual(0.45);
+  });
+
   it("has 4 to 8 Meeting Battles, most with a client, that train Skills 19, 20, 21 and 26", () => {
     expect(meetings.length).toBeGreaterThanOrEqual(4);
     expect(meetings.length).toBeLessThanOrEqual(8);
