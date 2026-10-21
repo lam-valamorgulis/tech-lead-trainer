@@ -13400,7 +13400,7 @@
             {
               "threatType": "data",
               "threat": "A task app calls users.list again and again to retrieve all users. A teammate fears that the repeated calls change data.",
-              "constraint": "The list call is a GET, and it only reads users.",
+              "constraint": "In your own API, the list call uses GET, and it only reads users.",
               "reasons": [
                 {
                   "text": "Each repeated call needs an idempotency key to be safe.",
@@ -13495,7 +13495,7 @@
               ]
             }
           ],
-          "hash": "c6514f4438d34335"
+          "hash": "c0ba0ebb5bd1aa8c"
         },
         {
           "id": "t02-two-editors",
