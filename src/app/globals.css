@@ -431,38 +431,85 @@ h2[tabindex="-1"]:focus {
   height: 50dvh;
 }
 
-/* Map. Design 9: pixel art grows by a whole number, with no smoothing. */
+/* Map (design 5, ticket #111): a drawn board of 12 towns on a winding road. The picture is an
+   SVG under the towns; each town is a link on its spot. Pixel art grows by whole numbers. */
 .pixel-art {
   image-rendering: pixelated;
 }
 
-.town-map {
+.town-board {
+  position: relative;
+  width: min(100%, 420px);
+  margin: 24px auto var(--space);
+  border: 4px solid #070a16;
+  border-radius: 4px;
+}
+
+.map-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.town-spots {
+  position: absolute;
+  inset: 0;
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  /* Columns never grow to fit a label, so a label that is too long shows as a test failure. */
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+}
+
+/* Each spot is centred on its cell, 12 px narrower than the cell, so the road shows between towns. */
+.town-spot {
+  position: absolute;
+  width: calc(100% / 3 - 12px);
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .town {
   width: 100%;
-  height: 100%;
   min-height: var(--tap-min);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 8px 4px;
-  font: inherit;
+  gap: 2px;
+  padding: 6px 4px;
   font-size: 13px;
   line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
   color: var(--color-text);
-  background: transparent;
-  border: 2px solid var(--color-muted);
+  background: var(--color-bg);
+  border: 2px solid var(--color-line);
   border-radius: 4px;
+  box-shadow: 0 3px 0 rgb(0 0 0 / 0.35);
   touch-action: manipulation;
+}
+
+.town:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* The state icon sits on the house's top corner, above the word that names the state. */
+.town-house {
+  position: relative;
+  display: block;
+}
+
+.town-house .state-icon {
+  position: absolute;
+  top: -2px;
+  right: -14px;
+  padding: 2px;
+  background: var(--color-bg);
+  border-radius: 2px;
+  box-sizing: content-box;
 }
 
 .town-number {
@@ -471,21 +518,105 @@ h2[tabindex="-1"]:focus {
   white-space: nowrap;
 }
 
+/* A long word wraps instead of leaving the town. */
 .town-state {
-  color: var(--color-muted);
+  overflow-wrap: anywhere;
 }
 
-.town-current {
-  border-color: var(--color-accent);
+/* Colour, icon and word together (UI rule 7). Each colour is at least 9:1 on --color-bg. */
+.town.town-past {
+  border-color: var(--color-success);
 }
 
-.town-current .town-state {
+.town-past .town-state,
+.town-state-line.town-past,
+.state-icon-past {
+  color: var(--color-success);
+}
+
+.town.town-current {
+  border: 3px solid var(--color-accent);
+}
+
+.town-current .town-state,
+.town-state-line.town-current,
+.state-icon-current {
   color: var(--color-accent);
 }
 
-.town[aria-pressed="true"] {
-  outline: 2px solid var(--color-text);
-  outline-offset: 2px;
+.town-locked .town-state,
+.town-state-line.town-locked,
+.state-icon-locked {
+  color: var(--color-muted);
+}
+
+.state-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+/* "You are here": a gold arrow over the current town. It bobs, unless motion is reduced (UI rule 12). */
+.town-pin {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  width: 21px;
+  height: 15px;
+  margin-bottom: 2px;
+  color: var(--color-accent);
+  transform: translateX(-50%);
+  filter: drop-shadow(0 2px 0 #070a16);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-effects="reduced"]) .town-pin {
+    animation: town-pin-bob 1s steps(2) infinite;
+  }
+}
+
+@keyframes town-pin-bob {
+  50% {
+    transform: translate(-50%, -4px);
+  }
+}
+
+/* A town's page. */
+.town-name {
+  font-size: 16px;
+  margin: 0 0 var(--space);
+}
+
+.town-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space);
+  margin-bottom: var(--space);
+}
+
+.town-banner .stack > p {
+  margin: 0;
+}
+
+.town-state-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.town-links {
+  list-style: none;
+  margin: 0 0 var(--space);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.town-links .button {
+  width: 100%;
+  min-height: var(--tap-main);
 }
 
 /* The steps of a worked example. */

@@ -67,14 +67,18 @@ test("the first learning day in town 2 shows the new town screen once, then the 
 test("the map reopens the Town Intro of the current town (#98)", async ({ page }) => {
   const user = await signInNewUser(page, "town-intro-map");
   try {
-    // In town 1, the fixture town has no Town Intro in seam C, so the map shows no link.
+    // In town 1, the fixture town has no Town Intro in seam C, so its page shows no link.
     await page.goto("/map");
-    await expect(page.getByRole("heading", { name: /^Town 1:/ })).toBeVisible();
+    await page.getByRole("link", { name: "Town 1 You are here" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Town 1" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("link", { name: "Weekend boss" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Town Intro" })).toHaveCount(0);
 
+    // #111: tap the town on the map, then its Town Intro.
     await moveToTown2(user.email);
     await page.goto("/map");
-    await expect(page.getByRole("heading", { name: /^Town 2:/ })).toBeVisible();
+    await page.getByRole("link", { name: "Town 2 You are here" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Town 2" })).toBeVisible();
     await page.getByRole("link", { name: "Town Intro" }).click();
     // The dev server builds this page on its first visit, which can take a few seconds.
     // The production build keeps the map page hidden in the page, so look for what only the intro page has.
