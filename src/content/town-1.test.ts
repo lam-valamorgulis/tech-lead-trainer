@@ -93,6 +93,18 @@ describe("town 1 content", () => {
     expect([...positions].sort()).toEqual([0, 1, 2]);
   });
 
+  it("does not make the right Reason the longest or the shortest too often, so its length gives no hint", () => {
+    const turns = town.scenarios.flatMap((s) => s.turns);
+    const rank = (turn: (typeof turns)[number]) => {
+      const lengths = turn.reasons!.map((reason) => reason.text.length);
+      const right = lengths[turn.reasons!.findIndex((reason) => reason.right)];
+      return right === Math.max(...lengths) ? "longest" : right === Math.min(...lengths) ? "shortest" : "middle";
+    };
+    const share = (place: string) => turns.filter((turn) => rank(turn) === place).length / turns.length;
+    expect(share("longest")).toBeLessThanOrEqual(0.45);
+    expect(share("shortest")).toBeLessThanOrEqual(0.45);
+  });
+
   it("has 4 to 8 Meeting Battles that train Skills 19 to 21 and 26", () => {
     const meetings = town.scenarios.filter((s) => kindOf(s) === "meeting");
     expect(meetings.length).toBeGreaterThanOrEqual(4);
