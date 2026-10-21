@@ -184,6 +184,23 @@ describe("win and lose", () => {
     expect(progressV2(battle)).toMatchObject({ won: false, finished: true, lostBy: "turns", opponentHp: 1 });
   });
 
+  it("names Faint as the reason when the turns run out and the last team member Faints on turn 3 together", () => {
+    // You alone, HP 3: three damage-1 moves do 3 damage to the opponent (HP 4) and cost 1 HP each.
+    let battle = startBattleV2({ kind: "meeting", turns: [turnOf([2, 1, 0]), turnOf([2, 1, 0], 1), turnOf([2, 1, 0], 2)] });
+    for (let i = 0; i < 3; i += 1) battle = playTurnV2(battle, "b.m", rightReason(battle));
+    expect(battle.played[2]).toMatchObject({ hpLost: 1, fainted: [YOU] });
+    expect(progressV2(battle)).toMatchObject({
+      finished: true,
+      won: false,
+      lostBy: "faint",
+      faints: 1,
+      opponentHp: 1,
+      turnNumber: 3,
+      active: null,
+    });
+    expect(endSummary(battle)).toMatchObject({ result: "lost", lostBy: "faint", turnsUsed: 3, teamHp: [{ id: YOU, hp: 0 }] });
+  });
+
   it("refuses a move the team cannot use, and a team with no creature, a repeat or more than 3", () => {
     const battle = battleOf([2, 1, 0], ["a", "b"]);
     expect(() => playTurnV2(battle, "c.m", 0)).toThrow(/not a move/);
@@ -301,6 +318,7 @@ describe("the log fields of a turn", () => {
     battle = playTurnV2(battle, "b.m", 0);
     expect(turnLog(battle, 1)).toEqual({
       battleKind: "battle",
+      moveDamage: 1,
       reasonIndex: 0,
       reasonCorrect: false,
       hpLost: 1,
@@ -314,6 +332,7 @@ describe("the log fields of a turn", () => {
     const battle = playTurnV2(startBattleV2({ turns: [plain, plain, plain] }, ["a"]), "a.m", null);
     expect(turnLog(battle, 1)).toEqual({
       battleKind: "battle",
+      moveDamage: 2,
       reasonIndex: null,
       reasonCorrect: null,
       hpLost: 0,

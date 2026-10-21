@@ -91,12 +91,12 @@ describe("GET /api/export", () => {
     };
     await writeEvents(a.client, [
       { ...turn, clientEventId: crypto.randomUUID(), turnNumber: 1, whyText: "A copy is fine for an hour." },
-      { ...turn, clientEventId: crypto.randomUUID(), turnNumber: 2, battleKind: "battle", reasonIndex: 1, reasonCorrect: true, hpLost: 0, skillIds: [3], constraintVariant: "main" },
+      { ...turn, clientEventId: crypto.randomUUID(), turnNumber: 2, battleKind: "battle", moveDamage: 2, reasonIndex: 1, reasonCorrect: true, hpLost: 0, skillIds: [3], constraintVariant: "main" },
     ]);
     const file = await exportOf(a);
     expect(file.events.battle_turn_events).toMatchObject([
-      { turn_number: 1, why_text: "A copy is fine for an hour.", battle_kind: null, reason_index: null, hp_lost: null, skill_ids: null },
-      { turn_number: 2, why_text: null, battle_kind: "battle", reason_index: 1, reason_correct: true, hp_lost: 0, skill_ids: [3], constraint_variant: "main" },
+      { turn_number: 1, why_text: "A copy is fine for an hour.", battle_kind: null, move_damage: null, reason_index: null, hp_lost: null, skill_ids: null },
+      { turn_number: 2, why_text: null, battle_kind: "battle", move_damage: 2, reason_index: 1, reason_correct: true, hp_lost: 0, skill_ids: [3], constraint_variant: "main" },
     ]);
   });
 

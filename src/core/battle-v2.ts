@@ -2,10 +2,8 @@
 // HP on both sides, damage back, Faint, and a Reason picked before the result. The same engine
 // runs a Battle (a team of up to 3 creatures) and a Meeting or Agent Diff Battle (You alone).
 // The v1 rules in battle.ts still run the current Battle screen until the v2 screen ships (#103).
-import { kindOf, type BattleTurn, type Scenario, type SCENARIO_KINDS } from "../content/schema.ts";
+import { kindOf, type BattleTurn, type Scenario, type ScenarioKind } from "../content/schema.ts";
 import { MAX_TURNS, OPPONENT_HP, bestRow, creatureOf } from "./battle.ts";
-
-export type BattleKind = (typeof SCENARIO_KINDS)[number];
 
 /** The HP of each creature in the team, and of You in a Meeting or Agent Diff Battle. */
 export const CREATURE_HP = 3;
@@ -16,7 +14,7 @@ export const YOU = "you";
 const TEAM_SIZE = 3;
 
 /** The names of the two HP bars, per kind of battle. The screen shows them; the rules do not use them. */
-export const BAR_NAMES: Record<BattleKind, { opponent: string; team: string }> = {
+export const BAR_NAMES: Record<ScenarioKind, { opponent: string; team: string }> = {
   battle: { opponent: "HP", team: "HP" },
   meeting: { opponent: "Doubt", team: "Trust" },
   "agent-diff": { opponent: "Risk", team: "Trust" },
@@ -54,7 +52,7 @@ export type PlayedTurnV2 = {
 };
 
 /** A battle in play. The HP of both sides follows from the played turns. */
-export type BattleV2 = { kind: BattleKind; turns: BattleTurn[]; team: string[]; played: PlayedTurnV2[] };
+export type BattleV2 = { kind: ScenarioKind; turns: BattleTurn[]; team: string[]; played: PlayedTurnV2[] };
 
 export type ProgressV2 = {
   opponentHp: number;
@@ -202,8 +200,8 @@ export function playTurnV2(battle: BattleV2, moveId: string | null, reasonIndex:
 }
 
 /** The v2 fields of a played turn's log row (design 12.2), fixed at play time. */
-export type TurnLogFields = Pick<PlayedTurnV2, "reasonIndex" | "reasonCorrect" | "hpLost"> & {
-  battleKind: BattleKind;
+export type TurnLogFields = Pick<PlayedTurnV2, "moveDamage" | "reasonIndex" | "reasonCorrect" | "hpLost"> & {
+  battleKind: ScenarioKind;
   /** Null when the turn's content has no Skills. */
   skillIds: number[] | null;
   /** Null when the turn's content has no Constraint. */
@@ -217,6 +215,7 @@ export function turnLog(battle: BattleV2, turnNumber: number): TurnLogFields {
   const turn = battle.turns[turnNumber - 1];
   return {
     battleKind: battle.kind,
+    moveDamage: played.moveDamage,
     reasonIndex: played.reasonIndex,
     reasonCorrect: played.reasonCorrect,
     hpLost: played.hpLost,
@@ -229,7 +228,7 @@ export type SummaryTurn = PlayedTurnV2 & { bestMoveId: string; modelAnswer: stri
 
 /** The end-of-battle screen in one record (design 7.4): every turn's result and model answer. */
 export type EndSummary = {
-  kind: BattleKind;
+  kind: ScenarioKind;
   result: "won" | "lost";
   lostBy: "turns" | "faint" | null;
   turnsUsed: number;

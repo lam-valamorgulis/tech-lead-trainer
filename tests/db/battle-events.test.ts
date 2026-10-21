@@ -182,6 +182,7 @@ describe("battle events", () => {
       whyText: undefined,
       damage: 1,
       battleKind: "meeting",
+      moveDamage: 2,
       reasonIndex: 2,
       reasonCorrect: false,
       hpLost: 0,
@@ -192,7 +193,7 @@ describe("battle events", () => {
 
     const { data } = await user.client
       .from("battle_turn_events")
-      .select("move_id, damage, best_move, why_text, battle_kind, reason_index, reason_correct, hp_lost, skill_ids, constraint_variant")
+      .select("move_id, damage, best_move, why_text, battle_kind, move_damage, reason_index, reason_correct, hp_lost, skill_ids, constraint_variant")
       .eq("client_event_id", turn.clientEventId);
     expect(data).toEqual([
       {
@@ -201,6 +202,7 @@ describe("battle events", () => {
         best_move: true,
         why_text: null,
         battle_kind: "meeting",
+        move_damage: 2,
         reason_index: 2,
         reason_correct: false,
         hp_lost: 0,
@@ -215,12 +217,13 @@ describe("battle events", () => {
     await writeEvents(user.client, [turn]);
     const { data } = await user.client
       .from("battle_turn_events")
-      .select("why_text, battle_kind, reason_index, reason_correct, hp_lost, skill_ids, constraint_variant")
+      .select("why_text, battle_kind, move_damage, reason_index, reason_correct, hp_lost, skill_ids, constraint_variant")
       .eq("client_event_id", turn.clientEventId);
     expect(data).toEqual([
       {
         why_text: "The logo rarely changes, so a copy can live for an hour.",
         battle_kind: null,
+        move_damage: null,
         reason_index: null,
         reason_correct: null,
         hp_lost: null,
@@ -237,6 +240,7 @@ describe("battle events", () => {
       { reasonIndex: 1 },
       { reasonCorrect: true },
       { hpLost: 3 as 2 },
+      { moveDamage: 3 as 2 },
       { skillIds: [] },
       { skillIds: [0] },
       { skillIds: [27] },
@@ -249,9 +253,16 @@ describe("battle events", () => {
     }
   });
 
+  it("refuse a Skill list with an empty entry in it", async () => {
+    // The endpoint schema refuses this before it reaches the table. The table refuses it too.
+    const turn = turnEvent({ skillIds: [3, null as unknown as number] });
+    expect(eventSchema.safeParse(turn).success).toBe(false);
+    await expect(writeEvents(user.client, [turn])).rejects.toThrow();
+  });
+
   it("let the endpoint schema accept the old shape and the v2 shape", () => {
     expect(eventSchema.safeParse(turnEvent()).success).toBe(true);
-    const v2 = turnEvent({ whyText: undefined, battleKind: "battle", reasonIndex: 0, reasonCorrect: true, hpLost: 2, skillIds: [3], constraintVariant: "main" });
+    const v2 = turnEvent({ whyText: undefined, battleKind: "battle", moveDamage: 2, reasonIndex: 0, reasonCorrect: true, hpLost: 2, skillIds: [3], constraintVariant: "main" });
     expect(eventSchema.safeParse(v2).success).toBe(true);
     // A why that is given still needs words.
     expect(eventSchema.safeParse(turnEvent({ whyText: "  " })).success).toBe(false);

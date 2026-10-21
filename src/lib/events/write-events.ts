@@ -96,6 +96,8 @@ export const battleTurnEventSchema = z
     /** Optional from v2 on. When given, it has words in it. */
     whyText: z.string().trim().min(1).max(1000).optional(),
     battleKind: z.enum(SCENARIO_KINDS).optional(),
+    /** The damage in the move table, before a wrong Reason weakened the hit. */
+    moveDamage: damageValue.optional(),
     /** The Reason picked, by its index in the content file. */
     reasonIndex: z.int().min(0).max(REASONS - 1).optional(),
     reasonCorrect: z.boolean().optional(),
@@ -314,6 +316,7 @@ function toRow(event: LearningEvent) {
         best_move: event.bestMove,
         why_text: event.whyText ?? null,
         battle_kind: event.battleKind ?? null,
+        move_damage: event.moveDamage ?? null,
         reason_index: event.reasonIndex ?? null,
         reason_correct: event.reasonCorrect ?? null,
         hp_lost: event.hpLost ?? null,

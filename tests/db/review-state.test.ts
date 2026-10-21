@@ -253,7 +253,7 @@ describe("the review state cache after a v2 battle (#102)", () => {
     old = await learner("state-v1-shape");
     v2 = await learner("state-v2-shape");
     await playLostBattle(old, null);
-    await playLostBattle(v2, { battleKind: "battle", reasonIndex: 1, reasonCorrect: false, hpLost: 2, skillIds: [3], constraintVariant: "main" });
+    await playLostBattle(v2, { battleKind: "battle", moveDamage: 0, reasonIndex: 1, reasonCorrect: false, hpLost: 2, skillIds: [3], constraintVariant: "main" });
   });
 
   afterAll(async () => {
