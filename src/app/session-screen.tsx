@@ -128,9 +128,18 @@ function RunningSession({
         />
       )}
       {plan.state === "catch" && <CatchFlow item={plan.item} sessionId={sessionId} onDone={plan.next} />}
-      {plan.state === "battle" && <BattleFlow offer={plan.offer} sessionId={sessionId} onDone={plan.next} />}
+      {/* The Battle scene covers the Finish button below, so it has its own Leave (#103). */}
+      {plan.state === "battle" && (
+        <BattleFlow offer={plan.offer} sessionId={sessionId} onDone={plan.next} onLeave={() => void finish()} />
+      )}
       {plan.state === "extra" && (
-        <ExtraTimeFlow extra={plan.extra} townId={plan.townId} sessionId={sessionId} onDone={plan.next} />
+        <ExtraTimeFlow
+          extra={plan.extra}
+          townId={plan.townId}
+          sessionId={sessionId}
+          onDone={plan.next}
+          onLeave={() => void finish()}
+        />
       )}
       {!working && <p className="lead">{PLAN_MESSAGES[plan.state]}</p>}
       {/* Any session can end at any time. 3 minutes still counts as a learned day. */}

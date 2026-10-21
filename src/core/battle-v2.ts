@@ -1,7 +1,7 @@
 // Battle rules v2 (design 7.3, ADR 0001, ticket #102). Pure functions: no clock, no database.
 // HP on both sides, damage back, Faint, and a Reason picked before the result. The same engine
 // runs a Battle (a team of up to 3 creatures) and a Meeting or Agent Diff Battle (You alone).
-// The v1 rules in battle.ts still run the current Battle screen until the v2 screen ships (#103).
+// The Battle screen runs on these rules (#103). battle.ts keeps the offers, the self-check and the v1 shape.
 import { kindOf, type BattleTurn, type Scenario, type ScenarioKind } from "../content/schema.ts";
 import { MAX_TURNS, OPPONENT_HP, bestRow, creatureOf } from "./battle.ts";
 

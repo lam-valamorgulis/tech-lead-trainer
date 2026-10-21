@@ -136,7 +136,7 @@ The Gym meets an old situation again with the Constraint reversed (design 7.5). 
 - A twin is a v1.5 scenario, so every turn has a Constraint, 3 Reasons and Skills, and the twin has a `source`.
 - The other turns may be copies of the old turns.
 - `twinOf` is not in the content hash, like `name`.
-- Until the Battle screen shows the Constraint (#103) and the Gym uses twins, the app does not offer a twin.
+- The Battle screen shows the Constraint (#103). Until the Gym uses twins, the app does not offer a twin.
 
 A Reason is logged by its index in the file's `reasons` list (0, 1 or 2), next to the scenario's content hash. Moving a Reason changes the hash, so an old log still says which list its index points into. The app may show the Reasons in another order, but it logs the file index.
 

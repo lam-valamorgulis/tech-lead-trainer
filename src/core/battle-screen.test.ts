@@ -1,0 +1,202 @@
+import { describe, expect, it } from "vitest";
+import type { BundledScenario } from "@/content/bundle";
+import { fixtureTownV2 } from "@/content/fixture-town";
+import { OPPONENT_TYPES } from "@/content/schema";
+import { battleProgress, checkTurn } from "./battle.ts";
+import { playTurnV2, startBattleV2, type BattleV2 } from "./battle-v2.ts";
+import {
+  activeBefore,
+  endLine,
+  hpLevel,
+  toV1State,
+  turnResultText,
+  turnTimeline,
+  whysFor,
+} from "./battle-screen.ts";
+import { EFFECTS } from "./effects.ts";
+import { OPPONENT_SPECIES } from "./sprite.ts";
+
+// The Battle screen v2 (#103): what the screen shows and when, from the v2 rules. No browser.
+
+const town = fixtureTownV2();
+// "Sale day": TTL is best on turn 1 (Reason 0 is right), No store on turn 2 (Reason 1), CDN on turn 3 (Reason 2).
+const saleDay = { ...town.scenarios[0], hash: "0123456789abcdef" } as BundledScenario;
+const NAMES: Record<string, string> = { cache: "Cache", cookie: "Cookie", proxy: "Proxy", "cache.ttl": "TTL", "cache.no-store": "No store", "proxy.cdn": "CDN", "cookie.http-only": "HttpOnly" };
+const nameOf = (id: string) => NAMES[id] ?? id;
+
+const start = () => startBattleV2(saleDay, ["cache", "cookie", "proxy"]);
+
+function play(battle: BattleV2, moves: [string, number][]): BattleV2 {
+  return moves.reduce((state, [moveId, reason]) => playTurnV2(state, moveId, reason), battle);
+}
+
+describe("the turn timeline: one effect after the other, all CSS", () => {
+  it("lands the hit after the attack, and shows the result when the damage text has risen", () => {
+    const best = play(start(), [["cache.ttl", 0]]).played[0];
+    expect(turnTimeline(best)).toEqual({
+      hitAt: EFFECTS.attack.durationMs,
+      counterAt: null,
+      faintAt: null,
+      resultAt: EFFECTS.attack.durationMs + EFFECTS.rise.durationMs,
+    });
+  });
+
+  it("adds the opponent's attack back and your hurt flash when you lose HP", () => {
+    const weak = play(start(), [["proxy.cdn", 0]]).played[0];
+    const { hitAt, counterAt, faintAt, resultAt } = turnTimeline(weak);
+    expect(counterAt).toBe(hitAt + EFFECTS.rise.durationMs + EFFECTS.attack.durationMs);
+    expect(faintAt).toBeNull();
+    expect(resultAt).toBe(counterAt! + EFFECTS.flash.durationMs);
+  });
+
+  it("adds the Faint last, and the whole turn stays under 2.5 seconds", () => {
+    // HttpOnly then TTL on turn 2: 2 + 2 HP lost, so Cache (3 HP) Faints on turn 2.
+    const battle = play(start(), [
+      ["cookie.http-only", 0],
+      ["cache.ttl", 1],
+    ]);
+    const turn = battle.played[1];
+    expect(turn.fainted).toEqual(["cache"]);
+    const { counterAt, faintAt, resultAt } = turnTimeline(turn);
+    expect(faintAt).toBe(counterAt! + EFFECTS.flash.durationMs);
+    expect(resultAt).toBe(faintAt! + EFFECTS.faint.durationMs);
+    expect(resultAt).toBeLessThan(2500);
+  });
+});
+
+describe("the result text of a turn", () => {
+  it("says the damage, 'You chose X. Y happens.', and that the best move takes no hit back", () => {
+    const battle = play(start(), [["cache.ttl", 0]]);
+    expect(turnResultText({ battle, scenario: saleDay, turnNumber: 1, nameOf })).toEqual({
+      damage: "Strong hit · 2 ●●",
+      choice: "You chose TTL. The logo loads fast, but a new logo takes an hour to show.",
+      reason: null,
+      hitBack: "Best move. No hit back.",
+    });
+  });
+
+  it("names the right Reason when yours was wrong, and says the hit lost 1", () => {
+    const battle = play(start(), [["cache.ttl", 2]]);
+    const text = turnResultText({ battle, scenario: saleDay, turnNumber: 1, nameOf });
+    expect(text.damage).toBe("Hit · 1 ●○");
+    expect(text.reason).toBe("Wrong Reason. The right one: “A rarely changed file is safe to keep for long.” Your hit lost 1.");
+  });
+
+  it("does not say the hit lost 1 when the move did no damage anyway", () => {
+    const battle = play(start(), [["cookie.http-only", 1]]);
+    const text = turnResultText({ battle, scenario: saleDay, turnNumber: 1, nameOf });
+    expect(text.reason).toBe("Wrong Reason. The right one: “A rarely changed file is safe to keep for long.”");
+  });
+
+  it("says the HP you lost on a weak move", () => {
+    const battle = play(start(), [["proxy.cdn", 0]]);
+    expect(turnResultText({ battle, scenario: saleDay, turnNumber: 1, nameOf }).hitBack).toBe("The opponent hits back: −1 HP.");
+  });
+
+  it("says who Fainted and who comes in next", () => {
+    const battle = play(start(), [
+      ["cookie.http-only", 0],
+      ["cache.ttl", 1],
+    ]);
+    expect(turnResultText({ battle, scenario: saleDay, turnNumber: 2, nameOf }).hitBack).toBe(
+      "The opponent hits back: −2 HP. Cache fainted! Cookie comes in next.",
+    );
+  });
+
+  it("says the opponent is down on the winning turn", () => {
+    const battle = play(start(), [
+      ["cache.ttl", 0],
+      ["cache.no-store", 1],
+    ]);
+    expect(turnResultText({ battle, scenario: saleDay, turnNumber: 2, nameOf }).hitBack).toBe("Sale day is down!");
+  });
+
+  it("says so when the team had no move for the threat", () => {
+    // Cookie has HttpOnly on turn 1, and no move at all on turn 2.
+    const battle = playTurnV2(play(startBattleV2(saleDay, ["cookie"]), [["cookie.http-only", 0]]), null, null);
+    const text = turnResultText({ battle, scenario: saleDay, turnNumber: 2, nameOf });
+    expect(text.choice).toBe("You had no move for this threat. Nothing changes.");
+    expect(text.reason).toBeNull();
+    // A team of one had 1 HP left: it Faints, and nobody comes in next.
+    expect(text.hitBack).toBe("The opponent hits back: −1 HP. Cookie fainted!");
+    expect(endLine(battle)).toBe(
+      "All your creatures fainted. The opponent still has HP 4 of 4. The moves you used come back in tomorrow's review.",
+    );
+  });
+});
+
+describe("who takes the hit", () => {
+  it("is the creature that was in at the start of the turn, also when it Faints in that turn", () => {
+    const battle = play(start(), [
+      ["cookie.http-only", 0],
+      ["cache.ttl", 1],
+    ]);
+    expect(activeBefore(battle, 1)).toBe("cache");
+    expect(activeBefore(battle, 2)).toBe("cache");
+    expect(activeBefore(battle, 3)).toBe("cookie");
+  });
+});
+
+describe("the HP bar colour", () => {
+  it("is full above two thirds, mid down to one third, and low below", () => {
+    expect([4, 3, 2, 1, 0].map((hp) => hpLevel(hp, 4))).toEqual(["full", "full", "mid", "low", "low"]);
+    expect([3, 2, 1, 0].map((hp) => hpLevel(hp, 3))).toEqual(["full", "mid", "low", "low"]);
+  });
+});
+
+describe("the plain end screen until #104", () => {
+  it("says how a won battle ended", () => {
+    const battle = play(start(), [
+      ["cache.ttl", 0],
+      ["cache.no-store", 1],
+    ]);
+    expect(endLine(battle)).toBe("The opponent's HP reached 0 in 2 turns.");
+  });
+
+  it("says how a lost battle ended, and that the moves come back tomorrow", () => {
+    const battle = play(start(), [
+      ["cookie.http-only", 0],
+      ["cache.ttl", 1],
+      ["cache.no-store", 2],
+    ]);
+    expect(endLine(battle)).toBe("Out of turns. The opponent still has HP 4 of 4. The moves you used come back in tomorrow's review.");
+  });
+
+  it("keeps the self-check and Discuss in Claude working: the v1 view has the same damage and counterattacks", () => {
+    const v2 = play(start(), [
+      ["cache.ttl", 2],
+      ["cache.no-store", 1],
+      ["proxy.cdn", 2],
+    ]);
+    const v1 = toV1State(saleDay, v2);
+    expect(v1.team).toEqual(["cache", "cookie", "proxy"]);
+    expect(v1.turns.map((turn) => [turn.moveId, turn.damage, turn.bestMove])).toEqual([
+      ["cache.ttl", 1, true],
+      ["cache.no-store", 2, true],
+      ["proxy.cdn", 2, true],
+    ]);
+    expect(v1.turns[0].counterattack).toBe("The logo loads fast, but a new logo takes an hour to show.");
+    expect(battleProgress(v1)).toMatchObject({ hp: 0, won: true, finished: true });
+    // The self-check of a turn still names that turn's best move, so review scheduling keeps working.
+    expect(checkTurn(v1, 2, [1])).toEqual({ turnNumber: 2, bestMoveId: "cache.no-store", tickedPoints: [1] });
+  });
+
+  it("gives Discuss in Claude your own words when you typed them, else the Reason you picked", () => {
+    const battle = play(start(), [
+      ["cache.ttl", 0],
+      ["cache.no-store", 1],
+    ]);
+    expect(whysFor(battle, { 2: "  Prices change often.  " })).toEqual({
+      1: "A rarely changed file is safe to keep for long.",
+      2: "Prices change often.",
+    });
+  });
+});
+
+describe("opponent sprites", () => {
+  it("give each opponent type its own species of the pack", () => {
+    const species = OPPONENT_TYPES.map((type) => OPPONENT_SPECIES[type]);
+    expect(new Set(species).size).toBe(OPPONENT_TYPES.length);
+    for (const number of species) expect(number).toBeGreaterThanOrEqual(1);
+  });
+});

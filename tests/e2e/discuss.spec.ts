@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { catchItems } from "../support/battle";
+import { catchItems, nextTurn, playMove, SALE_DAY_REASONS } from "../support/battle";
 import { local, signInNewUser } from "../support/e2e";
 import { sql } from "../support/local-admin";
 
@@ -29,7 +29,10 @@ async function fakeClipboard(page: Page, mode: "keep" | "deny") {
   }, mode === "deny");
 }
 
-/** Plays and wins "Sale day", ticking key points 1 and 3 on turn 1 and none on turn 2. */
+/**
+ * Plays and wins "Sale day": own words on turn 1, only the Reason on turn 2. Then the self-check
+ * ticks key points 1 and 3 on turn 1 and none on turn 2.
+ */
 async function winSaleDay(page: Page) {
   await page.getByRole("button", { name: "15 minutes" }).click();
   // The first battle with Cache and Proxy starts with their two worked examples.
@@ -39,20 +42,14 @@ async function winSaleDay(page: Page) {
   for (const creature of ["Cache", "Cookie", "Proxy"]) await page.getByLabel(creature).check();
   await page.getByRole("button", { name: "Start the battle" }).click();
 
-  await page.getByLabel("TTL (Cache)").check();
-  await page.getByLabel("Why this move?").fill("The logo rarely changes, so a copy can live for an hour.");
-  await page.getByRole("button", { name: "Make the move" }).click();
-  await page.getByRole("button", { name: "See the model answer" }).click();
+  await playMove(page, "TTL (Cache)", SALE_DAY_REASONS[0].right, "The logo rarely changes, so a copy can live for an hour.");
+  await nextTurn(page);
+  await playMove(page, "No store (Cache)", SALE_DAY_REASONS[1].right);
+  await nextTurn(page, true);
+  await expect(page.getByRole("heading", { name: "You won!" })).toBeVisible();
   await page.getByLabel("The logo and styles rarely change.").check();
   await page.getByLabel("A new logo shows only after the TTL ends.").check();
-  await page.getByRole("button", { name: "Next turn" }).click();
-
-  await page.getByLabel("No store (Cache)").check();
-  await page.getByLabel("Why this move?").fill("A price must never come from an old copy.");
-  await page.getByRole("button", { name: "Make the move" }).click();
-  await page.getByRole("button", { name: "See the model answer" }).click();
-  await page.getByRole("button", { name: "See how it ended" }).click();
-  await expect(page.getByRole("heading", { name: "You won!" })).toBeVisible();
+  await page.getByRole("button", { name: "Save my ticks" }).click();
 }
 
 test("Discuss in Claude copies the battle, opens claude.ai, and saves the 2 teach-back sentences", async ({ page }) => {
@@ -75,7 +72,9 @@ test("Discuss in Claude copies the battle, opens claude.ai, and saves the 2 teac
     const [text] = copied;
     expect(text.startsWith("Privacy reminder:")).toBe(true);
     expect(text).toContain("You are my tech lead coach. Below is my battle and the model answer.");
+    // The learner's own words when they typed some, else the Reason they picked.
     expect(text).toContain("- My why: The logo rarely changes, so a copy can live for an hour.");
+    expect(text).toContain(`- My why: ${SALE_DAY_REASONS[1].right}`);
     expect(text).toContain("- [x] The logo and styles rarely change.\n- [ ] A TTL lets browsers reuse their copy.");
     expect(text).toContain("Source: MDN: HTTP caching, https://developer.mozilla.org/");
     expect(text).not.toContain(user.email);

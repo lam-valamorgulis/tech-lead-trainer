@@ -88,8 +88,8 @@ export function readyOffers({ town, towns, catches, battles }: OfferInput): Batt
     .filter((creature) => !creature.retired && caught.has(creature.id))
     .map((c) => c.id);
   // Only normal Battles for now: Meeting Battle and Agent Diff Battle come with their own screens (#105, #106).
-  // A Gym twin (design 7.5) repeats a threat with the Constraint reversed. Until the Battle screen shows
-  // the Constraint, the learner could not tell why the old best move now loses, so twins wait too.
+  // A Gym twin (design 7.5) repeats a threat with the Constraint reversed. The Battle screen shows the
+  // Constraint now (#103), but a twin belongs in the Gym, next to its old scenario, so twins wait for the Gym ticket.
   const ready = town.scenarios.filter(
     (scenario) =>
       !scenario.retired &&

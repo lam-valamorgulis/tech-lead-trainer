@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { catchItems } from "../support/battle";
+import { battlePanel, catchItems, nextTurn, playMove, SALE_DAY_REASONS } from "../support/battle";
 import { local, readLesson, signInNewUser } from "../support/e2e";
 import { sql } from "../support/local-admin";
 
@@ -62,7 +62,7 @@ async function catchCache(page: Page) {
   await expect(page.getByRole("heading", { name: "You caught Cache!" })).toBeVisible();
 }
 
-/** Commits 15 minutes and plays the first battle turn with the best move: a strong hit. */
+/** Commits 15 minutes and plays the first battle turn with the best move and the right Reason: a strong hit. */
 async function strongHit(page: Page, email: string) {
   await catchItems(email, ["cache", "cookie", "proxy"]);
   await page.getByRole("button", { name: "15 minutes" }).click();
@@ -70,10 +70,8 @@ async function strongHit(page: Page, email: string) {
   await page.getByRole("button", { name: "Go to the battle" }).click();
   for (const creature of ["Cache", "Proxy", "Cookie"]) await page.getByLabel(creature).check();
   await page.getByRole("button", { name: "Start the battle" }).click();
-  await page.getByLabel("TTL (Cache)").check();
-  await page.getByLabel("Why this move?").fill("The logo rarely changes.");
-  await page.getByRole("button", { name: "Make the move" }).click();
-  await expect(page.getByText("Strong hit · 2 ●●")).toBeVisible();
+  await playMove(page, "TTL (Cache)", SALE_DAY_REASONS[0].right);
+  await expect(battlePanel(page).getByText("Strong hit · 2 ●●")).toBeVisible();
 }
 
 /** Cache was caught 11 days ago, then Good on time twice: 1 → 3 → 7. The 7-day step is due today. */
@@ -131,16 +129,17 @@ test("sound starts at the first tap after sign-in, and a strong hit plays next t
     expect((await soundLog(page)).contexts).toBe(1);
     await expect.poll(async () => (await soundLog(page)).notes).toBeGreaterThan(0);
 
-    // UI rule 9: each effect plays once and is short.
+    // UI rule 12: each effect of the Battle scene (#103) plays once and is short. Your creature
+    // attacks, the opponent blinks, the damage rises, two HP boxes empty, and the result slides up.
     const { effects } = await effectsOnScreen(page);
-    expect(effects.map((effect) => effect.name).sort()).toEqual(["fx-flash", "fx-pop"]);
+    expect([...new Set(effects.map((effect) => effect.name))].sort()).toEqual(["fx-attack-up", "fx-drop", "fx-flash", "fx-rise", "fx-slide"]);
     for (const effect of effects) {
       expect(effect.times).toBe("1");
       expect(effect.seconds).toBeLessThanOrEqual(0.5);
     }
-    // Nothing waits for the effect: the next button works at once.
-    await page.getByRole("button", { name: "See the model answer" }).click();
-    await expect(page.getByRole("heading", { name: "Model answer" })).toBeVisible();
+    // The result panel comes up when the effects end, under a second later, and its button works.
+    await nextTurn(page);
+    await expect(page.getByRole("heading", { name: "Turn 2 of 3" })).toBeVisible();
   } finally {
     await user.forget();
   }
@@ -205,7 +204,7 @@ test.describe("with reduce motion on in the phone", () => {
     const user = await signInNewUser(page, "fx-motion");
     try {
       await strongHit(page, user.email);
-      await expect(page.getByText("Opponent HP 2 of 4")).toBeVisible();
+      await expect(page.getByText("Opponent HP 2 of 4")).toBeAttached();
       await expectNoMovement(page);
     } finally {
       await user.forget();
