@@ -154,7 +154,8 @@ function ReviewCard({
       <h2 id="review-title" ref={heading} tabIndex={-1}>
         Review {position}: {item.name}
       </h2>
-      <CreatureSprite species={item.sprite} stage={state.stage} />
+      {/* A move shows its creature in the normal colours: the creature's own stage lives in the Field Guide. */}
+      <CreatureSprite species={item.sprite} stage={item.kind === "creature" ? state.stage : null} />
       {mixedWith && (
         <p className="notice">Mixed in: easy to confuse with {mixedWith}.</p>
       )}

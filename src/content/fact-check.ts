@@ -237,12 +237,16 @@ function lettersAndDigits(text: string): string {
     .replace(/[^a-z0-9]/g, "");
 }
 
+/** Town fields that only change how the app draws content, never what it says. */
+const DISPLAY_ONLY_FIELDS = new Set(["sprite"]);
+
 /**
- * Whether a change to a town file changes anything the fact check reads. A change of display-only
- * data, such as a sprite number, does not. `before` is null for a new town file.
+ * Whether a change to a town file needs a new fact check: any change except to display-only
+ * fields, such as a sprite number. A new field is checked by default. `before` is null for a new file.
  */
 export function claimsDiffer(before: Town | null, after: Town): boolean {
-  return before === null || JSON.stringify(factCheckList(before)) !== JSON.stringify(factCheckList(after));
+  const said = (town: Town) => JSON.stringify(town, (key, value) => (DISPLAY_ONLY_FIELDS.has(key) ? undefined : value));
+  return before === null || said(before) !== said(after);
 }
 
 /**

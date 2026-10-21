@@ -1,6 +1,7 @@
 name: Content PR
 
-# A PR that changes a town file needs the fact-check report (ticket #96, docs/agents/fact-check.md).
+# A PR that changes a town file needs the fact-check report (ticket #96, docs/agents/fact-check.md),
+# unless it changes only display-only fields, such as a sprite number (#99).
 # It runs again when the PR body is edited, so adding the report turns the check green.
 on:
   pull_request:

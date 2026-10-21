@@ -3,7 +3,9 @@ import Link from "next/link";
 // Ticket #99, design 9 and 11: every outside art pack is named here. The CC-BY portraits must
 // name their maker and link to the page; the licence files sit next to the images in public/sprites.
 
-const PACKS = [
+type Pack = { what: string; title: string; by: string; licence: string; licenceUrl?: string; url: string };
+
+const PACKS: Pack[] = [
   {
     what: "Creatures",
     title: "50+ Monsters Pack 2D",
@@ -19,7 +21,7 @@ const PACKS = [
     licenceUrl: "https://creativecommons.org/licenses/by/4.0/",
     url: "https://opengameart.org/content/64px-portraits",
   },
-] as const;
+];
 
 export default function CreditsPage() {
   return (
@@ -38,7 +40,7 @@ export default function CreditsPage() {
             </p>
             <p className="lead">
               Licence:{" "}
-              {"licenceUrl" in pack ? (
+              {pack.licenceUrl ? (
                 <a href={pack.licenceUrl} target="_blank" rel="noopener noreferrer">
                   {pack.licence}
                   <span className="visually-hidden"> (opens in a new tab)</span>

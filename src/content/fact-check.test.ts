@@ -217,10 +217,13 @@ describe("claimsDiffer", () => {
     expect(claimsDiffer(before, after)).toBe(false);
   });
 
-  it("is true when a text the fact check reads changes, and for a new town file", () => {
+  it("is true for any other change, also a wrong answer choice the report does not list, and for a new town file", () => {
     const after = v1();
     after.creatures[0].card.text = "A cache keeps every copy forever.";
     expect(claimsDiffer(v1(), after)).toBe(true);
+    const wrongChoice = v1();
+    wrongChoice.creatures[0].catch.choices[2] = "To make it bigger";
+    expect(claimsDiffer(v1(), wrongChoice)).toBe(true);
     expect(claimsDiffer(null, v1())).toBe(true);
   });
 });

@@ -465,6 +465,12 @@ describe("checkContent for v1.5 content (#93)", () => {
     ]);
   });
 
+  it("fails a sprite number outside the art pack", () => {
+    const town = fixtureTownV2();
+    town.creatures[0].sprite = 57;
+    expect(checkV2(town)).toEqual([{ where: "t99.creatures.0.sprite", message: "The art pack has species 1 to 56." }]);
+  });
+
   it("fails when two creatures share a sprite, also across towns", () => {
     const town = fixtureTownV2();
     town.creatures[2].sprite = 12;

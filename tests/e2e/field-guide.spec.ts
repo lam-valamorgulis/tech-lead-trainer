@@ -50,11 +50,12 @@ test("each creature shows as its own sprite: caught in colour, seen in grey, not
     await expect(items.nth(2)).toContainText("???");
     await expect(items.nth(2)).not.toContainText("Proxy");
 
-    // 3 per row, each picture drawn at a size that keeps whole pixels sharp, with no smoothing.
+    // 3 per row, as in the approved prototype (96 px pictures), drawn with no smoothing.
     const boxes = await Promise.all([0, 1, 2].map(async (i) => (await items.nth(i).boundingBox())!));
     expect(new Set(boxes.map((box) => Math.round(box.y))).size).toBe(1);
     expect(await art(0).evaluate((img) => getComputedStyle(img).imageRendering)).toBe("pixelated");
     await expect.poll(() => art(0).evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(64);
+    expect((await art(0).boundingBox())!.width).toBe(96);
 
     const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
     expect(results.violations).toEqual([]);

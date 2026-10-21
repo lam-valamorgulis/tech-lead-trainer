@@ -1,5 +1,6 @@
 import { readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { SPECIES_COUNT } from "@/content/schema";
 import { lookForStatus, paletteForStage, spritePath } from "./sprite.ts";
 
 describe("creature sprites (#99)", () => {
@@ -12,9 +13,9 @@ describe("creature sprites (#99)", () => {
     expect(spritePath(12, "back", "alt")).toBe("/sprites/monsters/monster-12-back-alt.png");
   });
 
-  it("has all 4 files of every species 1 to 56 in public/sprites/monsters", () => {
+  it("has all 4 files of every species of the pack in public/sprites/monsters", () => {
     const files = new Set(readdirSync("public/sprites/monsters"));
-    for (let species = 1; species <= 56; species++) {
+    for (let species = 1; species <= SPECIES_COUNT; species++) {
       for (const side of ["front", "back"] as const) {
         for (const palette of ["normal", "alt"] as const) {
           expect(files.has(spritePath(species, side, palette).split("/").pop()!), `${species} ${side} ${palette}`).toBe(true);

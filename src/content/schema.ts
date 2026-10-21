@@ -48,6 +48,9 @@ export const skillIdSchema = z
  */
 export const diagramSchema = z.string().trim().min(1);
 
+/** The creature art pack (#99) has this many species, numbered from 1. */
+export const SPECIES_COUNT = 56;
+
 export const LESSON_SCREENS = 3;
 /** Design 6.3: each Lesson screen has at most 50 words. */
 export const LESSON_SCREEN_WORD_LIMIT = 50;
@@ -128,7 +131,7 @@ export const creatureSchema = z.object({
   name: text,
   retired: z.boolean().optional(),
   /** The species number in the creature art pack. Display only: it is not in the content hash. */
-  sprite: z.int().min(1).optional(),
+  sprite: z.int().min(1).max(SPECIES_COUNT, `The art pack has species 1 to ${SPECIES_COUNT}.`).optional(),
   lesson: lessonSchema.optional(),
   catch: catchQuestionSchema,
   card: cardSchema,
