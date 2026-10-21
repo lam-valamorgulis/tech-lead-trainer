@@ -28,3 +28,12 @@ export async function signInNewUser(
   }
   return { email, forget: () => forgetEmail(local, email) };
 }
+
+/** Reads the Lesson before a catch (#97): taps Next until the question comes. */
+export async function readLesson(page: Page): Promise<void> {
+  await expect(page.getByText(/^Lesson · /)).toBeVisible();
+  const ready = page.getByRole("button", { name: "I am ready: catch it" });
+  while (!(await ready.isVisible())) await page.getByRole("button", { name: "Next" }).click();
+  await ready.click();
+  await expect(page.getByRole("button", { name: "Check" })).toBeVisible();
+}

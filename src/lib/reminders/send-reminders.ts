@@ -11,7 +11,10 @@ import type { StoredSubscription } from "./push-subscriptions";
 export type PushResult = "sent" | "gone" | "failed";
 export type PushSender = (subscription: StoredSubscription, payload: string) => Promise<PushResult>;
 
-/** What one run did. `errors` counts users whose reminder hit a database error. */
+/**
+ * What one run did. `errors` counts reminders that hit a database error while being sent.
+ * A failed read before any send throws instead: the timer runs again 5 minutes later.
+ */
 export type ReminderRun = { due: number; sent: number; failed: number; gone: number; errors: number };
 
 type SubscriptionRow = { id: number; user_id: string; endpoint: string; p256dh: string; auth: string };
@@ -28,10 +31,20 @@ const KINDS: readonly ReminderKind[] = ["morning", "evening"];
 /** The kinds in the reminders table: the daily ones, and the ADR outcome check. */
 type StoredReminderKind = ReminderKind | "adr-outcome";
 
+/** A daily reminder whose time has come for one user, before the check that it is needed. */
+type Due = { userId: string; learningDay: LearningDay; kind: ReminderKind };
+
+/** A reminder that is due and needed for one user. */
+type Planned = Omit<Due, "kind"> & { kind: StoredReminderKind; message: ReminderMessage };
+
+/** A reminder looks at its own learning day and the 2 days before it, plus 1 (see `recentActiveSeconds`). */
+const LOOK_BACK_DAYS = 3;
+
 /**
  * One run of the 5-minute timer. For each user with a device, it checks in the home time zone
  * whether the morning or the evening reminder is due and needed, claims it, and sends it to
  * every device of that user.
+ * The reads are one query per table for all due users, so a run does not get slower per user (#91).
  * `admin` must use the secret key: the run reads every user's devices and learning, and writes reminders.
  */
 export async function sendDueReminders(admin: SupabaseClient, now: Date, send: PushSender): Promise<ReminderRun> {
@@ -52,10 +65,10 @@ export async function sendDueReminders(admin: SupabaseClient, now: Date, send: P
       .returns<ProfileRow[]>(),
   );
 
-  for (const profile of profiles) {
-    // One user's database error must not cost every later user their reminder.
+  for (const reminder of await planReminders(admin, profiles, now)) {
+    // One reminder's database error must not cost every later user their reminder.
     try {
-      await remindUser(admin, profile, devices.get(profile.user_id) ?? [], send, now, run);
+      await sendOnce(admin, reminder, devices.get(reminder.userId) ?? [], send, now, run);
     } catch (error) {
       run.errors += 1;
       console.error("reminder failed for one user", error);
@@ -64,52 +77,54 @@ export async function sendDueReminders(admin: SupabaseClient, now: Date, send: P
   return run;
 }
 
-async function remindUser(
-  admin: SupabaseClient,
-  profile: ProfileRow,
-  devices: SubscriptionRow[],
-  send: PushSender,
-  now: Date,
-  run: ReminderRun,
-): Promise<void> {
-  const settings = {
-    homeTimeZone: profile.home_time_zone,
-    dayCutoffHour: profile.day_cutoff_hour,
-    // Postgres returns "07:30:00".
-    morningReminderTime: profile.morning_reminder_time.slice(0, 5),
-    eveningReminderTime: profile.evening_reminder_time.slice(0, 5),
-  };
-  for (const kind of KINDS) {
-    const due = reminderDue(now, settings, kind);
-    if (!due.due) continue;
-    const message = reminderToSend(kind, due.learningDay, await recentActiveSeconds(admin, profile.user_id, due.learningDay));
-    if (message !== null) await sendOnce(admin, profile.user_id, due.learningDay, kind, message, devices, send, now, run);
+/** Every reminder that is due now and needed, for all users, from one read per table. */
+async function planReminders(admin: SupabaseClient, profiles: ProfileRow[], now: Date): Promise<Planned[]> {
+  const daily: Due[] = [];
+  const morningDayByUser = new Map<string, LearningDay>();
+  for (const profile of profiles) {
+    const settings = {
+      homeTimeZone: profile.home_time_zone,
+      dayCutoffHour: profile.day_cutoff_hour,
+      // Postgres returns "07:30:00".
+      morningReminderTime: profile.morning_reminder_time.slice(0, 5),
+      eveningReminderTime: profile.evening_reminder_time.slice(0, 5),
+    };
+    for (const kind of KINDS) {
+      const due = reminderDue(now, settings, kind);
+      if (!due.due) continue;
+      daily.push({ userId: profile.user_id, learningDay: due.learningDay, kind });
+      // The ADR outcome check (#33) comes at the morning reminder time of its check date.
+      if (kind === "morning") morningDayByUser.set(profile.user_id, due.learningDay);
+    }
   }
-  // The ADR outcome check (#33) comes at the morning reminder time of its check date.
-  const morning = reminderDue(now, settings, "morning");
-  if (morning.due) {
-    const adr = await adrToCheck(admin, profile.user_id, morning.learningDay);
-    if (adr) await sendOnce(admin, profile.user_id, morning.learningDay, "adr-outcome", adrReminderMessage(adr), devices, send, now, run);
+  if (daily.length === 0) return [];
+
+  const [sessions, adrTowns] = await Promise.all([recentSessions(admin, daily), adrTownsToCheck(admin, morningDayByUser)]);
+  const planned: Planned[] = [];
+  for (const { userId, learningDay, kind } of daily) {
+    const message = reminderToSend(kind, learningDay, recentActiveSeconds(sessions.get(userId) ?? [], learningDay));
+    if (message !== null) planned.push({ userId, learningDay, kind, message });
   }
+  for (const [userId, town] of adrTowns) {
+    planned.push({ userId, learningDay: morningDayByUser.get(userId)!, kind: "adr-outcome", message: adrReminderMessage(town) });
+  }
+  return planned;
 }
 
 /** Claims the reminder for this day and kind, and sends it. A second claim of the same day sends nothing. */
 async function sendOnce(
   admin: SupabaseClient,
-  userId: string,
-  learningDay: LearningDay,
-  kind: StoredReminderKind,
-  message: ReminderMessage,
+  reminder: Planned,
   devices: SubscriptionRow[],
   send: PushSender,
   now: Date,
   run: ReminderRun,
 ): Promise<void> {
-  const reminderId = await claimReminder(admin, userId, learningDay, kind, now);
+  const reminderId = await claimReminder(admin, reminder, now);
   if (reminderId === null) return;
   run.due += 1;
 
-  const delivered = await deliver(admin, devices, JSON.stringify(message), send, run);
+  const delivered = await deliver(admin, devices, JSON.stringify(reminder.message), send, run);
   if (delivered === 0) {
     // Every device failed (for example a short push-service outage): no device has the
     // reminder, so the next run, 5 minutes later, tries again inside the reminder window.
@@ -120,53 +135,71 @@ async function sendOnce(
   if (error) throw error;
 }
 
-/** The town of an ADR whose outcome check is today and not written yet, or null. */
-async function adrToCheck(admin: SupabaseClient, userId: string, day: LearningDay): Promise<string | null> {
-  const { data, error } = await admin
-    .from("weekend_documents")
-    .select("document_key, outcome_check_date, sections")
-    .eq("user_id", userId)
-    .eq("kind", "adr")
-    .eq("outcome_check_date", day)
-    .returns<{ document_key: string; outcome_check_date: string; sections: Record<string, unknown> }[]>();
-  if (error) throw error;
-  const due = data.find((row) =>
-    adrReminderDue([{ outcomeCheckDate: row.outcome_check_date, outcome: String(row.sections.outcome ?? "") }], day),
+/** A session snapshot row, with its user, because one read holds the rows of every due user. */
+type SessionRow = SnapshotRow & { user_id: string };
+/** An ADR row of any due user. */
+type AdrRow = { user_id: string; document_key: string; outcome_check_date: string; sections: Record<string, unknown> };
+
+/** Per user, the town of an ADR whose outcome check is on that user's day and not written yet. */
+async function adrTownsToCheck(admin: SupabaseClient, days: Map<string, LearningDay>): Promise<Map<string, string>> {
+  const towns = new Map<string, string>();
+  if (days.size === 0) return towns;
+  const rows = await selectAll((from, to) =>
+    admin
+      .from("weekend_documents")
+      .select("user_id, document_key, outcome_check_date, sections")
+      .eq("kind", "adr")
+      .in("user_id", [...days.keys()])
+      .in("outcome_check_date", [...new Set(days.values())])
+      .order("id")
+      .range(from, to)
+      .returns<AdrRow[]>(),
   );
-  return due ? townOfDocument(due.document_key) : null;
+  for (const row of rows) {
+    const day = days.get(row.user_id);
+    if (!day || towns.has(row.user_id)) continue;
+    const check = { outcomeCheckDate: row.outcome_check_date, outcome: String(row.sections.outcome ?? "") };
+    if (adrReminderDue([check], day)) towns.set(row.user_id, townOfDocument(row.document_key));
+  }
+  return towns;
+}
+
+/**
+ * The session rows of every due user, from the earliest reminder day minus 3 to the latest one.
+ * Users in other time zones can be on another learning day, so `recentActiveSeconds` keeps each
+ * reminder's own days.
+ */
+async function recentSessions(admin: SupabaseClient, due: Due[]): Promise<Map<string, SessionRow[]>> {
+  const days = due.map((d) => d.learningDay).sort();
+  const rows = await selectAll((from, to) =>
+    admin
+      .from("session_events")
+      .select("user_id, session_id, occurred_at, learning_day, active_seconds")
+      .in("user_id", [...new Set(due.map((d) => d.userId))])
+      .gte("learning_day", addDays(days[0], -LOOK_BACK_DAYS))
+      .lte("learning_day", days[days.length - 1])
+      .order("id")
+      .range(from, to)
+      .returns<SessionRow[]>(),
+  );
+  return Map.groupBy(rows, (row) => row.user_id);
 }
 
 /**
  * Active seconds per learning day for the reminder's day and the 2 days before it. One more
- * day is loaded, because a session counts for the day it started (see `activeSecondsByDay`).
+ * day is used, because a session counts for the day it started (see `activeSecondsByDay`).
  */
-async function recentActiveSeconds(admin: SupabaseClient, userId: string, day: LearningDay): Promise<Map<LearningDay, number>> {
-  const rows = await selectAll((from, to) =>
-    admin
-      .from("session_events")
-      .select("session_id, occurred_at, learning_day, active_seconds")
-      .eq("user_id", userId)
-      .gte("learning_day", addDays(day, -3))
-      .lte("learning_day", day)
-      .order("id")
-      .range(from, to)
-      .returns<SnapshotRow[]>(),
-  );
-  return activeSecondsByDay(rows.map(toSnapshot));
+function recentActiveSeconds(rows: SessionRow[], day: LearningDay): Map<LearningDay, number> {
+  const own = rows.filter((row) => row.learning_day >= addDays(day, -LOOK_BACK_DAYS) && row.learning_day <= day);
+  return activeSecondsByDay(own.map(toSnapshot));
 }
 
 /** Plans the reminder. Null when it was already planned for this day: never send it twice. */
-async function claimReminder(
-  admin: SupabaseClient,
-  userId: string,
-  learningDay: LearningDay,
-  kind: StoredReminderKind,
-  now: Date,
-): Promise<number | null> {
+async function claimReminder(admin: SupabaseClient, reminder: Planned, now: Date): Promise<number | null> {
   const { data, error } = await admin
     .from("reminders")
     .upsert(
-      { user_id: userId, learning_day: learningDay, kind, planned_at: now.toISOString() },
+      { user_id: reminder.userId, learning_day: reminder.learningDay, kind: reminder.kind, planned_at: now.toISOString() },
       { onConflict: "user_id,learning_day,kind", ignoreDuplicates: true },
     )
     .select("id");

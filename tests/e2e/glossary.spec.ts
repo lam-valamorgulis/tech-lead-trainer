@@ -3,16 +3,12 @@ import { expect, test, type Page } from "@playwright/test";
 import { local, signInNewUser } from "../support/e2e";
 import { sql } from "../support/local-admin";
 
-// Seam C uses the fixture glossary: "response" and "logo". The Cache card says "A cache keeps a copy of a response."
+// Seam C uses the fixture glossary: "response" and "logo". The last Cache Lesson screen says "A cache keeps a copy of a response".
 
 test("a tap on a hard word shows its simple definition, and the keyboard opens it too", async ({ page }) => {
   const user = await signInNewUser(page, "glossary");
   try {
-    await page.getByRole("button", { name: "15 minutes" }).click();
-    await page.getByLabel("To make it smaller").check();
-    await page.getByLabel("Guess").check();
-    await page.getByRole("button", { name: "Check" }).click();
-    await page.getByRole("button", { name: "Read the card" }).click();
+    await openCacheLesson(page);
 
     const word = page.getByRole("button", { name: "response", exact: true });
     const definition = page.getByText("The message a server sends back to a request.");
@@ -35,12 +31,12 @@ test("a tap on a hard word shows its simple definition, and the keyboard opens i
   }
 });
 
-async function openCacheCard(page: Page) {
+/** The last Lesson screen of Cache, which says "A cache keeps a copy of a response". */
+async function openCacheLesson(page: Page) {
   await page.getByRole("button", { name: "15 minutes" }).click();
-  await page.getByLabel("To make it smaller").check();
-  await page.getByLabel("Guess").check();
-  await page.getByRole("button", { name: "Check" }).click();
-  await page.getByRole("button", { name: "Read the card" }).click();
+  await page.getByRole("button", { name: "Next" }).click();
+  await page.getByRole("button", { name: "Next" }).click();
+  await expect(page.getByRole("button", { name: "I am ready: catch it" })).toBeVisible();
 }
 
 test("without popover support (before iOS 17), a tap shows the definition under the text", async ({ page }) => {
@@ -49,7 +45,7 @@ test("without popover support (before iOS 17), a tap shows the definition under 
   });
   const user = await signInNewUser(page, "glossary-old-ios");
   try {
-    await openCacheCard(page);
+    await openCacheLesson(page);
     const word = page.getByRole("button", { name: "response", exact: true });
     const definition = page.getByText("The message a server sends back to a request.");
     await expect(word).not.toHaveAttribute("popovertarget");

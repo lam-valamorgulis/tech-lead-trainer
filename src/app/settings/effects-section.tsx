@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Profile } from "@/lib/profile";
 import { browserClient } from "@/lib/supabase/browser";
+import { setSoundOn, startSound } from "../sound";
 import type { SignedIn } from "../auth-gate";
 
 type Status = "idle" | "saving" | "saved" | "failed";
@@ -23,6 +24,7 @@ export function EffectsSection({ userId, profile, setProfile }: Pick<SignedIn, "
       .eq("user_id", userId);
     if (error) {
       setShown(shown);
+      setSoundOn(shown.soundOn);
       return setStatus("failed");
     }
     setProfile({ ...profile, ...next });
@@ -47,11 +49,21 @@ export function EffectsSection({ userId, profile, setProfile }: Pick<SignedIn, "
           type="checkbox"
           checked={shown.soundOn}
           disabled={status === "saving"}
-          onChange={(event) => void save({ soundOn: event.target.checked })}
+          onChange={(event) => {
+            // The same switch as the speaker button: turned on inside this tap, the music can start at once.
+            if (event.target.checked) {
+              setSoundOn(true);
+              startSound();
+            }
+            void save({ soundOn: event.target.checked });
+          }}
         />
         <span>Sound effects</span>
       </label>
-      <p className="lead">Short 8-bit sounds. They start when you tap a commit button. The screen always shows the same news in words.</p>
+      <p className="lead">
+        Short 8-bit sounds and music. They start at your first tap. The speaker button on the play screens is the same switch. The
+        screen always shows the same news in words.
+      </p>
       <p role="status" className="lead">
         {status === "saved" ? "Saved." : ""}
       </p>

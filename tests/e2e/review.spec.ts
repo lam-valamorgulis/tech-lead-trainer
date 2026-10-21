@@ -68,7 +68,7 @@ test("on a 15-minute day the learner may type an answer, and the catch comes aft
     await page.getByRole("button", { name: "Again · 1 day" }).click();
 
     // Cache is caught, so the next catch is its move TTL.
-    await expect(page.getByRole("heading", { name: "A new move appears" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "A new move: TTL" })).toBeVisible();
 
     await expect
       .poll(async () =>

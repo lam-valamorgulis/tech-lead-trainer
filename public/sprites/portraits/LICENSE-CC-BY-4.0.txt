@@ -1,0 +1,5 @@
+Portraits by peb (pebonius), "64px portraits".
+Licence: Creative Commons Attribution 4.0 (CC-BY 4.0), https://creativecommons.org/licenses/by/4.0/
+Source: https://opengameart.org/content/64px-portraits
+Credit required: name peb or pebonius and link to the page above. The app names them on its Credits screen (Settings, Credits).
+Files here: portrait-1.png to portrait-15.png are portrait1.png to portrait15.png of the pack, renamed. They are not changed.

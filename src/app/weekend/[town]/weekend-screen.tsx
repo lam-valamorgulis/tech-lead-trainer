@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
 import { getTown, weekendBoss } from "@/content";
 import type { Boss, SituationBlock } from "@/content/weekend";
 import { DESIGN_DOC_SECTIONS, designDocPackage, type DesignDoc } from "@/core/design-doc";
-import { mermaidProblem } from "@/lib/mermaid-problem";
 import { browserClient } from "@/lib/supabase/browser";
 import { loadDesignDoc, saveDesignDoc } from "@/lib/weekend-doc";
+import { useMermaidSvg } from "../../use-mermaid-svg";
 import { ColleagueRead, DiscussDoc, DocField, SaveStatus, WeekendTabs } from "../weekend-parts";
 import { useAutosaved, type SaveState } from "./use-autosaved-doc";
 
@@ -154,50 +153,9 @@ function InlineCode({ text }: { text: string }) {
   return text.split("`").map((part, index) => (index % 2 === 1 ? <code key={index}>{part}</code> : part));
 }
 
-let mermaidReady: Promise<typeof import("mermaid").default> | null = null;
-
-/** Mermaid is large, so it loads only on this page, on first use, and is set up once. */
-function loadMermaid() {
-  mermaidReady ??= import("mermaid").then(({ default: mermaid }) => {
-    // Strict: the learner's text can never run a script in the drawing. A failed drawing adds
-    // no error box to the page; the preview says what is wrong in plain words.
-    mermaid.initialize({
-      startOnLoad: false,
-      securityLevel: "strict",
-      theme: "dark",
-      suppressErrorRendering: true,
-    });
-    return mermaid;
-  });
-  return mermaidReady;
-}
-
 /** The live preview. */
 function MermaidPreview({ source }: { source: string }) {
-  const id = useId().replace(/[^a-zA-Z0-9]/g, "");
-  const [svg, setSvg] = useState<string | null>(null);
-  const [problem, setProblem] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const wait = setTimeout(async () => {
-      try {
-        const mermaid = await loadMermaid();
-        await mermaid.parse(source);
-        const { svg: drawn } = await mermaid.render(`diagram-${id}`, source);
-        if (!cancelled) {
-          setSvg(drawn);
-          setProblem(null);
-        }
-      } catch (error) {
-        if (!cancelled) setProblem(mermaidProblem(error instanceof Error ? error.message : String(error)));
-      }
-    }, DRAW_AFTER_MS);
-    return () => {
-      cancelled = true;
-      clearTimeout(wait);
-    };
-  }, [source, id]);
+  const { svg, problem } = useMermaidSvg(source, { delayMs: DRAW_AFTER_MS, keepLastDrawing: true });
 
   return (
     <section className="card stack diagram-preview" aria-label="Diagram preview">

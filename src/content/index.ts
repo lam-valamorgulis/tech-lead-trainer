@@ -48,6 +48,8 @@ export type ReviewItem = {
   name: string;
   hash: string;
   review: { question: string; answer: string };
+  /** The species of the creature, or of the move's creature (#99). */
+  sprite?: number;
 };
 
 const reviewItems = new Map<string, ReviewItem>();
@@ -55,12 +57,12 @@ const creatures = new Map<string, Creature>();
 for (const town of bundle.towns) {
   for (const creature of town.creatures) {
     if (creature.retired) continue;
-    const { id, name, hash, review } = creature;
-    reviewItems.set(id, { id, kind: "creature", name, hash, review });
+    const { id, name, hash, review, sprite } = creature;
+    reviewItems.set(id, { id, kind: "creature", name, hash, review, sprite });
     creatures.set(id, { id, name });
     for (const move of creature.moves) {
       if (move.retired) continue;
-      reviewItems.set(move.id, { id: move.id, kind: "move", name: move.name, hash: move.hash, review: move.review });
+      reviewItems.set(move.id, { id: move.id, kind: "move", name: move.name, hash: move.hash, review: move.review, sprite });
       creatures.set(move.id, { id, name });
     }
   }

@@ -2,10 +2,12 @@
 
 import type { BundledTown } from "@/content/bundle";
 import { twistOf } from "@/core/twist";
+import { TownIntroView } from "./town-intro";
 
 /**
- * The "new town" screen (design 4, ticket #36): a fresh start on the first learning day in a new
- * town. It names the town and its new battle twist. It is short, and its words never blame.
+ * The first screen of a town (design 4 and 6.1, tickets #36 and #98): a fresh start that names the
+ * town and its new battle twist, then the Town Intro when the content has one. It is short, and
+ * its words never blame.
  */
 export function NewTown({ town, onStart }: { town: BundledTown; onStart: () => void }) {
   const twist = twistOf(town);
@@ -26,7 +28,9 @@ export function NewTown({ town, onStart }: { town: BundledTown; onStart: () => v
           </p>
         </div>
       )}
-      <button type="button" className="button-main" onClick={onStart}>
+      {town.intro && <TownIntroView intro={town.intro} headingLevel={3} />}
+      {/* Sticky, so a long Town Intro never hides the way on: the button stays at the bottom while the learner reads. */}
+      <button type="button" className="button-main start-town" onClick={onStart}>
         Start Town {town.number}
       </button>
     </section>

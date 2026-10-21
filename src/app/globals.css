@@ -727,3 +727,179 @@ a.wide-only {
 a[aria-current="page"] {
   border-color: var(--color-accent);
 }
+
+/* UI rule 13 and design 9 rule 15: the speaker and Feedback buttons sit in the top corner. They
+   are out of the flow, so they never move the commit buttons, and they scroll away with the top
+   of the page, so they never cover a button further down. */
+.speaker,
+.feedback {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 8px);
+  right: calc(env(safe-area-inset-right) + 8px);
+  z-index: 10;
+}
+
+.speaker {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+/* Feedback sits left of the speaker button on the play screens. */
+.shell:has(.speaker) .feedback {
+  right: calc(env(safe-area-inset-right) + 16px + var(--tap-min));
+}
+
+/* Home's title fills the phone's width, so there both buttons sit one row lower, beside the short intro line. */
+.speaker-beside-intro,
+.shell:has(.home-intro) .feedback {
+  top: calc(env(safe-area-inset-top) + 52px);
+}
+
+/* The square buttons in the top corner: speaker and Feedback. */
+.frame-button {
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 2px solid var(--color-muted);
+  border-radius: 4px;
+  touch-action: manipulation;
+}
+
+/* The save error under the speaker button. It never takes a tap from the screen under it. */
+.speaker-note {
+  pointer-events: none;
+  max-width: 220px;
+  margin: 0;
+  padding: 6px 8px;
+  font-size: 15px;
+  text-align: right;
+  background: var(--color-bg);
+  border: 2px solid var(--color-muted);
+  border-radius: 4px;
+}
+
+.feedback-dialog {
+  width: min(calc(100% - 2 * var(--space)), 480px);
+  padding: var(--space);
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 2px solid var(--color-muted);
+  border-radius: 4px;
+}
+
+.feedback-dialog::backdrop {
+  background: rgb(0 0 0 / 60%);
+}
+
+/* Design 6.3 and UI rule 11: the Lesson before a catch, 3 swipe screens. */
+.swipe-area {
+  /* The browser still scrolls up and down and zooms; a sideways swipe turns the page. */
+  touch-action: pan-y pinch-zoom;
+}
+
+.page-dots {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.page-dots i {
+  width: 28px;
+  height: 8px;
+  border: 2px solid var(--color-line);
+}
+
+.page-dots i.on {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+/* A Lesson or Town Intro diagram is readable on an iPhone: full width, never cut. */
+.content-diagram {
+  margin: 0;
+  padding: 8px;
+  border: 2px solid var(--color-line);
+  border-radius: 4px;
+}
+
+.content-diagram svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* The Lesson screen that holds the answer, shown again before the second try. */
+.look-back {
+  padding: 12px;
+  border: 3px solid var(--color-accent);
+  border-radius: 4px;
+}
+
+/* The small page label above a Lesson screen, so "Lesson · Cache · 1 of 3" stays on one line. */
+.lesson .pixel-label,
+.look-back .pixel-label {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+/* The first try's wrong answer, locked on the second try. Text and a line, never colour alone. */
+.choice-wrong {
+  border-style: dashed;
+  opacity: 0.8;
+}
+
+/* Ticket #99: creature art. Whole-number growth with no smoothing (design 9). */
+.creature-art {
+  display: block;
+  image-rendering: pixelated;
+}
+
+/* Design 9 rule 19: seen is grey, not met is a black shape with a light edge, so it shows on the dark page. */
+.creature-art.look-grey {
+  filter: grayscale(1) opacity(0.7);
+}
+
+.creature-art.look-shadow {
+  filter: brightness(0) drop-shadow(0 0 1px var(--color-muted));
+}
+
+/* The Field Guide: 3 creatures per row, the picture above the name and status. */
+.field-guide-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.field-guide-grid li {
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 4px;
+  padding: 8px 4px;
+  text-align: center;
+}
+
+.field-guide-grid .creature-name {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.field-guide-grid .creature-status {
+  font-size: 14px;
+}
+
+.credits {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The Town Intro can be long: its Start button stays in reach at the bottom of the screen. */
+.start-town {
+  position: sticky;
+  bottom: calc(env(safe-area-inset-bottom) + 8px);
+}

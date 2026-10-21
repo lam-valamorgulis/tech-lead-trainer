@@ -11,14 +11,13 @@ async function reportsOf(email: string) {
   );
 }
 
-test("one tap on Report wrong saves a report from a card, and a short note is optional", async ({ page }) => {
+test("one tap on Report wrong saves a report from the Lesson, and a short note is optional", async ({ page }) => {
   const user = await signInNewUser(page, "report");
   try {
     await page.getByRole("button", { name: "15 minutes" }).click();
-    await page.getByLabel("To load it faster next time").check();
-    await page.getByLabel("Sure").check();
-    await page.getByRole("button", { name: "Check" }).click();
-    await page.getByRole("button", { name: "Read the card" }).click();
+    // The button sits on the last Lesson screen.
+    await page.getByRole("button", { name: "Next" }).click();
+    await page.getByRole("button", { name: "Next" }).click();
 
     await page.getByRole("button", { name: "Report wrong" }).click();
     await expect(page.getByText("Thanks. The report is saved.")).toBeFocused();

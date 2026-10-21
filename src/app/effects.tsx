@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
-import { EFFECTS, type EffectName, type SoundName } from "@/core/effects";
+import { EFFECTS, type EffectName, type SongName, type SoundName } from "@/core/effects";
 import type { Profile } from "@/lib/profile";
-import { playSound, setSoundOn } from "./sound";
+import { playSound, requestMusic, setSoundOn, soundStarted, startSound } from "./sound";
 
 /**
  * Applies the "Reduce effects" and "Sound effects" settings of the signed-in learner.
@@ -18,6 +18,30 @@ export function useEffectSettings(profile: Profile | null): void {
     if (reduceEffects) document.documentElement.dataset.effects = "reduced";
     else delete document.documentElement.dataset.effects;
   }, [reduceEffects, soundOn]);
+
+  // UI rule 13: sound starts from the first tap on any screen. iPhone Safari allows it only inside a tap.
+  useEffect(() => {
+    if (!soundOn) return;
+    function onTap() {
+      startSound();
+      if (soundStarted()) stop();
+    }
+    function stop() {
+      document.removeEventListener("click", onTap, true);
+      document.removeEventListener("keydown", onTap, true);
+    }
+    document.addEventListener("click", onTap, true);
+    document.addEventListener("keydown", onTap, true);
+    return stop;
+  }, [soundOn]);
+}
+
+/**
+ * Plays a music loop while the screen is open (UI rule 13). When it closes, the loop of the
+ * screen underneath plays again, so the map loop comes back after a battle.
+ */
+export function useMusic(song: SongName): void {
+  useEffect(() => requestMusic(song), [song]);
 }
 
 /**

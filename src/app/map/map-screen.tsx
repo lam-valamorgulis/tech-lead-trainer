@@ -106,6 +106,12 @@ export function MapScreen({ programStartDate }: { programStartDate: string }) {
             Its creatures are not ready yet. You keep playing Town {played.number}: {played.name}.
           </p>
         )}
+        {/* The Town Intro reopens for the town of today and the ones before it (#98). */}
+        {shownTown?.intro && shownTown.number <= current && (
+          <Link href={`/town-intro/${shownTown.id}`} className="button button-quiet">
+            Town Intro
+          </Link>
+        )}
         {shownTown && weekendBoss(shownTown.id) && shownTown.number <= current && (
           <Link href={`/weekend/${shownTown.id}`} className="button button-quiet">
             Weekend boss

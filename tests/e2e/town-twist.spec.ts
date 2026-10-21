@@ -39,6 +39,12 @@ test("the first learning day in town 2 shows the new town screen once, then the 
         "Each opponent has two types, and each turn shows the type that attacks. Damage still comes from the turn's move table, as in town 1.",
       ),
     ).toBeVisible();
+    // #98: the Town Intro of the town comes with it, with its diagram and its source.
+    await expect(screen.getByRole("heading", { name: "How an API keeps partners safe" })).toBeVisible();
+    await expect(screen.getByText("Town Intro · about 3 minutes")).toBeVisible();
+    await expect(screen.locator(".content-diagram svg")).toBeVisible();
+    await expect(screen.getByText("Diagram: Partner to Gateway. Gateway to API")).toBeAttached();
+    await expect(screen.getByRole("link", { name: /Source: MDN: 429 Too Many Requests/ })).toBeVisible();
     // The commit buttons wait until the learner starts the town.
     await expect(page.getByRole("button", { name: "15 minutes" })).toHaveCount(0);
     const accessibility = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
@@ -53,6 +59,39 @@ test("the first learning day in town 2 shows the new town screen once, then the 
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "Today I commit to:" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Welcome to Town 2" })).toHaveCount(0);
+  } finally {
+    await user.forget();
+  }
+});
+
+test("the map reopens the Town Intro of the current town (#98)", async ({ page }) => {
+  const user = await signInNewUser(page, "town-intro-map");
+  try {
+    // In town 1, the fixture town has no Town Intro in seam C, so the map shows no link.
+    await page.goto("/map");
+    await expect(page.getByRole("heading", { name: /^Town 1:/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Town Intro" })).toHaveCount(0);
+
+    await moveToTown2(user.email);
+    await page.goto("/map");
+    await expect(page.getByRole("heading", { name: /^Town 2:/ })).toBeVisible();
+    await page.getByRole("link", { name: "Town Intro" }).click();
+    // The dev server builds this page on its first visit, which can take a few seconds.
+    // The production build keeps the map page hidden in the page, so look for what only the intro page has.
+    await expect(page.getByRole("heading", { level: 1, name: "Town Intro" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "How an API keeps partners safe" })).toBeVisible();
+    const accessibility = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+    expect(accessibility.violations).toEqual([]);
+    await page.getByRole("link", { name: "Back to the map" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Map" })).toBeVisible();
+
+    // A town not reached yet stays closed, also by its address.
+    await sql(local, "update profiles set program_start_date = current_date where user_id = (select id from auth.users where email = $1)", [
+      user.email,
+    ]);
+    await page.goto("/town-intro/t98");
+    await expect(page.getByText("Town 2 is not open yet.")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: "How an API keeps partners safe" })).toHaveCount(0);
   } finally {
     await user.forget();
   }

@@ -23,7 +23,9 @@
     "rebuild:review-state": "node scripts/rebuild-review-state.mjs",
     "check:live-code": "node scripts/check-live-code-length.mjs",
     "backup:restore-check": "node scripts/backup.mjs restore-check",
-    "reports": "node scripts/reports.mjs"
+    "reports": "node scripts/reports.mjs",
+    "feedback": "node scripts/feedback.mjs",
+    "fact-check": "node scripts/fact-check.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",

@@ -1,5 +1,5 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { afterAll, beforeAll, describe, expect, inject, it, vi } from "vitest";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { ensureProfile, saveReminderTimes } from "@/lib/profile";
 import { removePushSubscription, savePushSubscription } from "@/lib/reminders/push-subscriptions";
 import { sendDueReminders, type PushResult, type PushSender } from "@/lib/reminders/send-reminders";
@@ -7,6 +7,11 @@ import { saveAdr } from "@/lib/weekend-doc";
 import { adminClient, forgetEmail, signedInUser, sql } from "./helpers";
 
 type User = { id: string; email: string; client: SupabaseClient };
+
+// One reminder run takes at most about 0.3 s here (#91). On the CI machine, one request once
+// waited 5.4 s while 26 files shared one database. 15 s keeps such a wait from failing CI,
+// and a real hang still fails.
+vi.setConfig({ testTimeout: 15_000 });
 
 function subscriptionFor(label: string) {
   return {
@@ -373,5 +378,120 @@ describe("sendDueReminders for an ADR outcome check", () => {
     const written = fakePushService();
     await sendDueReminders(adminClient(), new Date("2030-02-05T00:30:00Z"), written.send);
     expect(written.callsTo([phone.endpoint]).map((call) => (call.payload as { url: string }).url)).toEqual(["/"]);
+  });
+});
+
+describe("sendDueReminders as the number of learners grows", () => {
+  const users: User[] = [];
+  const phones: string[] = [];
+
+  /** An admin client that counts its read requests (GET), so a test can see how the reads grow. */
+  function countingAdmin() {
+    const counter = { reads: 0 };
+    const client = createClient(inject("supabaseUrl"), inject("supabaseSecretKey"), {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: {
+        fetch: (input, init) => {
+          if ((init?.method ?? "GET") === "GET") counter.reads += 1;
+          return fetch(input, init);
+        },
+      },
+    });
+    return { client, counter };
+  }
+
+  async function addLearner(label: string) {
+    const user = await signedInUser(label);
+    users.push(user);
+    await ensureProfile(user.client);
+    // A morning time no other test uses, so only these learners are due.
+    await saveReminderTimes(user.client, user.id, { morning: "04:05", evening: "22:55" });
+    const phone = subscriptionFor(label);
+    phones.push(phone.endpoint);
+    await savePushSubscription(user.client, phone, "iPhone");
+    await saveAdr(user.client, "t01-adr", {
+      sections: { title: "Queues", context: "", decision: "", consequences: "", prediction: "Fewer timeouts.", outcome: "" },
+      status: "accepted",
+      outcomeCheckDate: "2031-03-05",
+    });
+  }
+
+  beforeAll(async () => {
+    await addLearner("grow-1");
+  });
+
+  afterAll(async () => {
+    for (const user of users) await forgetEmail(user.email);
+  });
+
+  it("reads the same number of times for 3 due learners as for 1", async () => {
+    // 04:05 in Ho Chi Minh City is 21:05 UTC the day before.
+    const one = countingAdmin();
+    const push = fakePushService();
+    await sendDueReminders(one.client, new Date("2031-03-03T21:05:00Z"), push.send);
+    expect(push.callsTo(phones)).toHaveLength(1);
+
+    await addLearner("grow-2");
+    await addLearner("grow-3");
+    const three = countingAdmin();
+    // The ADR check day: each learner gets the daily reminder and the ADR reminder.
+    await sendDueReminders(three.client, new Date("2031-03-04T21:05:00Z"), push.send);
+    expect(push.callsTo(phones)).toHaveLength(1 + 3 * 2);
+
+    expect(three.counter.reads).toBe(one.counter.reads);
+  });
+});
+
+describe("sendDueReminders for learners in two time zones", () => {
+  let vietnam: User;
+  let newYork: User;
+  let vietnamPhone: string;
+  let newYorkPhone: string;
+
+  /** One session of 180 active seconds at noon home time on this day. */
+  async function learn(user: User, noonUtc: string) {
+    const { error } = await user.client.from("session_events").insert({
+      client_event_id: crypto.randomUUID(),
+      session_id: crypto.randomUUID(),
+      occurred_at: noonUtc,
+      committed_minutes: 3,
+      active_seconds: 180,
+      device: "test",
+    });
+    if (error) throw error;
+  }
+
+  beforeAll(async () => {
+    vietnam = await signedInUser("remind-zone-vn");
+    newYork = await signedInUser("remind-zone-ny");
+    await ensureProfile(vietnam.client);
+    await ensureProfile(newYork.client);
+    // At 01:00 UTC on 20 March 2026 it is 08:00 on the 20th in Ho Chi Minh City
+    // and 21:00 on the 19th in New York: each learner's evening reminder is due.
+    await saveReminderTimes(vietnam.client, vietnam.id, { morning: "12:00", evening: "08:00" });
+    await sql("update public.profiles set home_time_zone = 'America/New_York' where user_id = $1", [newYork.id]);
+    await saveReminderTimes(newYork.client, newYork.id, { morning: "07:30", evening: "21:00" });
+    vietnamPhone = subscriptionFor("zone-vn").endpoint;
+    newYorkPhone = subscriptionFor("zone-ny").endpoint;
+    await savePushSubscription(vietnam.client, { endpoint: vietnamPhone, keys: { p256dh: "p", auth: "a" } }, "iPhone");
+    await savePushSubscription(newYork.client, { endpoint: newYorkPhone, keys: { p256dh: "p", auth: "a" } }, "iPhone");
+    // Both learned on 19 March, each at noon home time. Only New York is still on that day.
+    await learn(vietnam, "2026-03-19T05:00:00Z");
+    await learn(newYork, "2026-03-19T16:00:00Z");
+  });
+
+  afterAll(async () => {
+    await forgetEmail(vietnam.email);
+    await forgetEmail(newYork.email);
+  });
+
+  it("checks each learner's own learning day", async () => {
+    const push = fakePushService();
+    await sendDueReminders(adminClient(), new Date("2026-03-20T01:00:00Z"), push.send);
+    // Vietnam is on 20 March and has not learned yet. New York is on 19 March and has.
+    expect(push.callsTo([vietnamPhone])).toHaveLength(1);
+    expect(push.callsTo([newYorkPhone])).toEqual([]);
+    const { data } = await vietnam.client.from("reminders").select("learning_day, kind");
+    expect(data).toEqual([{ learning_day: "2026-03-20", kind: "evening" }]);
   });
 });
