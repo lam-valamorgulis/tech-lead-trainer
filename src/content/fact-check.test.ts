@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { claimsDiffer, factCheckList, factReportProblem, formatFactCheckReport, quoteOnPage, type Finding } from "./fact-check.ts";
+import { claimsDiffer, factCheckList, factReportProblem, formatFactCheckReport, pageText, quoteOnPage, type Finding } from "./fact-check.ts";
 import { fixtureTown, fixtureTownV2 } from "./fixture-town.ts";
 import { townSchema } from "./schema.ts";
 
@@ -167,6 +167,13 @@ describe("the report never hides a problem", () => {
     const report = formatFactCheckReport("t99", groups, [{ where: "t99.zzz", verdict: "supported", quote: "x" }]);
     expect(report).toContain("## Findings for no claim");
     expect(report).toContain("- `t99.zzz`");
+  });
+});
+
+describe("pageText", () => {
+  it("keeps the words of the main part, one block per line, with no tags, scripts or entities", () => {
+    const html = `<nav>Menu</nav><main><h1>HTTP &amp; you</h1><p>A <code>GET</code> request&nbsp;asks.</p><script>x()</script><ul><li>One</li><li>Two</li></ul></main>`;
+    expect(pageText(html)).toBe("HTTP & you\nA GET request asks.\nOne\nTwo");
   });
 });
 

@@ -7,7 +7,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { claimsDiffer, factCheckList, factReportProblem, formatFactCheckReport, quoteOnPage } from "../src/content/fact-check.ts";
+import { claimsDiffer, factCheckList, factReportProblem, formatFactCheckReport, pageText, quoteOnPage } from "../src/content/fact-check.ts";
 import { townSchema } from "../src/content/schema.ts";
 
 const { values: args, positionals } = parseArgs({
@@ -64,7 +64,14 @@ if (mode === "list") {
     process.exit(2);
   }
   // One reviewer per part: a few pages each, so every reviewer reads each page once (design 8).
-  mkdirSync(args.out, { recursive: true });
+  // Each page's own words go next to the parts, so a reviewer quotes the page, not a summary of it.
+  mkdirSync(join(args.out, "pages"), { recursive: true });
+  for (const [index, group] of groups.entries()) {
+    if (group.url === "") continue;
+    const file = join(args.out, "pages", `page-${index + 1}.txt`);
+    writeFileSync(file, `${group.title}\n${group.url}\n\n${pageText(await fetchPage(group.url))}\n`);
+    group.textFile = file;
+  }
   const parts = [];
   for (let i = 0; i < groups.length; i += size) parts.push(groups.slice(i, i + size));
   parts.forEach((part, index) => writeFileSync(join(args.out, `part-${index + 1}.json`), `${JSON.stringify(part, null, 2)}\n`));
@@ -76,20 +83,23 @@ if (mode === "list") {
   console.log(formatFactCheckReport(town.id, groups, findings, checks));
 }
 
+/** The HTML of a page, or "" when it does not load. */
+async function fetchPage(url) {
+  try {
+    const response = await fetch(url, { headers: { "user-agent": "tech-lead-trainer fact check" } });
+    return response.ok ? await response.text() : "";
+  } catch {
+    return "";
+  }
+}
+
 /**
  * Reads every cited page once and returns a check: is the finding's quote on its claim's page?
  * A reviewer reads pages through a summarising tool, so a quote can drift from the page's words.
  */
 async function quoteChecker(pageGroups) {
   const pages = new Map();
-  for (const group of pageGroups.filter((g) => g.url !== "")) {
-    try {
-      const response = await fetch(group.url, { headers: { "user-agent": "tech-lead-trainer fact check" } });
-      pages.set(group.url, response.ok ? await response.text() : "");
-    } catch {
-      pages.set(group.url, "");
-    }
-  }
+  for (const group of pageGroups.filter((g) => g.url !== "")) pages.set(group.url, await fetchPage(group.url));
   const pageOf = new Map(pageGroups.flatMap((group) => group.claims.map((claim) => [claim.where, pages.get(group.url) ?? ""])));
   return (finding) => quoteOnPage(pageOf.get(finding.where) ?? "", finding.quote ?? "");
 }

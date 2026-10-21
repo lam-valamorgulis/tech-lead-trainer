@@ -218,7 +218,7 @@ export function formatFactCheckReport(townId: string, groups: SourceGroup[], fin
  * The page is the raw HTML of the cited url.
  */
 export function quoteOnPage(html: string, quote: string): boolean {
-  const page = lettersAndDigits(html.replace(/<[^>]*>/g, " "));
+  const page = lettersAndDigits(pageText(html));
   // "…" joins parts of the page that are apart: each part must be there, in order.
   const parts = quote.split(/\.\.\.|…/).map(lettersAndDigits).filter(Boolean);
   let from = 0;
@@ -228,6 +228,29 @@ export function quoteOnPage(html: string, quote: string): boolean {
     from = at + part.length;
   }
   return parts.length > 0;
+}
+
+/**
+ * The words of a page, as a reviewer reads them: the main part of the HTML, without scripts and
+ * tags, one block per line. A reviewer quotes from this text, so a quote is the page's own words.
+ */
+export function pageText(html: string): string {
+  const main = html.match(/<main[\s>][\s\S]*<\/main>/i)?.[0] ?? html;
+  return main
+    .replace(/<(script|style|svg)[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<\/(p|li|h[1-6]|tr|dt|dd|pre|blockquote|div)>|<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;|&#160;/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&#x27;|&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+    .replace(/&amp;/g, "&")
+    .split("\n")
+    .map((line) => line.replace(/[ \t]+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n");
 }
 
 function lettersAndDigits(text: string): string {

@@ -1873,7 +1873,7 @@
               },
               "card": {
                 "text": "A session cookie has no Expires and no Max-Age attribute. The browser removes it when the session ends, which is when the browser shuts down. Many browsers can restore a session, and then session cookies come back too. A permanent cookie ends at the Expires date, or after Max-Age seconds. Max-Age wins when both are set.",
-                "example": "Set-Cookie: id=a3fWa; Max-Age=2592000 keeps the cookie for 2592000 seconds. Set-Cookie: id=a3fWa; Expires=Thu, 31 Oct 2021 07:28:00 GMT keeps it until that date.",
+                "example": "Set-Cookie: id=a3fWa; Max-Age=2592000 keeps the cookie for 2592000 seconds. Set-Cookie: id=a3fWa; Expires=Wed, 21 Oct 2015 07:28:00 GMT keeps it until that date.",
                 "source": {
                   "title": "MDN: Set-Cookie header",
                   "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie"
@@ -1883,7 +1883,7 @@
                 "question": "Expires and Max-Age are both set. Which one wins?",
                 "answer": "Max-Age. It has precedence over Expires."
               },
-              "hash": "5b0e7f80e5cd74cb"
+              "hash": "1d41bb31f90a9cbe"
             },
             {
               "id": "cookie.secure-httponly",
@@ -1894,7 +1894,7 @@
                     "text": "The Secure attribute limits how a cookie is sent. The browser sends the cookie only with an encrypted HTTPS request. It never sends it with plain HTTP. Localhost is an exception, but Safari does not support that."
                   },
                   {
-                    "text": "The HttpOnly attribute limits who can read a cookie. JavaScript cannot access the cookie, for example through Document.cookie. The cookie is still sent with requests that JavaScript starts, such as fetch."
+                    "text": "The HttpOnly attribute limits who can read a cookie. JavaScript cannot access the cookie, for example through Document.cookie."
                   },
                   {
                     "text": "Example: Set-Cookie: id=a3fWa; Expires=Thu, 21 Oct 2021 07:28:00 GMT; Secure; HttpOnly. This cookie goes only over HTTPS, and scripts cannot read it. HttpOnly helps against cross-site scripting attacks."
@@ -1929,7 +1929,7 @@
                 "question": "What does the Secure attribute do?",
                 "answer": "The cookie is only sent with HTTPS requests, never with plain HTTP. Localhost is the one exception."
               },
-              "hash": "672696d0befee627"
+              "hash": "4561db45a31a2413"
             },
             {
               "id": "cookie.samesite",
@@ -2027,72 +2027,72 @@
             "answer": "A transparent proxy forwards requests unchanged. A non-transparent proxy changes the request before it passes it on."
           },
           "workedExample": {
-            "problem": "Your shop runs behind a load balancer. Your server logs show the same IP address for every customer.",
+            "problem": "Staff in one office load the same shop logo many times a day.",
             "steps": [
-              "The load balancer is a proxy in front of your servers.",
-              "Your server only sees the IP address of the last proxy.",
-              "The X-Forwarded-For request header carries the original client IP address."
+              "A proxy sits between their browsers and the server.",
+              "A caching proxy keeps a copy of the logo.",
+              "Later requests get the copy, so the server sends less."
             ],
-            "answer": "Read the client IP from X-Forwarded-For, for example X-Forwarded-For: 203.0.113.195."
+            "answer": "Use a proxy that caches public files, such as images."
           },
           "tradeOff": {
             "id": "proxy.trade-off.reverse-proxy-front",
-            "situation": "Your site runs on three web servers. You want to spread the load, cache pictures and compress content, and you do not want to change each server.",
+            "situation": "Your site runs on three web servers. You want to spread the load and cache pictures, without changing each server.",
             "options": [
-              "Ask customers to use a forward proxy",
-              "Let each server do its own caching and compression",
-              "Put a reverse proxy in front of the servers"
+              "Ask customers to use a different browser",
+              "Let each server cache on its own",
+              "Put a proxy in front of the servers"
             ],
             "rightOption": 2,
             "reasons": [
               {
-                "text": "A forward proxy hides servers and spreads the load between them.",
+                "text": "Servers spread the load between themselves without help.",
                 "right": false
               },
               {
-                "text": "Servers can spread the load between themselves without any machine in front.",
-                "right": false
-              },
-              {
-                "text": "A reverse proxy sits in front of servers and can do load balancing, caching and compression.",
+                "text": "A proxy between clients and servers can balance the load and cache answers.",
                 "right": true
+              },
+              {
+                "text": "The browser decides which server gets each request.",
+                "right": false
               }
             ],
-            "explanation": "A reverse proxy does these jobs for all servers in one place, and it can hide the servers from customers. The cost is one more machine between customers and your servers.",
+            "explanation": "A proxy in front of the servers can balance the load and cache answers in one place. The cost is one more machine between customers and your servers.",
             "skills": [
               3
             ],
-            "hash": "8eede84f1020182b"
+            "hash": "b22ae2ecaf3a4bb0"
           },
           "decisionCards": [
             {
               "id": "proxy.decision.client-ip",
-              "situation": "Your servers sit behind a load balancer. You need the original customer IP address for debugging.",
+              "situation": "Your company wants to block some websites for its staff.",
               "options": [
-                "Read the X-Forwarded-For request header",
-                "Use the IP address of the connection"
+                "Put a filtering proxy between the staff browsers and the internet",
+                "Ask each website to block your staff"
               ],
               "rightOption": 0,
               "reasons": [
                 {
-                  "text": "A reverse DNS lookup on the connection IP address finds the customer.",
+                  "text": "Websites must block any company that asks them to.",
                   "right": false
                 },
                 {
-                  "text": "The connection IP address is always the customer, even behind a proxy.",
+                  "text": "A filter only works inside each website's own server.",
                   "right": false
                 },
                 {
-                  "text": "X-Forwarded-For identifies the original client IP address behind a proxy or a load balancer.",
+                  "text": "A proxy between browsers and servers can filter the requests.",
                   "right": true
                 }
               ],
-              "explanation": "X-Forwarded-For identifies the original client IP address when a request passes a proxy or a load balancer. The cost is that it only helps when the proxy or load balancer sends it.",
+              "explanation": "A proxy sees the requests on the way, so it can filter them in one place. The cost is one more machine on every request.",
               "skills": [
                 3,
-                11
+                12
               ],
-              "hash": "49273febf6d68af5"
+              "hash": "148668ced782c513"
             }
           ],
           "moves": [
@@ -2191,7 +2191,7 @@
               "hash": "6fc3fbf58865d712"
             }
           ],
-          "hash": "c75b3fd23e02b7e3"
+          "hash": "0cd6efc84f6571ae"
         },
         {
           "id": "dns",
@@ -2239,43 +2239,43 @@
             "answer": "Mapping a domain name to its IP address."
           },
           "workedExample": {
-            "problem": "You moved your shop to a new server with a new IP address. Some customers still reach the old server.",
+            "problem": "A visitor types shop.example.com, but computers connect to IP addresses.",
             "steps": [
-              "Each DNS server keeps the data of a domain for some time.",
-              "Then the data expires, and the DNS server fetches fresh data from an authoritative server.",
-              "Until that happens, the DNS server can still give out the old IP address."
+              "The browser asks DNS for the IP address of the name.",
+              "DNS answers with the numeric IP address.",
+              "The browser then connects to that address."
             ],
-            "answer": "Wait for the DNS servers to refresh. Keep the old server running until all traffic reaches the new one."
+            "answer": "DNS turns the domain name into the IP address the browser connects to."
           },
           "tradeOff": {
             "id": "dns.trade-off.subdomain-help-site",
-            "situation": "Your company controls example.com. You need a separate help site with its own content.",
+            "situation": "Your shop moves to a new server with a new IP address. Customers still type the same name.",
             "options": [
-              "Create a subdomain such as help.example.com",
-              "Register example.org for the help site",
-              "Put the help pages on another port of the main server"
+              "Ask customers to type the new IP address",
+              "Change the DNS record to the new IP address",
+              "Give the shop a new domain name"
             ],
-            "rightOption": 0,
+            "rightOption": 1,
             "reasons": [
               {
-                "text": "Each site needs its own SLD, so you must register a new name.",
-                "right": false
-              },
-              {
-                "text": "You control example.com, so you can create subdomains with different content at each.",
+                "text": "DNS turns the name into the IP address, so only the record must change.",
                 "right": true
               },
               {
-                "text": "A subdomain is the rightmost label, so it changes the TLD.",
+                "text": "People remember IP addresses better than names.",
+                "right": false
+              },
+              {
+                "text": "A new server always needs a new domain name.",
                 "right": false
               }
             ],
-            "explanation": "For a domain you control, you can create subdomains with different content at each. The cost is that the help site stays tied to the example.com name.",
+            "explanation": "Customers keep the name, and DNS points it to the new address. The cost is that you must update the record and check it.",
             "skills": [
               3,
               19
             ],
-            "hash": "b2286a795a80da77"
+            "hash": "85a9e89bf57c10d7"
           },
           "decisionCards": [
             {
@@ -2404,7 +2404,7 @@
               "hash": "dd76bb71a07a53de"
             }
           ],
-          "hash": "8be21f13b3b8e1eb"
+          "hash": "dbe6d1711e8aab18"
         },
         {
           "id": "http-version",
@@ -3887,9 +3887,9 @@
         },
         {
           "creatureId": "http-method",
-          "question": "What does idempotent mean for an HTTP method?",
-          "answer": "Several identical requests have the same intended effect on the server as one request.",
-          "hash": "de527c62aacb53c4"
+          "question": "Which HTTP method asks only to get data?",
+          "answer": "GET. A GET request should only retrieve data.",
+          "hash": "55b838acd05981b9"
         },
         {
           "creatureId": "status-code",
@@ -3917,9 +3917,9 @@
         },
         {
           "creatureId": "proxy",
-          "question": "What is the difference between a forward proxy and a reverse proxy?",
-          "answer": "A forward proxy acts for clients. A reverse proxy sits in front of servers.",
-          "hash": "9d7f39a16a922ac0"
+          "question": "Name two jobs a proxy can do between a client and a server.",
+          "answer": "For example caching and filtering, or load balancing and logging.",
+          "hash": "bed60bca073044bd"
         },
         {
           "creatureId": "dns",
@@ -4336,7 +4336,7 @@
                 {
                   "moveId": "status-code.success",
                   "damage": 2,
-                  "counterattack": "The API sends 201 Created with the new user's URL, but old apps still expect 200."
+                  "counterattack": "The API now sends 201 Created, but old apps still expect 200."
                 },
                 {
                   "moveId": "status-code.redirect",
@@ -4354,11 +4354,11 @@
                   "counterattack": "You resend the POST to get the data, so a second user is created."
                 }
               ],
-              "modelAnswer": "201 Created says the request succeeded and made a new resource. Servers typically send it after POST. Add the new user's URL in the Location header. The cost: old apps that expect 200 must change.",
+              "modelAnswer": "201 Created says the request succeeded and made a new resource. Servers typically send it after POST. The cost: old apps that expect 200 must change.",
               "keyPoints": [
                 "201 Created means a new resource was made.",
                 "It typically answers a POST.",
-                "The Location header can point to the new resource."
+                "Old apps that expect 200 must change."
               ]
             },
             {
@@ -4393,7 +4393,7 @@
               ]
             }
           ],
-          "hash": "db9955b9e988d881"
+          "hash": "9c872cf588e58bea"
         },
         {
           "id": "t01-moved-shop",
@@ -4783,15 +4783,15 @@
                   "counterattack": "You tighten SameSite, so users are signed out inside partner sites, and the cookie is still large."
                 }
               ],
-              "modelAnswer": "Cookies go with every request, and one cookie is usually at most 4KB. Keep only a session id in the cookie. The server looks up the profile. The cost: one lookup per request.",
+              "modelAnswer": "Cookies go with every request. Keep only a session id in the cookie. The server looks up the profile. The cost: one lookup per request.",
               "keyPoints": [
                 "Cookies are sent with every request.",
-                "A cookie is usually at most 4KB.",
-                "Store a session id and look up the data on the server."
+                "Keep only a session id in the cookie.",
+                "The server looks up the profile for each request."
               ]
             }
           ],
-          "hash": "80318e1b3e541139"
+          "hash": "56a9719996b078ce"
         },
         {
           "id": "t01-busy-night",
@@ -5273,7 +5273,7 @@
                   "counterattack": "Plain http visits get a 301 to HTTPS, but each one costs an extra request."
                 }
               ],
-              "modelAnswer": "Listen for plain http requests and answer 301 Moved Permanently to the HTTPS URL. The cost: one extra request on each plain visit. Add HSTS later to skip it.",
+              "modelAnswer": "Listen for plain http requests and answer 301 Moved Permanently to the HTTPS URL. The cost: one extra request on each plain visit.",
               "keyPoints": [
                 "Answer plain http with a 301 to HTTPS.",
                 "The Location header holds the https URL.",
@@ -5281,7 +5281,7 @@
               ]
             }
           ],
-          "hash": "cc04246d701bc8c6"
+          "hash": "04891b5374f0ab5a"
         },
         {
           "id": "t01-new-blog",
