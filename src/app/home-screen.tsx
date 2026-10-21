@@ -16,7 +16,9 @@ import type { SignedIn } from "./auth-gate";
 import { PlanForm } from "./plan-form";
 import { RestStop } from "./rest-stop";
 import { SessionScreen, type CommittedMinutes } from "./session-screen";
-import { startSound } from "./sound";
+import { useMusic } from "./effects";
+import { playSound, startSound } from "./sound";
+import { SilentModeHint, SpeakerButton } from "./speaker-button";
 import { WeeklySummaryCard } from "./weekly-summary";
 import { NewTown } from "./new-town";
 import { badges, gymIsOpen } from "@/core/gym";
@@ -39,6 +41,7 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
   const gymTown = useGymTown(profile.programStartDate);
   const adrTown = useAdrToCheck();
   const rate = status?.rate;
+  useMusic("map");
 
   useEffect(() => {
     if (session !== null) return;
@@ -58,6 +61,7 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
   /** Runs inside the commit tap, the only place where iPhone Safari lets audio start. */
   function startSession(minutes: CommittedMinutes) {
     startSound();
+    playSound("tap");
     // The status changes once the session counts, so home loads it again afterwards.
     setStatus(null);
     setRateFailed(false);
@@ -94,18 +98,25 @@ export function HomeScreen({ userId, profile, setProfile }: SignedIn) {
     );
   }
 
+  const speaker = <SpeakerButton userId={userId} profile={profile} setProfile={setProfile} besideIntro />;
+
   if (session !== null) {
     return (
-      <SessionScreen
-        committedMinutes={session}
-        programStartDate={profile.programStartDate}
-        onDone={() => setSession(null)}
-      />
+      <>
+        {speaker}
+        <SilentModeHint />
+        <SessionScreen
+          committedMinutes={session}
+          programStartDate={profile.programStartDate}
+          onDone={() => setSession(null)}
+        />
+      </>
     );
   }
 
   return (
     <>
+      {speaker}
       <div className="stack">
         <p>
           Learned <strong>{rate ? formatRate(rate) : "…"}</strong>

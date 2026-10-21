@@ -124,7 +124,7 @@ export function CatchFlow({
   return (
     <section className="stack" aria-labelledby="result-title">
       <h2 id="result-title" ref={heading} tabIndex={-1}>
-        {phase.caught ? <Caught name={item.name} /> : "Not this time"}
+        {phase.caught ? <Caught name={item.name} /> : <Fx sound="wrong">Not this time</Fx>}
       </h2>
       <p>
         {phase.caught

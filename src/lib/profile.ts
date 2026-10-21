@@ -89,3 +89,9 @@ export async function saveReminderTimes(
     .eq("user_id", userId);
   if (error) throw error;
 }
+
+/** The "Sound effects" setting. The speaker button and Settings both save it here (#94). */
+export async function saveSoundOn(client: SupabaseClient, userId: string, soundOn: boolean): Promise<void> {
+  const { error } = await client.from("profiles").update({ sound_on: soundOn }).eq("user_id", userId);
+  if (error) throw error;
+}
