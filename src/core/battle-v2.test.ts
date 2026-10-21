@@ -18,6 +18,8 @@ import {
   type BattleV2,
 } from "./battle-v2.ts";
 import { OPPONENT_HP, MAX_TURNS } from "./battle.ts";
+import { REASONS } from "@/content/schema";
+import { SKILLS } from "@/content/skills";
 
 // ADR 0001 (battle rules v2) and design 7.3. Every number here comes from the ADR.
 
@@ -49,6 +51,13 @@ describe("the numbers of the HP rules", () => {
     expect(OPPONENT_HP).toBe(4);
     expect(CREATURE_HP).toBe(3);
     expect(MAX_TURNS).toBe(3);
+  });
+});
+
+describe("the battle log's database checks", () => {
+  it("match the content: 3 Reasons (index 0 to 2) and 26 Skills. A change needs a new migration", () => {
+    expect(REASONS).toBe(3);
+    expect(SKILLS.map((skill) => skill.id)).toEqual(Array.from({ length: 26 }, (_, i) => i + 1));
   });
 });
 
@@ -103,6 +112,12 @@ describe("the Reason", () => {
     const battle = battleOf([2, 1, 0]);
     const next = playTurnV2(battle, "a.m", 2);
     expect(next.played[0]).toMatchObject({ reasonIndex: 2, rightReasonIndex: 0, reasonCorrect: false });
+  });
+
+  it("refuses a turn whose Reasons have no right one, so no pick is wrongly marked wrong", () => {
+    const broken = turnOf([2, 1, 0], 0, { reasons: reasons(5) });
+    const battle = startBattleV2({ turns: [broken, broken, broken] }, ["a"]);
+    expect(() => playTurnV2(battle, "a.m", 0)).toThrow(/no right Reason/);
   });
 
   it("is not asked on a turn with no Reasons, which plays by the v1 damage", () => {

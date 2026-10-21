@@ -7,11 +7,13 @@ alter table public.battle_turn_events
   -- The kind of battle. Null: a turn from before v2, which was always a normal Battle.
   add column battle_kind text check (battle_kind in ('battle', 'meeting', 'agent-diff')),
   -- The Reason the learner picked, by its index in the content file's list (content/README.md).
+  -- 0 to 2: a turn has exactly REASONS = 3 Reasons (src/content/schema.ts).
   add column reason_index smallint check (reason_index between 0 and 2),
   add column reason_correct boolean,
   -- The HP the learner's side lost this turn.
   add column hp_lost smallint check (hp_lost between 0 and 2),
   -- The Skills the turn trains, from the content at play time (design 7.7, Trainer Card).
+  -- 1 to 26: the fixed Skill ids of src/content/skills.ts. A new Skill needs a new migration.
   add column skill_ids smallint[] check (
     cardinality(skill_ids) between 1 and 26
     and array_position(skill_ids, null) is null

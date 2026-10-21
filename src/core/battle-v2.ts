@@ -112,6 +112,7 @@ export function teamHp(battle: BattleV2): number[] {
   return hpAfter(battle.team, lostHp(battle));
 }
 
+/** Where the battle stands: both sides' HP, who takes the next hit, and the result. */
 export function progressV2(battle: BattleV2): ProgressV2 {
   const opponentHp = Math.max(0, OPPONENT_HP - battle.played.reduce((sum, turn) => sum + turn.damage, 0));
   const hp = teamHp(battle);
@@ -168,6 +169,8 @@ export function playTurnV2(battle: BattleV2, moveId: string | null, reasonIndex:
   }
 
   const rightReasonIndex = turn.reasons ? turn.reasons.findIndex((reason) => reason.right) : null;
+  // The content check makes exactly one Reason right. Without one, every pick would count as wrong.
+  if (rightReasonIndex === -1) throw new Error("This turn has no right Reason.");
   if (!turn.reasons && reasonIndex !== null) throw new Error("This turn has no Reasons.");
   if (turn.reasons && moveId !== null) {
     if (reasonIndex === null || !Number.isInteger(reasonIndex) || reasonIndex < 0 || reasonIndex >= turn.reasons.length) {
@@ -199,15 +202,15 @@ export function playTurnV2(battle: BattleV2, moveId: string | null, reasonIndex:
 }
 
 /** The v2 fields of a played turn's log row (design 12.2), fixed at play time. */
-export type TurnLogFields = {
+export type TurnLogFields = Pick<PlayedTurnV2, "reasonIndex" | "reasonCorrect" | "hpLost"> & {
   battleKind: BattleKind;
-  reasonIndex: number | null;
-  reasonCorrect: boolean | null;
-  hpLost: Damage;
+  /** Null when the turn's content has no Skills. */
   skillIds: number[] | null;
+  /** Null when the turn's content has no Constraint. */
   constraintVariant: string | null;
 };
 
+/** The v2 log fields of one played turn. The Skills and the Constraint come from the content at play time. */
 export function turnLog(battle: BattleV2, turnNumber: number): TurnLogFields {
   const played = battle.played.find((turn) => turn.turnNumber === turnNumber);
   if (!played) throw new Error(`Turn ${turnNumber} was not played.`);
@@ -217,7 +220,7 @@ export function turnLog(battle: BattleV2, turnNumber: number): TurnLogFields {
     reasonIndex: played.reasonIndex,
     reasonCorrect: played.reasonCorrect,
     hpLost: played.hpLost,
-    skillIds: turn.skills ? [...turn.skills] : null,
+    skillIds: turn.skills && turn.skills.length > 0 ? [...turn.skills] : null,
     constraintVariant: turn.constraint ? CONSTRAINT_MAIN : null,
   };
 }
@@ -236,6 +239,7 @@ export type EndSummary = {
   turns: SummaryTurn[];
 };
 
+/** The end summary of a finished battle. */
 export function endSummary(battle: BattleV2): EndSummary {
   const progress = progressV2(battle);
   if (!progress.finished) throw new Error("The battle is not over.");
