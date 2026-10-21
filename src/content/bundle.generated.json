@@ -2838,7 +2838,7 @@
               "lesson": {
                 "screens": [
                   {
-                    "text": "A certificate binds the website's keys to its domain name. So the browser knows it really is connecting to, for example, https://example.com."
+                    "text": "Certificate authorities let browsers check who a website is, and then connect securely over TLS, that is, over HTTPS."
                   },
                   {
                     "text": "A certificate authority (CA) is an organization that signs digital certificates. A website certificate names at least the organization, the site and the certificate authority."
@@ -2877,7 +2877,7 @@
                 "question": "What does a certificate authority do?",
                 "answer": "It signs digital certificates and their public keys. This says the information in them is correct."
               },
-              "hash": "8a02f97f8f6ee3c5"
+              "hash": "e3f525c36319b9ef"
             },
             {
               "id": "tls.version",
@@ -4765,7 +4765,7 @@
                 {
                   "moveId": "stateless-http.session",
                   "damage": 2,
-                  "counterattack": "The cookie holds only a session id now, but the server must look up each profile."
+                  "counterattack": "The requests now share one session, but the server must keep the session state."
                 },
                 {
                   "moveId": "cookie.set-cookie",
@@ -4783,15 +4783,15 @@
                   "counterattack": "You tighten SameSite, so users are signed out inside partner sites, and the cookie is still large."
                 }
               ],
-              "modelAnswer": "Cookies go with every request. Keep only a session id in the cookie. The server looks up the profile. The cost: one lookup per request.",
+              "modelAnswer": "HTTP is stateless, but not sessionless. Cookies let requests share the same state, like one session, so keep the profile on the server. The cost: the server keeps the session.",
               "keyPoints": [
-                "Cookies are sent with every request.",
-                "Keep only a session id in the cookie.",
-                "The server looks up the profile for each request."
+                "HTTP itself is stateless.",
+                "Cookies let requests share one session.",
+                "The server keeps the session state."
               ]
             }
           ],
-          "hash": "56a9719996b078ce"
+          "hash": "d010766384b800b6"
         },
         {
           "id": "t01-busy-night",

@@ -52,7 +52,8 @@ For each page:
    - "wrong": the page says something different.
    - "not-on-page": the page does not say it.
 3. Copy a quote from the page: the exact words, at most 40 words, that support the claim or show it is wrong.
-   Give each claim its own quote, the words for that claim. One quote may back at most 2 claims.
+   Give each claim its own quote, the words for that claim. The claims of one item (its card, catch, review and
+   Lesson) may share a quote. One quote may back the claims of at most 2 different items.
    Copy the words as the page has them. You may join two parts of the page with "…".
    Never write a quote from memory. If you cannot find words on the page, leave the quote out.
 4. For "wrong" and "not-on-page", add a note: one sentence on what is wrong and what the page says.

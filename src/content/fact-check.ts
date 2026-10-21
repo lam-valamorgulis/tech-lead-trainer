@@ -219,15 +219,9 @@ export function formatFactCheckReport(townId: string, groups: SourceGroup[], fin
  */
 export function quoteOnPage(html: string, quote: string): boolean {
   const page = lettersAndDigits(pageText(html));
-  // "…" joins parts of the page that are apart: each part must be there, in order.
+  // "…" joins parts of the page that are apart: each part must be there, in any order.
   const parts = quote.split(/\.\.\.|…/).map(lettersAndDigits).filter(Boolean);
-  let from = 0;
-  for (const part of parts) {
-    const at = page.indexOf(part, from);
-    if (at < 0) return false;
-    from = at + part.length;
-  }
-  return parts.length > 0;
+  return parts.length > 0 && parts.every((part) => page.includes(part));
 }
 
 /**

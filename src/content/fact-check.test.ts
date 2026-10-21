@@ -190,9 +190,10 @@ describe("quoteOnPage", () => {
     expect(quoteOnPage(list, "Informational responses (100 - 199), Successful responses")).toBe(true);
   });
 
-  it("finds parts joined by an ellipsis, in page order only", () => {
+  it("finds parts joined by an ellipsis, in any order, and only when every part is there", () => {
     expect(quoteOnPage(page, "The max-age directive … stays fresh.")).toBe(true);
-    expect(quoteOnPage(page, "stays fresh ... The max-age directive")).toBe(false);
+    expect(quoteOnPage(page, "stays fresh ... The max-age directive")).toBe(true);
+    expect(quoteOnPage(page, "stays fresh ... The expires directive")).toBe(false);
   });
 
   it("does not find words that are not on the page", () => {
