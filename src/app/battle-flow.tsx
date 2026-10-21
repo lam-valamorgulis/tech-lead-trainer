@@ -22,10 +22,11 @@ import type { OpponentType } from "@/content/schema";
 import { postEvents } from "@/lib/events/post-events";
 import type { BattleEventFields, LearningEvent } from "@/lib/events/write-events";
 import { DiscussInClaude } from "./discuss-in-claude";
-import { Fx } from "./effects";
+import { Fx, useMusic } from "./effects";
 import { keepAboveKeyboard } from "./keyboard";
 import { OPPONENT_LOOK } from "./opponent-look";
 import { GlossaryText } from "./glossary-text";
+import { playSound } from "./sound";
 
 type Step = "team" | "turn" | "result" | "check" | "end";
 
@@ -49,6 +50,7 @@ export function BattleFlow({
   battleId?: string;
 }) {
   const [battleId] = useState(() => givenBattleId ?? crypto.randomUUID());
+  useMusic("battle");
   const [battle, setBattle] = useState<BattleState | null>(null);
   const [step, setStep] = useState<Step>("team");
   // Worked examples come first, one screen each, then they hide (design 7.1).
@@ -175,6 +177,7 @@ export function BattleFlow({
         <TeamForm
           offer={offer}
           onStart={(team) => {
+            playSound("select");
             setBattle(startBattle(offer, team));
             setStep("turn");
           }}

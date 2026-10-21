@@ -727,3 +727,48 @@ a.wide-only {
 a[aria-current="page"] {
   border-color: var(--color-accent);
 }
+
+/* UI rule 13: the speaker button sits in the top corner of the play screens. It is out of the
+   flow, so it never moves the commit buttons, and it scrolls away with the top of the page, so it
+   never covers a button further down. */
+.speaker {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 8px);
+  right: calc(env(safe-area-inset-right) + 8px);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+/* Home's title fills the phone's width, so there the button sits one row lower, beside the short intro line. */
+.speaker-beside-intro {
+  top: calc(env(safe-area-inset-top) + 52px);
+}
+
+.speaker-button {
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 2px solid var(--color-muted);
+  border-radius: 4px;
+  touch-action: manipulation;
+}
+
+/* The save error under the button. It never takes a tap from the screen under it. */
+.speaker-note {
+  pointer-events: none;
+  max-width: 220px;
+  margin: 0;
+  padding: 6px 8px;
+  font-size: 15px;
+  text-align: right;
+  background: var(--color-bg);
+  border: 2px solid var(--color-muted);
+  border-radius: 4px;
+}
