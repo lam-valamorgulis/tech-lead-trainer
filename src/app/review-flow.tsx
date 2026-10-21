@@ -8,6 +8,7 @@ import { postEvents } from "@/lib/events/post-events";
 import { Fx } from "./effects";
 import { ReportWrong } from "./report-wrong";
 import { GlossaryText } from "./glossary-text";
+import { CreatureSprite } from "./creature-sprite";
 
 /** The 2 sentences the learner wrote after a battle about this item (design 10), if they still wait. */
 export type TeachBack = { scenarioName: string; sentences: [string, string] };
@@ -133,6 +134,8 @@ function ReviewCard({
             {item.name} evolved!
           </Fx>
         </h2>
+        {/* Stages 2 and 3 have the second palette, so the evolution shows in the picture too. */}
+        <CreatureSprite species={item.sprite} stage={evolved} />
         <p>
           <span className="creature-sprite" aria-hidden="true">
             {"★".repeat(evolved)}
@@ -151,6 +154,7 @@ function ReviewCard({
       <h2 id="review-title" ref={heading} tabIndex={-1}>
         Review {position}: {item.name}
       </h2>
+      <CreatureSprite species={item.sprite} stage={state.stage} />
       {mixedWith && (
         <p className="notice">Mixed in: easy to confuse with {mixedWith}.</p>
       )}

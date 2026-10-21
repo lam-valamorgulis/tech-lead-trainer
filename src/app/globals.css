@@ -853,4 +853,45 @@ a[aria-current="page"] {
 .choice-wrong {
   border-style: dashed;
   opacity: 0.8;
+/* Ticket #99: creature art. Whole-number growth with no smoothing (design 9). */
+.creature-art {
+  display: block;
+  image-rendering: pixelated;
+}
+
+/* Design 9 rule 19: seen is grey, not met is a black shape with a light edge, so it shows on the dark page. */
+.creature-art.look-grey {
+  filter: grayscale(1) opacity(0.7);
+}
+
+.creature-art.look-shadow {
+  filter: brightness(0) drop-shadow(0 0 1px var(--color-muted));
+}
+
+/* The Field Guide: 3 creatures per row, the picture above the name and status. */
+.field-guide-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.field-guide-grid li {
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 4px;
+  padding: 8px 4px;
+  text-align: center;
+}
+
+.field-guide-grid .creature-name {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.field-guide-grid .creature-status {
+  font-size: 14px;
+}
+
+.credits {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }

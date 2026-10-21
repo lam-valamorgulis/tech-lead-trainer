@@ -69,6 +69,13 @@ export function SettingsScreen({ userId, email, profile, setProfile }: SignedIn)
         <h2 id="program-title">Program</h2>
         <p>Day 1 of your program: {formatDay(profile.programStartDate)}</p>
       </section>
+      <section className="stack" aria-labelledby="credits-title">
+        <h2 id="credits-title">Credits</h2>
+        <p className="lead">Who made the creatures, the portraits and the sounds.</p>
+        <Link href="/settings/credits" className="button button-quiet">
+          Credits
+        </Link>
+      </section>
       <p className="lead">Signed in as {email}</p>
       <button type="button" className="button-quiet" onClick={() => void browserClient().auth.signOut()}>
         Sign out

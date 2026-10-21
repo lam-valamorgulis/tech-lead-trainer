@@ -238,15 +238,24 @@ function lettersAndDigits(text: string): string {
 }
 
 /**
- * The CI rule for content PRs (#96): a PR that changes a town file must carry the fact-check
- * report section with a link to the report comment. Null when the PR passes.
+ * Whether a change to a town file changes anything the fact check reads. A change of display-only
+ * data, such as a sprite number, does not. `before` is null for a new town file.
  */
-export function factReportProblem(changedFiles: string[], body: string): string | null {
-  const town = changedFiles.find((file) => /^content\/towns\/[^/]+\.json$/.test(file));
+export function claimsDiffer(before: Town | null, after: Town): boolean {
+  return before === null || JSON.stringify(factCheckList(before)) !== JSON.stringify(factCheckList(after));
+}
+
+/**
+ * The CI rule for content PRs (#96): a PR that changes the claims of a town file must carry the
+ * fact-check report section with a link to the report comment. `changedTowns` lists the town files
+ * whose claims differ from the PR's base. Null when the PR passes.
+ */
+export function factReportProblem(changedTowns: string[], body: string): string | null {
+  const town = changedTowns.find((file) => /^content\/towns\/[^/]+\.json$/.test(file));
   if (!town) return null;
   const section = body.split(/^## /m).find((part) => part.startsWith("Fact check report"));
   if (section && /#issuecomment-\d+/.test(section)) return null;
-  return `This PR changes ${town}. Its body needs a "## Fact check report" section with a link to the report comment (docs/agents/fact-check.md).`;
+  return `This PR changes the claims of ${town}. Its body needs a "## Fact check report" section with a link to the report comment (docs/agents/fact-check.md).`;
 }
 
 const oneLine = (text: string) => text.replace(/\s+/g, " ").trim();

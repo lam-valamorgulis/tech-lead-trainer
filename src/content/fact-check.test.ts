@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { factCheckList, factReportProblem, formatFactCheckReport, quoteOnPage, type Finding } from "./fact-check.ts";
+import { claimsDiffer, factCheckList, factReportProblem, formatFactCheckReport, quoteOnPage, type Finding } from "./fact-check.ts";
 import { fixtureTown, fixtureTownV2 } from "./fixture-town.ts";
 import { townSchema } from "./schema.ts";
 
@@ -203,8 +203,24 @@ describe("factReportProblem", () => {
   it("needs the report section and a link to the report comment when a town file changes", () => {
     expect(factReportProblem(["content/towns/t01.json"], report)).toBeNull();
     expect(factReportProblem(["content/towns/t02.json"], "## Summary")).toBe(
-      'This PR changes content/towns/t02.json. Its body needs a "## Fact check report" section with a link to the report comment (docs/agents/fact-check.md).',
+      'This PR changes the claims of content/towns/t02.json. Its body needs a "## Fact check report" section with a link to the report comment (docs/agents/fact-check.md).',
     );
     expect(factReportProblem(["content/towns/t02.json"], "## Fact check report\n\nLater.")).not.toBeNull();
+  });
+});
+
+describe("claimsDiffer", () => {
+  it("is false for a display-only change, such as a sprite number", () => {
+    const before = v1();
+    const after = v1();
+    after.creatures[0].sprite = 40;
+    expect(claimsDiffer(before, after)).toBe(false);
+  });
+
+  it("is true when a text the fact check reads changes, and for a new town file", () => {
+    const after = v1();
+    after.creatures[0].card.text = "A cache keeps every copy forever.";
+    expect(claimsDiffer(v1(), after)).toBe(true);
+    expect(claimsDiffer(null, v1())).toBe(true);
   });
 });

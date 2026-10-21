@@ -9,6 +9,7 @@ import { loadCatchRecords } from "@/lib/catch-log";
 import { currentLearningDay } from "@/lib/learning-log";
 import { loadReviewRecords } from "@/lib/review-log";
 import { browserClient } from "@/lib/supabase/browser";
+import { CreatureSprite } from "../creature-sprite";
 
 const STATUS_LABEL: Record<CreatureStatus, string> = {
   caught: "Caught",
@@ -47,9 +48,11 @@ export function FieldGuideScreen({ programStartDate }: { programStartDate: strin
       <p className="lead">
         {view.townName}: {view.caughtCount} of {view.creatures.length} caught
       </p>
-      <ul className="creature-list" aria-label={`Creatures of ${view.townName}`}>
+      {/* Design 9 rule 19: caught in colour, seen in grey, not met as a black shape with "???". */}
+      <ul className="creature-list field-guide-grid" aria-label={`Creatures of ${view.townName}`}>
         {view.creatures.map((creature) => (
           <li key={creature.id} className={`creature creature-${creature.status} creature-stage-${creature.stage ?? 0}`}>
+            <CreatureSprite species={creature.sprite} status={creature.status} stage={creature.stage} scale={1.5} />
             <span className="creature-name">
               {creature.stage !== null && (
                 <span className="creature-sprite" aria-hidden="true">
