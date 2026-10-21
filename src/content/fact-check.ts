@@ -129,8 +129,17 @@ function pageOf(item: Creature | Move): Source {
   return item.lesson?.source ?? item.card.source;
 }
 
-/** One quote may back at most this many claims. A sentence that backs more cannot prove each one. */
+/**
+ * One quote may back the claims of at most this many items. A card, its catch question and its
+ * review say the same fact, so they may share a sentence. A sentence that backs more concepts than
+ * this cannot prove each one.
+ */
 const QUOTE_REUSE_LIMIT = 2;
+
+/** The item a claim belongs to: t01.dns.catch and t01.dns.review both belong to t01.dns. */
+function itemOf(where: string): string {
+  return where.replace(/\.(card\.text|card\.example|catch|review|workedExample|lesson\.screens\.\d+|situation)$/, "");
+}
 
 /** What the report knows besides the findings: whether each quote was found on its page, when the pages were read. */
 export type ReportChecks = { quoteFound?: (finding: Finding) => boolean };
@@ -155,7 +164,7 @@ export function formatFactCheckReport(townId: string, groups: SourceGroup[], fin
     const found = byWhere.get(where) ?? [];
     const finding = found[0];
     const quote = finding?.quote ? oneLine(finding.quote) : "";
-    const uses = quote ? quoteUses.get(quote.toLowerCase())!.length : 0;
+    const uses = quote ? new Set(quoteUses.get(quote.toLowerCase())!.map((f) => itemOf(f.where))).size : 0;
     const doubt =
       group.url === ""
         ? "It has no page to check it against."
@@ -166,7 +175,7 @@ export function formatFactCheckReport(townId: string, groups: SourceGroup[], fin
             : !quote
               ? "The reviewer gave no quote."
               : uses > QUOTE_REUSE_LIMIT
-                ? `The same quote backs ${uses} claims.`
+                ? `The same quote backs claims of ${uses} different items.`
                 : checks.quoteFound && !checks.quoteFound(finding)
                   ? "The quote is not on the page."
                   : null;

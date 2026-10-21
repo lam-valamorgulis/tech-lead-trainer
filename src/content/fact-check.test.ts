@@ -141,12 +141,19 @@ describe("the report never hides a problem", () => {
     expect(report).toContain("- `t99.a`: check by hand. It has 2 findings that may disagree.");
   });
 
-  it("lists a quote that backs 3 or more claims as check by hand: one sentence cannot prove them all", () => {
+  it("lists a quote that backs 3 or more items as check by hand: one sentence cannot prove them all", () => {
     const findings: Finding[] = ["a", "b", "c"].map((x) => ({ where: `t99.${x}`, verdict: "supported", quote: "HTTP is a protocol." }));
     findings.push({ where: "t99.d", verdict: "supported", quote: "A different sentence." });
     const report = formatFactCheckReport("t99", groups, findings);
-    expect(report).toContain("- `t99.a`: check by hand. The same quote backs 3 claims.");
+    expect(report).toContain("- `t99.a`: check by hand. The same quote backs claims of 3 different items.");
     expect(report).toContain('- `t99.d`: "A different sentence."');
+  });
+
+  it("lets the card, catch question and review of one item share a quote: they say the same fact", () => {
+    const item = ["card.text", "catch", "review"].map((field) => ({ where: `t99.dns.${field}`, text: field }));
+    const one = [{ url: MDN, title: "MDN", claims: item }];
+    const findings: Finding[] = item.map((c) => ({ where: c.where, verdict: "supported", quote: "DNS turns names into addresses." }));
+    expect(formatFactCheckReport("t99", one, findings)).toContain("| Supported, with a quote | 3 |");
   });
 
   it("lists a quote that is not on the page as check by hand, when the pages were read", () => {
