@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { KEY_POINTS, REASONS, SCENARIO_KINDS } from "@/content/schema";
 import { SKILLS } from "@/content/skills";
-import { REVIEW_STEPS } from "@/core/review";
+import { cardCreatureId, REVIEW_RULES, REVIEW_STEPS } from "@/core/review";
 
 // The one write path for learning events (spec: "Interfaces and contracts").
 // Each event has a client event id, so sending a batch again is always safe.
@@ -57,7 +57,49 @@ export const reviewEventSchema = z.object({
   gradedAt: z.iso.datetime({ offset: true }),
   typedAnswer: z.string().max(2000).nullable(),
   confidence: z.union([z.literal(1), z.literal(2), z.literal(3)]).nullable(),
+  /**
+   * The review rules of the grade (design 6.5). The v1.5 app always sends it. Left out by an old
+   * app: passing the 30-day step then gives Stage 3 by itself, as before v1.5.
+   */
+  rulesVersion: z.literal(REVIEW_RULES).optional(),
 });
+
+/** The Skills a Battle turn or a scored card trains: fixed ids, each listed once. */
+const skillIdsSchema = z
+  .array(z.int().min(1).max(SKILLS.length))
+  .min(1)
+  .max(SKILLS.length)
+  .refine((ids) => new Set(ids).size === ids.length, "A Skill is listed once.");
+
+const cardSegment = "[a-z0-9]+(-[a-z0-9]+)*";
+
+/**
+ * One answered scored card in review (#109): a Decision Card (design 6.4) or the Stage 3 trade-off
+ * question (design 6.5). It goes into review_events with its own item kind. The option and the
+ * Reason are logged by their index in the content file, with whether each was right at play time.
+ */
+export const reviewCardEventSchema = z
+  .object({
+    type: z.literal("review-card"),
+    ...base,
+    itemId: z.string().max(100).regex(new RegExp(`^${cardSegment}\\.(decision|trade-off)\\.${cardSegment}$`)),
+    itemKind: z.enum(["decision", "trade-off"]),
+    contentHash: z.string().regex(/^[0-9a-f]{16}$/),
+    choiceIndex: z.int().min(0).max(2),
+    choiceCorrect: z.boolean(),
+    reasonIndex: z.int().min(0).max(REASONS - 1),
+    reasonCorrect: z.boolean(),
+    skillIds: skillIdsSchema,
+    shownAt: z.iso.datetime({ offset: true }),
+    gradedAt: z.iso.datetime({ offset: true }),
+    rulesVersion: z.literal(REVIEW_RULES),
+  })
+  .refine((card) => card.itemId.includes(`.${card.itemKind}.`), {
+    message: "The item kind is the middle part of the card id.",
+  })
+  .refine((card) => card.itemKind === "trade-off" || card.choiceIndex <= 1, {
+    message: "A Decision Card has 2 options.",
+  });
 
 export const placementEventSchema = z.object({
   type: z.literal("placement"),
@@ -103,12 +145,7 @@ export const battleTurnEventSchema = z
     reasonCorrect: z.boolean().optional(),
     /** The HP the learner's side lost this turn. */
     hpLost: damageValue.optional(),
-    skillIds: z
-      .array(z.int().min(1).max(SKILLS.length))
-      .min(1)
-      .max(SKILLS.length)
-      .refine((ids) => new Set(ids).size === ids.length, "A Skill is listed once.")
-      .optional(),
+    skillIds: skillIdsSchema.optional(),
     /** Which Constraint the turn showed: "main" is the turn's own line. */
     constraintVariant: z.string().max(50).regex(/^[a-z0-9]+(-[a-z0-9]+)*$/).optional(),
   })
@@ -204,6 +241,7 @@ export const eventSchema = z.discriminatedUnion("type", [
   sessionEventSchema,
   catchEventSchema,
   reviewEventSchema,
+  reviewCardEventSchema,
   placementEventSchema,
   battleTurnEventSchema,
   battleEventSchema,
@@ -218,6 +256,7 @@ export const eventBatchSchema = z.object({ events: z.array(eventSchema).min(1).m
 export type SessionEvent = z.infer<typeof sessionEventSchema>;
 export type CatchEvent = z.infer<typeof catchEventSchema>;
 export type ReviewEvent = z.infer<typeof reviewEventSchema>;
+export type ReviewCardEvent = z.infer<typeof reviewCardEventSchema>;
 export type PlacementEvent = z.infer<typeof placementEventSchema>;
 export type BattleTurnEvent = z.infer<typeof battleTurnEventSchema>;
 export type BattleEvent = z.infer<typeof battleEventSchema>;
@@ -234,6 +273,7 @@ const TABLES = {
   session: "session_events",
   catch: "catch_events",
   review: "review_events",
+  "review-card": "review_events",
   placement: "placement_events",
   "battle-turn": "battle_turn_events",
   battle: "battle_events",
@@ -245,7 +285,7 @@ const TABLES = {
 } as const satisfies Record<LearningEvent["type"], string>;
 
 /** Every event table. "Download my data" exports each one. */
-export const EVENT_TABLES = Object.values(TABLES);
+export const EVENT_TABLES = [...new Set(Object.values(TABLES))];
 
 function toRow(event: LearningEvent) {
   switch (event.type) {
@@ -289,6 +329,24 @@ function toRow(event: LearningEvent) {
         graded_at: event.gradedAt,
         typed_answer: event.typedAnswer,
         confidence: event.confidence,
+        rules_version: event.rulesVersion ?? null,
+      };
+    case "review-card":
+      return {
+        client_event_id: event.clientEventId,
+        session_id: event.sessionId,
+        occurred_at: event.occurredAt,
+        item_id: event.itemId,
+        item_kind: event.itemKind,
+        content_hash: event.contentHash,
+        choice_index: event.choiceIndex,
+        choice_correct: event.choiceCorrect,
+        reason_index: event.reasonIndex,
+        reason_correct: event.reasonCorrect,
+        skill_ids: event.skillIds,
+        shown_at: event.shownAt,
+        graded_at: event.gradedAt,
+        rules_version: event.rulesVersion,
       };
     case "placement":
       return {
@@ -427,11 +485,14 @@ export async function writeEvents(client: SupabaseClient, events: LearningEvent[
 /**
  * The creatures and moves a batch is about. Their review state must be refreshed.
  * A self-check is about its turn's best move. The moves of a lost battle: see `lostBattleIds`.
+ * A scored card is about its creature: a wrong Decision Card brings it back, a right trade-off
+ * answer evolves it.
  */
 export function touchedItemIds(events: LearningEvent[]): string[] {
   return [
     ...new Set(
       events.flatMap((event) => {
+        if (event.type === "review-card") return [cardCreatureId(event.itemId)];
         if ("itemId" in event) return [event.itemId];
         if (event.type === "battle-check") return [event.bestMoveId];
         return [];

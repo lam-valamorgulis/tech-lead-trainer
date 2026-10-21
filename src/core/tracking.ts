@@ -7,7 +7,7 @@ import type { BundledTown } from "@/content/bundle";
 import { bestMoveRates, type BestMoveRate, type TurnRecord } from "./battle.ts";
 import { fieldGuideProgress, type CatchRecord } from "./catch.ts";
 import { addDays, learnedDays, RATE_WINDOW_DAYS, type LearningDay, type SessionSnapshot } from "./day.ts";
-import type { ReviewRecord } from "./review.ts";
+import type { CardRecord, ReviewRecord } from "./review.ts";
 import { ROADMAP } from "./roadmap.ts";
 import { weakestCreatures, weekStart, type Creature, type CreatureOf } from "./week.ts";
 
@@ -93,8 +93,13 @@ export function yearGoals(badges: { townId: string }[], handChecked: readonly Ha
 export type FieldGuideCounts = { seen: number; caught: number; fullyEvolved: number };
 
 /** The Field Guide numbers over every town with content, from each town's Field Guide. */
-export function fieldGuideCounts(towns: BundledTown[], catches: CatchRecord[], reviews: ReviewRecord[]): FieldGuideCounts {
-  const creatures = towns.flatMap((town) => fieldGuideProgress(town, catches, reviews).creatures);
+export function fieldGuideCounts(
+  towns: BundledTown[],
+  catches: CatchRecord[],
+  reviews: ReviewRecord[],
+  cards: CardRecord[] = [],
+): FieldGuideCounts {
+  const creatures = towns.flatMap((town) => fieldGuideProgress(town, catches, reviews, cards).creatures);
   return {
     seen: creatures.filter((creature) => creature.status !== "not-met").length,
     caught: creatures.filter((creature) => creature.status === "caught").length,

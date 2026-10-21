@@ -1038,3 +1038,89 @@ a[aria-current="page"] {
   position: sticky;
   bottom: calc(env(safe-area-inset-bottom) + 8px);
 }
+
+/* Ticket #109: Decision Cards and the trade-off question. Big option and Reason buttons (UI rules 6 and 9). */
+.scored-creature {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.scored-creature .pixel-label {
+  margin: 0;
+}
+
+.pick {
+  width: 100%;
+  min-height: var(--tap-main);
+  padding: 12px;
+  text-align: left;
+  color: var(--color-text);
+  background: transparent;
+  border: 2px solid var(--color-muted);
+  border-radius: 4px;
+}
+
+/* The picked option: a thicker accent border and a mark in words, never colour alone. */
+.pick[aria-pressed="true"] {
+  border: 4px solid var(--color-accent);
+  padding: 10px;
+}
+
+.pick[aria-pressed="true"]::before {
+  /* Empty alt text: the button already says it is pressed. */
+  content: "✓ " / "";
+  color: var(--color-accent);
+}
+
+.pick-reason {
+  border-color: var(--color-accent);
+}
+
+.answer-group {
+  gap: 8px;
+}
+
+.answer-group .pixel-label {
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.answer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.answer-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  border: 2px solid var(--color-line);
+  border-radius: 4px;
+}
+
+.answer-list .answer-right {
+  border: 3px solid var(--color-success);
+}
+
+.answer-list .answer-wrong {
+  border: 3px dashed var(--color-error);
+}
+
+.answer-mark {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.answer-right .answer-mark {
+  color: var(--color-success);
+}
+
+.answer-wrong .answer-mark {
+  color: var(--color-error);
+}

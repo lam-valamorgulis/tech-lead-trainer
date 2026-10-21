@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ReviewItem } from "@/content";
+import { tradeOffQuestion, type ReviewItem, type ScoredCard } from "@/content";
 import { dayNumber } from "@/core/day";
-import { evolvesTo, gradeReview, type DueState, type Grade, type Stage } from "@/core/review";
+import { asksTradeOff, evolvesTo, gradeReview, REVIEW_RULES, type DueState, type Grade, type Stage } from "@/core/review";
 import { postEvents } from "@/lib/events/post-events";
 import { Fx } from "./effects";
 import { ReportWrong } from "./report-wrong";
 import { GlossaryText } from "./glossary-text";
 import { CreatureSprite } from "./creature-sprite";
+import { ScoredCardQuestion } from "./scored-card";
 
 /** The 2 sentences the learner wrote after a battle about this item (design 10), if they still wait. */
 export type TeachBack = { scenarioName: string; sentences: [string, string] };
@@ -21,6 +22,15 @@ export type DueReview = {
   mixedWith?: string;
 };
 
+/** A Decision Card in today's reviews (design 6.4): about 1 place in 4. */
+export type DecisionReview = { card: ScoredCard };
+
+/** One place in today's reviews. */
+export type ReviewPlace = DueReview | DecisionReview;
+
+/** What follows a graded review card: the evolution moment, then the Stage 3 trade-off question. */
+type FollowUp = { name: "evolved"; stage: Stage } | { name: "trade-off"; card: ScoredCard };
+
 const GRADES: { grade: Grade; label: string }[] = [
   { grade: "again", label: "Again" },
   { grade: "hard", label: "Hard" },
@@ -29,8 +39,8 @@ const GRADES: { grade: Grade; label: string }[] = [
 ];
 
 /**
- * Review (design 6): think of the answer, tap Reveal, then grade yourself.
- * Reviews give no points (spec story 40).
+ * Review (design 6): think of the answer, tap Reveal, then grade yourself. About 1 place in 4 is a
+ * Decision Card, which the app grades. Reviews give no points (spec story 40).
  */
 export function ReviewFlow({
   reviews,
@@ -39,7 +49,7 @@ export function ReviewFlow({
   canType,
   onDone,
 }: {
-  reviews: DueReview[];
+  reviews: ReviewPlace[];
   today: string;
   sessionId: string;
   /** On 15- and 45-minute days the learner may type an answer before Reveal. */
@@ -49,16 +59,35 @@ export function ReviewFlow({
   const [index, setIndex] = useState(0);
   const current = reviews[index];
   if (!current) return null;
+  const position = `${index + 1} of ${reviews.length}`;
+  const next = () => (index + 1 < reviews.length ? setIndex(index + 1) : onDone());
+  if ("card" in current) {
+    const { creature } = current.card;
+    return (
+      <ScoredCardQuestion
+        key={current.card.id}
+        card={current.card}
+        title={`Review ${position}: Decision Card`}
+        sessionId={sessionId}
+        outcome={(right) =>
+          right
+            ? `Good call. ${creature.name} keeps its review day.`
+            : `${creature.name} comes back in tomorrow's review.`
+        }
+        onContinue={next}
+      />
+    );
+  }
   return (
     <ReviewCard
       // A new key gives each review fresh state and a fresh "shown at" time.
       key={current.item.id}
       review={current}
-      position={`${index + 1} of ${reviews.length}`}
+      position={position}
       today={today}
       sessionId={sessionId}
       canType={canType}
-      onGraded={() => (index + 1 < reviews.length ? setIndex(index + 1) : onDone())}
+      onGraded={next}
     />
   );
 }
@@ -81,14 +110,21 @@ function ReviewCard({
   const [shownAt] = useState(() => new Date().toISOString());
   const [revealedAt, setRevealedAt] = useState<string | null>(null);
   const [typed, setTyped] = useState("");
-  // The new stage, when this grade evolved the creature (design 5).
-  const [evolved, setEvolved] = useState<Stage | null>(null);
+  // After the grade: the evolution moment (design 5), then the trade-off question (design 6.5).
+  const [followUps, setFollowUps] = useState<FollowUp[]>([]);
+  const followUp = followUps[0];
   const graded = useRef(false);
   const heading = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
     heading.current?.focus();
-  }, [revealedAt, evolved]);
+  }, [revealedAt, followUp]);
+
+  /** The next follow-up screen, or the next review. */
+  function done(rest: FollowUp[]) {
+    if (rest.length > 0) setFollowUps(rest);
+    else onGraded();
+  }
 
   /** The schedule after a grade. The due day makes an early (mixed-in) review keep its schedule. */
   function nextReview(choice: Grade) {
@@ -119,14 +155,37 @@ function ReviewCard({
         gradedAt,
         typedAnswer: typed.trim() === "" ? null : typed.trim(),
         confidence: null,
+        rulesVersion: REVIEW_RULES,
       },
     ]);
-    const stage = item.kind === "creature" ? evolvesTo(state, choice, today) : null;
-    if (stage) setEvolved(stage);
-    else onGraded();
+    const steps: FollowUp[] = [];
+    if (item.kind === "creature") {
+      const stage = evolvesTo(state, choice, today);
+      if (stage) steps.push({ name: "evolved", stage });
+      // A creature with no trade-off question to show stays at Stage 2 until its content has one.
+      const tradeOff = asksTradeOff(state, choice, today) ? tradeOffQuestion(item.id) : undefined;
+      if (tradeOff) steps.push({ name: "trade-off", card: tradeOff });
+    }
+    done(steps);
   }
 
-  if (evolved) {
+  if (followUp?.name === "trade-off") {
+    return (
+      <ScoredCardQuestion
+        card={followUp.card}
+        title={`Stage 3 question: ${item.name}`}
+        stage={2}
+        sessionId={sessionId}
+        outcome={(right) =>
+          right ? `${item.name} is ready to evolve.` : `${item.name} stays at Stage 2. This question comes back at its next review.`
+        }
+        onContinue={(right) => done(right ? [{ name: "evolved", stage: 3 }] : followUps.slice(1))}
+      />
+    );
+  }
+
+  if (followUp?.name === "evolved") {
+    const evolved = followUp.stage;
     return (
       <section className="stack" aria-labelledby="evolved-title">
         <h2 id="evolved-title" ref={heading} tabIndex={-1}>
@@ -142,7 +201,7 @@ function ReviewCard({
           </span>
           Stage {evolved} of 3. The Field Guide shows it too.
         </p>
-        <button type="button" className="button-main" onClick={onGraded}>
+        <button type="button" className="button-main" onClick={() => done(followUps.slice(1))}>
           Continue
         </button>
       </section>

@@ -273,3 +273,100 @@ describe("the review state cache after a v2 battle (#102)", () => {
     }
   });
 });
+
+describe("the review state cache with Decision Cards and the Stage 3 trade-off question (#109)", () => {
+  type User = { id: string; email: string; client: SupabaseClient; token: string };
+  let v15: User;
+  let old: User;
+  let cards: User;
+
+  async function learner(label: string): Promise<User> {
+    const user = await signedInUser(label);
+    await ensureProfile(user.client);
+    return { ...user, token: (await user.client.auth.getSession()).data.session!.access_token };
+  }
+
+  /** Cache caught 60 days ago, then Good on time 5 times: 1 → 3 → 7 → 14 → 30 → 90. */
+  async function passThirty(user: User, rules: Record<string, unknown>) {
+    await post(user.token, [catchEvent("cache", daysAgo(60))]);
+    const steps = [
+      [59, 1, 3],
+      [56, 3, 7],
+      [49, 7, 14],
+      [35, 14, 30],
+      [5, 30, 90],
+    ];
+    for (const [ago, before, after] of steps) {
+      await post(user.token, [{ ...reviewEvent("cache", daysAgo(ago), "good", before, after), ...rules }]);
+    }
+  }
+
+  const card = (itemId: string, at: string, right: boolean) => ({
+    type: "review-card",
+    clientEventId: crypto.randomUUID(),
+    sessionId,
+    occurredAt: at,
+    itemId,
+    itemKind: itemId.includes(".trade-off.") ? "trade-off" : "decision",
+    contentHash: "fedcba9876543210",
+    choiceIndex: right ? 1 : 0,
+    choiceCorrect: right,
+    reasonIndex: 0,
+    reasonCorrect: true,
+    skillIds: [3],
+    shownAt: at,
+    gradedAt: at,
+    rulesVersion: "v1.5",
+  });
+
+  const rowOf = async (user: User, itemId: string) => (await stateOf(user.client))!.find((row) => row.item_id === itemId);
+
+  beforeAll(async () => {
+    v15 = await learner("state-stage-3");
+    old = await learner("state-old-stage-3");
+    cards = await learner("state-decision");
+    await passThirty(v15, { rulesVersion: "v1.5" });
+    await passThirty(old, {});
+  });
+
+  afterAll(async () => {
+    for (const user of [v15, old, cards]) await forgetEmail(user.email);
+  });
+
+  it("keeps Stage 2 past the 30-day step until a right trade-off answer, and a rebuild agrees", async () => {
+    expect(await rowOf(v15, "cache")).toMatchObject({ step: 90, stage: 2 });
+    await post(v15.token, [card("cache.trade-off.fresh-prices", daysAgo(5), false)]);
+    expect(await rowOf(v15, "cache")).toMatchObject({ step: 90, stage: 2 });
+    await post(v15.token, [card("cache.trade-off.fresh-prices", daysAgo(0), true)]);
+    expect(await rowOf(v15, "cache")).toMatchObject({ step: 90, stage: 3 });
+
+    const live = await stateOf(v15.client);
+    await rebuildReviewState(adminClient(), v15.id);
+    expect(await stateOf(v15.client)).toEqual(live);
+  });
+
+  it("keeps Stage 3 reached before v1.5 when the old rows are rebuilt", async () => {
+    expect(await rowOf(old, "cache")).toMatchObject({ step: 90, stage: 3 });
+    await adminClient().from("review_state").delete().eq("user_id", old.id);
+    await rebuildReviewState(adminClient(), old.id);
+    expect(await rowOf(old, "cache")).toMatchObject({ step: 90, stage: 3 });
+  });
+
+  it("brings a creature back tomorrow after a wrong Decision Card, keeps it after a right one, and a rebuild agrees", async () => {
+    // Cookie: caught 3 days ago, then Easy 2 days ago: 1 → 7, due in 5 days.
+    await post(cards.token, [catchEvent("cookie", daysAgo(3)), reviewEvent("cookie", daysAgo(2), "easy", 1, 7)]);
+    const before = await rowOf(cards, "cookie");
+    await post(cards.token, [card("cookie.decision.samesite-widget", daysAgo(0), true)]);
+    expect(await rowOf(cards, "cookie")).toEqual(before);
+
+    await post(cards.token, [card("cookie.decision.samesite-widget", daysAgo(0), false)]);
+    const after = await rowOf(cards, "cookie");
+    const days = (Date.parse(before!.due_day) - Date.parse(after!.due_day)) / (24 * 60 * 60 * 1000);
+    // Due tomorrow instead of in 5 days, on the same step.
+    expect({ step: after!.step, days }).toEqual({ step: 7, days: 4 });
+
+    const live = await stateOf(cards.client);
+    await rebuildReviewState(adminClient(), cards.id);
+    expect(await stateOf(cards.client)).toEqual(live);
+  });
+});

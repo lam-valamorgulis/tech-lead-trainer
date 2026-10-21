@@ -124,14 +124,15 @@ async function summaryOfWeek(
   const sessions = await logOf<SnapshotRow>("session_events", "session_id, occurred_at, learning_day, active_seconds", addDays(weekStart, -1));
   if (!sessions.some((row) => row.learning_day >= weekStart)) return null;
   const [reviews, turns] = await Promise.all([
-    logOf<{ item_id: string; learning_day: string; grade: ReviewRecord["grade"] }>("review_events", "item_id, learning_day, grade", weekStart),
+    // A Decision Card or trade-off row (#109) has no grade.
+    logOf<{ item_id: string; learning_day: string; grade: ReviewRecord["grade"] | null }>("review_events", "item_id, learning_day, grade", weekStart),
     logOf<{ best_move: boolean; learning_day: string }>("battle_turn_events", "best_move, learning_day", weekStart),
   ]);
 
   const summary = weeklySummary({
     weekStart,
     snapshots: sessions.map(toSnapshot),
-    reviews: reviews.map((row) => ({ itemId: row.item_id, learningDay: row.learning_day, grade: row.grade })),
+    reviews: reviews.flatMap((row) => (row.grade ? [{ itemId: row.item_id, learningDay: row.learning_day, grade: row.grade }] : [])),
     turns: turns.map((row) => ({ bestMove: row.best_move, learningDay: row.learning_day })),
     creatureOf,
   });

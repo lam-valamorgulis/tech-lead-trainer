@@ -1,15 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { confusablePairs, currentTown, reviewItem, scenarioName, towns, weekendBoss } from "@/content";
+import {
+  confusablePairs,
+  currentTown,
+  decisionCard,
+  decisionCardIds,
+  reviewItem,
+  scenarioName,
+  towns,
+  weekendBoss,
+} from "@/content";
 import { battleRechecks, bestMoveRates, formatBestMoveRate, nextBattle, type BattleOffer, type BestMoveRate } from "@/core/battle";
 import { nextCatch, type CatchItem } from "@/core/catch";
 import { teachBackFor } from "@/core/discuss";
-import { backlogPaused, DAILY_REVIEW_LIMIT, dueReviews, reviewStates } from "@/core/review";
+import { backlogPaused, DAILY_REVIEW_LIMIT, reviewStates, todaysReviews } from "@/core/review";
 import type { ThirtyDayRate } from "@/core/day";
 import { loadBattleHistory } from "@/lib/battle-log";
 import { loadCatchRecords } from "@/lib/catch-log";
-import { loadReviewRecords } from "@/lib/review-log";
+import { loadCardRecords, loadReviewRecords } from "@/lib/review-log";
 import { postEvents } from "@/lib/events/post-events";
 import type { SessionEvent } from "@/lib/events/write-events";
 import { formatWeekMinutes } from "@/core/week";
@@ -17,7 +26,7 @@ import { currentLearningDay, formatRate, loadSessionNumbers } from "@/lib/learni
 import { browserClient } from "@/lib/supabase/browser";
 import { BattleFlow } from "./battle-flow";
 import { CatchFlow } from "./catch-flow";
-import { ReviewFlow, type DueReview } from "./review-flow";
+import { ReviewFlow, type ReviewPlace } from "./review-flow";
 import { useActiveTime } from "./use-active-time";
 import { extraTime, type ExtraTime } from "@/core/extra-time";
 import { sessionStep, type SessionStep } from "@/core/session-plan";
@@ -148,7 +157,7 @@ function RunningSession({
 
 type TodaysWork = {
   today: string;
-  reviews: DueReview[];
+  reviews: ReviewPlace[];
   catchItem: CatchItem | null;
   battle: BattleOffer | null;
   /** Extra time on a 45-minute day, and the town it belongs to. */
@@ -160,7 +169,7 @@ type Phase = SessionStep;
 
 type TodaysPlan =
   | { state: "loading" | "done" | "nothing" | "failed" }
-  | { state: "reviews"; today: string; reviews: DueReview[]; next: () => void }
+  | { state: "reviews"; today: string; reviews: ReviewPlace[]; next: () => void }
   | { state: "catch"; item: CatchItem; next: () => void }
   | { state: "battle"; offer: BattleOffer; next: () => void }
   | { state: "extra"; extra: ExtraTime; townId: string; next: () => void };
@@ -204,9 +213,10 @@ function useTodaysPlan(
 async function loadTodaysWork(committedMinutes: CommittedMinutes, programStartDate: string): Promise<TodaysWork> {
   const client = browserClient();
   const today = await currentLearningDay(client);
-  const [catches, reviews, history, readings] = await Promise.all([
+  const [catches, reviews, cards, history, readings] = await Promise.all([
     loadCatchRecords(client, today),
     loadReviewRecords(client, today),
+    loadCardRecords(client, today),
     loadBattleHistory(client, today),
     loadReadingRecords(client, today),
   ]);
@@ -214,24 +224,25 @@ async function loadTodaysWork(committedMinutes: CommittedMinutes, programStartDa
   // A lost battle and a model answer with missing key points bring moves back tomorrow.
   const rechecks = battleRechecks(history);
   const isReviewable = (id: string) => reviewItem(id) !== undefined;
-  const states = reviewStates(catches, reviews, rechecks);
-  const due = dueReviews({ states, reviews, today, isReviewable, pairs: confusablePairs }).map(
-    (state): DueReview => {
-      // Design 10: the teach-back of a battle comes back at the next review of its items.
-      const teachBack = teachBackFor(state.itemId, history.teachBacks, reviews);
-      return {
-        state,
-        item: reviewItem(state.itemId)!,
-        mixedWith: state.mixedWith && reviewItem(state.mixedWith)?.name,
-        teachBack: teachBack && {
-          scenarioName: scenarioName(teachBack.scenarioId) ?? teachBack.scenarioId,
-          sentences: teachBack.sentences,
-        },
-      };
-    },
-  );
+  const states = reviewStates(catches, reviews, rechecks, cards);
+  const places = todaysReviews({ states, reviews, cards, decisionCardIds, today, isReviewable, pairs: confusablePairs });
+  const due = places.map((place): ReviewPlace => {
+    if (place.kind === "decision") return { card: decisionCard(place.cardId)! };
+    const state = place.review;
+    // Design 10: the teach-back of a battle comes back at the next review of its items.
+    const teachBack = teachBackFor(state.itemId, history.teachBacks, reviews);
+    return {
+      state,
+      item: reviewItem(state.itemId)!,
+      mixedWith: state.mixedWith && reviewItem(state.mixedWith)?.name,
+      teachBack: teachBack && {
+        scenarioName: scenarioName(teachBack.scenarioId) ?? teachBack.scenarioId,
+        sentences: teachBack.sentences,
+      },
+    };
+  });
   const town = currentTown(programStartDate, today);
-  const paused = backlogPaused(catches, reviews, today, isReviewable, rechecks);
+  const paused = backlogPaused(catches, reviews, today, isReviewable, rechecks, cards);
   const catchItem = town ? nextCatch({ town, records: catches, today, committedMinutes, paused }) : null;
   // The battle uses the creatures caught before today's session, also in earlier towns (design 7.5).
   const battle = town ? nextBattle({ town, towns, catches, battles, today, committedMinutes }) : null;
