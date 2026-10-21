@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { BundledScenario } from "@/content/bundle";
 import { fixtureTownV2 } from "@/content/fixture-town";
 import { battleRechecks, type CheckRecord } from "./battle.ts";
-import { endChecks, endView, moveName, resultLine, toggleTick } from "./battle-end.ts";
+import { endChecks, endView, moveName, resultLine, toggleTick, whyLost } from "./battle-end.ts";
 import { playTurnV2, progressV2, startBattleV2, type BattleV2 } from "./battle-v2.ts";
 
 // The end-of-Battle screen (#104, design 7.4). "Sale day": TTL is best on turn 1 (Reason 0 is
@@ -36,14 +36,14 @@ const lost = () =>
 
 describe("the end view", () => {
   it("counts the best moves and the right Reasons, and lists every turn with its threat, Constraint and model answer", () => {
-    const view = endView(saleDay, lost(), nameOf);
+    const view = endView(lost(), nameOf);
     expect(view).toMatchObject({
       result: "lost",
       line: "Out of turns. The opponent still has HP 3 of 4. The moves you used come back in tomorrow's review.",
       bestMoves: { count: 1, of: 3 },
       rightReasons: { count: 2, of: 3 },
       hpLost: 4,
-      bars: { opponent: "HP", team: "HP" },
+      ticksFeedReviews: true,
     });
     expect(view.turns.map((t) => [t.turnNumber, t.move, t.bestMove, t.isBest, t.reasonCorrect, t.hpLost])).toEqual([
       [1, "HttpOnly (Cookie)", "TTL (Cache)", false, true, 2],
@@ -72,9 +72,11 @@ describe("the end view", () => {
       ["answer.blame-0", 0],
       ["answer.vague-1", 1],
     ]);
-    const view = endView(lateLaunch, battle, nameOf);
-    expect(view).toMatchObject({ result: "lost", bars: { opponent: "Doubt", team: "Trust" }, hpLost: 3, bestMoves: { count: 0, of: 2 } });
+    const view = endView(battle, nameOf);
+    // An answer is not a review item, so the screen does not say an unticked point comes back.
+    expect(view).toMatchObject({ result: "lost", hpLost: 3, bestMoves: { count: 0, of: 2 }, ticksFeedReviews: false });
     expect(view.line).toBe("Your Trust reached 0. The opponent still has Doubt 4 of 4.");
+    expect(whyLost(battle, "I")).toBe("My Trust reached 0.");
     expect(view.turns[0]).toMatchObject({ move: "Say the server team was slow.", bestMove: "Give the cause, the new date and the risk." });
   });
 
@@ -100,9 +102,10 @@ describe("the end view", () => {
     expect(resultLine(battle)).toBe(
       "All your creatures fainted. The opponent still has HP 4 of 4. The moves you used come back in tomorrow's review.",
     );
-    expect(endView(saleDay, battle, nameOf).turns[1]).toMatchObject({ move: null, reason: null, reasonCorrect: null });
+    expect(whyLost(battle, "I")).toBe("All my creatures fainted.");
+    expect(endView(battle, nameOf).turns[1]).toMatchObject({ move: null, reason: null, reasonCorrect: null });
     // A turn with no Reason is not counted.
-    expect(endView(saleDay, battle, nameOf).rightReasons).toEqual({ count: 1, of: 1 });
+    expect(endView(battle, nameOf).rightReasons).toEqual({ count: 1, of: 1 });
   });
 
   it("names a creature's move with its creature, and a Meeting answer by its words", () => {
@@ -116,7 +119,12 @@ describe("the end view", () => {
 
   it("is only for a finished battle", () => {
     const oneTurn = play(startBattleV2(saleDay, ["cache"]), [["cache.ttl", 0]]);
-    expect(() => endView(saleDay, oneTurn, nameOf)).toThrow(/not over/);
+    expect(() => endView(oneTurn, nameOf)).toThrow(/not over/);
+    const won = play(startBattleV2(saleDay, ["cache", "proxy"]), [
+      ["cache.ttl", 0],
+      ["cache.no-store", 1],
+    ]);
+    expect(() => whyLost(won, "you")).toThrow(/not lost/);
   });
 });
 

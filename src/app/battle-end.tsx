@@ -41,7 +41,7 @@ export function BattleEnd({
   eventFields: () => BattleEventFields;
   onDone: (won: boolean) => void;
 }) {
-  const [view] = useState(() => endView(scenario, battle, nameOf));
+  const [view] = useState(() => endView(battle, nameOf));
   const won = view.result === "won";
   const [ticks, setTicks] = useState<Ticks>({});
   const [saved, setSaved] = useState(false);
@@ -121,8 +121,8 @@ export function BattleEnd({
         </li>
       </ul>
       <p className="lead">
-        Tick the key points you could say yourself. A point you did not tick comes back in tomorrow&apos;s reviews. Your ticks
-        never change the result.
+        Tick the key points you could say yourself.
+        {view.ticksFeedReviews && " A point you did not tick comes back in tomorrow’s reviews."} Your ticks never change the result.
       </p>
       {view.turns.map((turn) => (
         <TurnReview

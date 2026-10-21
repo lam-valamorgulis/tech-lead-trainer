@@ -1,16 +1,12 @@
 // The end-of-Battle screen (design 7.4, ticket #104). Pure functions: no browser, no clock.
 // One screen after the last turn: the counts, then each turn with its model answer and the key
 // points to tick. It works for every kind of battle: the bar names come from BAR_NAMES.
-import type { BundledScenario } from "../content/bundle.ts";
 import { KEY_POINTS, type BattleTurn } from "../content/schema.ts";
 import { bestRow, creatureOf, damageLabel, OPPONENT_HP, type SelfCheck } from "./battle.ts";
 import { BAR_NAMES, endSummary, type BattleV2 } from "./battle-v2.ts";
 
 /** The display name of a creature or a move, from the content. */
 export type NameOf = (id: string) => string;
-
-/** The scenario parts the end screen reads. */
-export type EndScenario = Pick<BundledScenario, "turns">;
 
 /**
  * How a move shows on the end screen and in the package. A Meeting answer shows its own words.
@@ -57,16 +53,19 @@ export type EndView = {
   rightReasons: Count;
   /** All the HP the learner's side lost, under the kind's own bar name. */
   hpLost: number;
-  bars: { opponent: string; team: string };
+  /**
+   * True when an unticked key point brings the turn's best move back in tomorrow's reviews: only in
+   * a Battle. The answers of a Meeting Battle and the verdicts of an Agent Diff Battle are not review items.
+   */
+  ticksFeedReviews: boolean;
   turns: EndTurn[];
 };
 
-/** Everything the end screen shows, for a finished battle. */
-export function endView(scenario: EndScenario, battle: BattleV2, nameOf: NameOf): EndView {
+/** Everything the end screen shows, for a finished battle. The turns' content is the one the battle was played with. */
+export function endView(battle: BattleV2, nameOf: NameOf): EndView {
   const summary = endSummary(battle);
-  const bars = BAR_NAMES[battle.kind];
   const turns = summary.turns.map((played): EndTurn => {
-    const turn = scenario.turns[played.turnNumber - 1];
+    const turn = battle.turns[played.turnNumber - 1];
     const reasons = turn.reasons;
     const reason = played.reasonIndex !== null && reasons ? reasons[played.reasonIndex].text : null;
     const rightReason =
@@ -95,7 +94,7 @@ export function endView(scenario: EndScenario, battle: BattleV2, nameOf: NameOf)
     bestMoves: { count: turns.filter((turn) => turn.isBest).length, of: turns.length },
     rightReasons: { count: withReasons.filter((turn) => turn.reasonCorrect).length, of: withReasons.length },
     hpLost: turns.reduce((sum, turn) => sum + turn.hpLost, 0),
-    bars,
+    ticksFeedReviews: battle.kind === "battle",
     turns,
   };
 }
@@ -108,10 +107,19 @@ export function resultLine(battle: BattleV2): string {
   const summary = endSummary(battle);
   const bars = BAR_NAMES[battle.kind];
   if (summary.result === "won") return `The opponent's ${bars.opponent} reached 0 in ${summary.turnsUsed} turns.`;
-  const why =
-    summary.lostBy === "turns" ? "Out of turns." : battle.kind === "battle" ? "All your creatures fainted." : `Your ${bars.team} reached 0.`;
   const left = `The opponent still has ${bars.opponent} ${summary.opponentHp} of ${OPPONENT_HP}.`;
+  const why = whyLost(battle, "you");
   return battle.kind === "battle" ? `${why} ${left} The moves you used come back in tomorrow's review.` : `${why} ${left}`;
+}
+
+/** Why a lost battle was lost, said by the screen ("you") or by the learner in the package ("I"). */
+export function whyLost(battle: BattleV2, who: "you" | "I"): string {
+  const { lostBy } = endSummary(battle);
+  if (lostBy === null) throw new Error("The battle was not lost.");
+  if (lostBy === "turns") return who === "you" ? "Out of turns." : "I ran out of turns.";
+  const your = who === "you" ? "your" : "my";
+  const why = battle.kind === "battle" ? `all ${your} creatures fainted.` : `${your} ${BAR_NAMES[battle.kind].team} reached 0.`;
+  return `${why.charAt(0).toUpperCase()}${why.slice(1)}`;
 }
 
 /** The key points (1 to 3) ticked on each turn, by turn number. A turn with none may be missing. */

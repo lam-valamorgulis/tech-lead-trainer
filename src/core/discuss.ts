@@ -2,7 +2,7 @@
 import type { BundledScenario } from "../content/bundle.ts";
 import type { Card } from "../content/schema.ts";
 import { bestRow, counterattackSentence, creatureOf, OPPONENT_HP } from "./battle.ts";
-import { endView, type EndTurn, type EndView, type NameOf, type Ticks } from "./battle-end.ts";
+import { endView, whyLost, type EndTurn, type EndView, type NameOf, type Ticks } from "./battle-end.ts";
 import { BAR_NAMES, endSummary, type BattleV2 } from "./battle-v2.ts";
 import type { LearningDay } from "./day.ts";
 import type { ReviewRecord } from "./review.ts";
@@ -46,7 +46,7 @@ export type DiscussInput = {
  */
 export function discussPackage(input: DiscussInput): string {
   const nameOf: NameOf = (id) => input.itemOf(id)?.name ?? id;
-  const view = endView(input.scenario, input.battle, nameOf);
+  const view = endView(input.battle, nameOf);
   const cards = cardSections(input);
   return (
     [
@@ -65,12 +65,10 @@ function battleSection({ scenario, battle }: DiscussInput, view: EndView, nameOf
   const summary = endSummary(battle);
   const bars = BAR_NAMES[battle.kind];
   const turns = summary.turnsUsed;
-  const why =
-    summary.lostBy === "turns" ? "I ran out of turns." : battle.kind === "battle" ? "All my creatures fainted." : `My ${bars.team} reached 0.`;
   const result =
     summary.result === "won"
       ? `I won in ${turns} turn${turns === 1 ? "" : "s"}.`
-      : `I lost. ${why} The opponent still had ${bars.opponent} ${summary.opponentHp} of ${OPPONENT_HP}.`;
+      : `I lost. ${whyLost(battle, "I")} The opponent still had ${bars.opponent} ${summary.opponentHp} of ${OPPONENT_HP}.`;
   const types = opponentTypes(scenario).map(typeWord);
   const reasons = view.rightReasons;
   return [
@@ -91,7 +89,7 @@ function battleSection({ scenario, battle }: DiscussInput, view: EndView, nameOf
 /** What the learner did on a turn. The best move and the key points stay in the hidden model answer. */
 function turnSection({ scenario, battle, notes, ticks }: DiscussInput, turn: EndTurn, nameOf: NameOf): string {
   const played = battle.played[turn.turnNumber - 1];
-  const row = played.moveId === null ? null : scenario.turns[turn.turnNumber - 1].moves.find((r) => r.moveId === played.moveId)!;
+  const row = played.moveId === null ? null : battle.turns[turn.turnNumber - 1].moves.find((r) => r.moveId === played.moveId)!;
   const note = notes[turn.turnNumber]?.trim() ?? "";
   const reasonLines =
     turn.reason === null
