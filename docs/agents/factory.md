@@ -35,6 +35,10 @@ Ship a sprint when its milestone has no open `ready-for-agent` ticket left. The 
 
 When the owner reports a problem, open one ticket per problem. Label it `bug` and `ready-for-agent`, put it in the earliest open sprint milestone and on the board. It goes first (see "Picking the next ticket").
 
+## Weekly feedback read
+
+On a Monday, the first factory session reads the learner's Feedback notes before its first ticket, and opens `needs-triage` issues. The steps are in `docs/agents/feedback-triage.md`.
+
 ## Monthly content cadence
 
 In week 1 of town month N (counted from the owner's program start date), the owner runs `/mattpocock-skills:to-tickets` for town N+1: its content, its battles and its new game twist. Issues #10, #18, #36 and #37 show the shape. Content exists only for the current town and the next one (design section 14, rule 4).
