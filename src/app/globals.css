@@ -728,26 +728,37 @@ a[aria-current="page"] {
   border-color: var(--color-accent);
 }
 
-/* UI rule 13: the speaker button sits in the top corner of the play screens. It is out of the
-   flow, so it never moves the commit buttons, and it scrolls away with the top of the page, so it
-   never covers a button further down. */
-.speaker {
+/* UI rule 13 and design 9 rule 15: the speaker and Feedback buttons sit in the top corner. They
+   are out of the flow, so they never move the commit buttons, and they scroll away with the top
+   of the page, so they never cover a button further down. */
+.speaker,
+.feedback {
   position: absolute;
   top: calc(env(safe-area-inset-top) + 8px);
   right: calc(env(safe-area-inset-right) + 8px);
   z-index: 10;
+}
+
+.speaker {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 4px;
 }
 
-/* Home's title fills the phone's width, so there the button sits one row lower, beside the short intro line. */
-.speaker-beside-intro {
+/* Feedback sits left of the speaker button on the play screens. */
+.shell:has(.speaker) .feedback {
+  right: calc(env(safe-area-inset-right) + 16px + var(--tap-min));
+}
+
+/* Home's title fills the phone's width, so there both buttons sit one row lower, beside the short intro line. */
+.speaker-beside-intro,
+.shell:has(.home-intro) .feedback {
   top: calc(env(safe-area-inset-top) + 52px);
 }
 
-.speaker-button {
+/* The square buttons in the top corner: speaker and Feedback. */
+.frame-button {
   min-width: var(--tap-min);
   min-height: var(--tap-min);
   display: inline-flex;
@@ -760,7 +771,7 @@ a[aria-current="page"] {
   touch-action: manipulation;
 }
 
-/* The save error under the button. It never takes a tap from the screen under it. */
+/* The save error under the speaker button. It never takes a tap from the screen under it. */
 .speaker-note {
   pointer-events: none;
   max-width: 220px;
@@ -771,4 +782,17 @@ a[aria-current="page"] {
   background: var(--color-bg);
   border: 2px solid var(--color-muted);
   border-radius: 4px;
+}
+
+.feedback-dialog {
+  width: min(calc(100% - 2 * var(--space)), 480px);
+  padding: var(--space);
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 2px solid var(--color-muted);
+  border-radius: 4px;
+}
+
+.feedback-dialog::backdrop {
+  background: rgb(0 0 0 / 60%);
 }

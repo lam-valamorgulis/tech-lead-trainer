@@ -5,6 +5,7 @@ import type { Session } from "@supabase/supabase-js";
 import { ensureProfile, type Profile } from "@/lib/profile";
 import { browserClient } from "@/lib/supabase/browser";
 import { useEffectSettings } from "./effects";
+import { FeedbackButton } from "./feedback-button";
 import { SignInForm } from "./sign-in-form";
 
 export type SignedIn = {
@@ -75,10 +76,16 @@ export function AuthGate({ children }: { children: (signedIn: SignedIn) => React
       </p>
     );
   }
-  return children({
-    userId: state.userId,
-    email: state.email,
-    profile: state.profile,
-    setProfile: (profile) => setState({ ...state, profile }),
-  });
+  return (
+    <>
+      {/* Design 9 rule 15: every signed-in screen has the Feedback button. */}
+      <FeedbackButton />
+      {children({
+        userId: state.userId,
+        email: state.email,
+        profile: state.profile,
+        setProfile: (profile) => setState({ ...state, profile }),
+      })}
+    </>
+  );
 }

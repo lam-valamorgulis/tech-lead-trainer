@@ -23,6 +23,7 @@ import { extraTime, type ExtraTime } from "@/core/extra-time";
 import { sessionStep, type SessionStep } from "@/core/session-plan";
 import { loadReadingRecords } from "@/lib/reading-log";
 import { ExtraTimeFlow } from "./extra-time-flow";
+import { useFeedbackScreen } from "./feedback-button";
 
 export type CommittedMinutes = SessionEvent["committedMinutes"];
 
@@ -42,6 +43,7 @@ export function SessionScreen({
   onDone: () => void;
 }) {
   const [summary, setSummary] = useState<Summary | null>(null);
+  useFeedbackScreen("session");
 
   if (summary) {
     return (

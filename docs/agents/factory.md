@@ -14,7 +14,7 @@ Content tickets (town content, battle scenarios, weekend packs) are drafted in s
 
 ## Live database
 
-Never write to the live database during a ticket. This includes test accounts and test data for an owner check. Vercel previews use the live database.
+Never write to the live database during a ticket. This includes test accounts and test data for an owner check. Vercel previews use the live database. The one exception is the weekly feedback read below: it marks the notes it handled done.
 
 Prove special states with seam C on local Supabase, for example the Rest Stop after 3 days. The owner check in the PR uses the owner's normal account only. If a state cannot be reached that way, the PR says so.
 
@@ -34,6 +34,10 @@ Ship a sprint when its milestone has no open `ready-for-agent` ticket left. The 
 ## Problem reports
 
 When the owner reports a problem, open one ticket per problem. Label it `bug` and `ready-for-agent`, put it in the earliest open sprint milestone and on the board. It goes first (see "Picking the next ticket").
+
+## Weekly feedback read
+
+On a Monday, the first factory session reads the learner's Feedback notes before its first ticket, and opens `needs-triage` issues. The steps are in `docs/agents/feedback-triage.md`.
 
 ## Monthly content cadence
 

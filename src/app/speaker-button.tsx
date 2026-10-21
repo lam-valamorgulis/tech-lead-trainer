@@ -54,7 +54,7 @@ export function SpeakerButton({
     <div className={besideIntro ? "speaker speaker-beside-intro" : "speaker"}>
       <button
         type="button"
-        className="speaker-button"
+        className="frame-button"
         aria-pressed={on}
         aria-label={on ? "Sound on" : "Sound off"}
         aria-busy={saving}
