@@ -687,6 +687,40 @@ describe("checkContent for v1.5 content (#93)", () => {
       ]);
     });
 
+    it("fails a twin of a twin, and a cycle of two twins, which would hide both battles", () => {
+      const chain = townWithTwin();
+      chain.scenarios.push({ ...structuredClone(twinOf(chain)), id: "t99-sale-day-twin-2", twinOf: "t99-sale-day-twin" });
+      expect(check(chain, [...fixtureLedgerV2, "t99-sale-day-twin", "t99-sale-day-twin-2"])).toEqual([
+        { where: "t99.t99-sale-day-twin-2.twinOf", message: "A twin points to a normal scenario, not to another twin." },
+      ]);
+
+      const cycle = townWithTwin();
+      Object.assign(cycle.scenarios[0], { twinOf: "t99-sale-day-twin" });
+      expect(checkTwin(cycle)).toEqual([
+        { where: "t99.t99-sale-day.twinOf", message: "A twin points to a normal scenario, not to another twin." },
+        { where: "t99.t99-sale-day-twin.twinOf", message: "A twin points to a normal scenario, not to another twin." },
+      ]);
+    });
+
+    it("fails a twin of a retired scenario", () => {
+      const town = townWithTwin();
+      Object.assign(town.scenarios[0], { retired: true });
+      expect(checkTwin(town)).toEqual([
+        { where: "t99.t99-sale-day-twin.twinOf", message: "t99-sale-day is retired. A twin points to a scenario the app still offers." },
+      ]);
+    });
+
+    it("fails a twin of another kind of battle", () => {
+      const town = townWithTwin();
+      const meeting = town.scenarios.find((s) => s.id === "t99-late-launch")!;
+      const twin = { ...structuredClone(meeting), id: "t99-late-launch-twin", twinOf: "t99-sale-day", opponentType: "traffic" as const };
+      town.scenarios.push(twin);
+      expect(check(town, [...fixtureLedgerV2, "t99-sale-day-twin", "t99-late-launch-twin"])).toEqual([
+        { where: "t99.t99-late-launch-twin.twinOf", message: "A twin is the same kind of battle as t99-sale-day: battle." },
+        { where: "t99.t99-late-launch-twin.twinOf", message: "A twin has at least one turn with the same threat as a turn of t99-sale-day." },
+      ]);
+    });
+
     it("fails a twin that shares no threat with its scenario", () => {
       const town = townWithTwin();
       twinOf(town).turns.forEach((t, i) => (t.threat = `A new threat number ${i}.`));

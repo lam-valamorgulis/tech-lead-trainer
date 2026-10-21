@@ -418,6 +418,10 @@ function twinProblems(town: Town, scenario: Scenario): Problem[] {
   const original = town.scenarios.find((s) => s.id === scenario.twinOf);
   if (!original) return [{ where: at, message: `${scenario.twinOf} is not a scenario of ${town.id}. A twin points to a scenario of its own town.` }];
 
+  // A chain or a cycle of twins would hide every scenario in it, because the app does not offer twins.
+  if (original.twinOf !== undefined) return [{ where: at, message: "A twin points to a normal scenario, not to another twin." }];
+  if (original.retired) return [{ where: at, message: `${original.id} is retired. A twin points to a scenario the app still offers.` }];
+
   const problems: Problem[] = [];
   if (original.opponentType !== scenario.opponentType) {
     problems.push({ where: at, message: `A twin has the same opponent type as ${original.id}: ${original.opponentType}.` });
