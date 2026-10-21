@@ -820,15 +820,15 @@ a[aria-current="page"] {
   border-color: var(--color-accent);
 }
 
-/* A diagram is readable on an iPhone: full width, never cut. */
-.lesson-diagram {
+/* A Lesson or Town Intro diagram is readable on an iPhone: full width, never cut. */
+.content-diagram {
   margin: 0;
   padding: 8px;
   border: 2px solid var(--color-line);
   border-radius: 4px;
 }
 
-.lesson-diagram svg {
+.content-diagram svg {
   display: block;
   width: 100%;
   height: auto;
@@ -896,4 +896,10 @@ a[aria-current="page"] {
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+/* The Town Intro can be long: its Start button stays in reach at the bottom of the screen. */
+.start-town {
+  position: sticky;
+  bottom: calc(env(safe-area-inset-bottom) + 8px);
 }

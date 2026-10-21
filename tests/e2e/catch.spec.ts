@@ -13,7 +13,7 @@ test("commit 15 minutes, read the 3 Lesson screens, catch with a second try, and
     await expect(page.getByText("Lesson · Cache · 1 of 3")).toBeVisible();
     await expect(page.getByText("Why does a browser keep a copy of a page?")).toBeHidden();
     // The diagram is drawn from the content's Mermaid text, and a screen reader gets it in words.
-    await expect(page.locator(".lesson-diagram svg")).toBeVisible();
+    await expect(page.locator(".content-diagram svg")).toBeVisible();
     await expect(page.getByText("Diagram: Browser to Server")).toBeAttached();
     const source = page.getByRole("link", { name: /Source: MDN: HTTP caching/ });
     await expect(source).toHaveAttribute("target", "_blank");

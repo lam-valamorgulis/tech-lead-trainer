@@ -93,4 +93,18 @@ describe("showsNewTown", () => {
   it("never shows in town 1, which is the start of the year, not a new town", () => {
     expect(showsNewTown({ programStartDate: start, townNumber: 1, lastSessionDay: null })).toBe(false);
   });
+
+  // Ticket #98: the screen becomes the Town Intro, and it uses the same show-once rule.
+  it("shows in town 1 too when its content has a Town Intro: on the first day, before the first session", () => {
+    expect(showsNewTown({ programStartDate: start, townNumber: 1, lastSessionDay: null, hasIntro: true })).toBe(true);
+    expect(showsNewTown({ programStartDate: start, townNumber: 1, lastSessionDay: start, hasIntro: true })).toBe(false);
+  });
+
+  it("follows the same rule in town 2 with an intro as without one", () => {
+    for (const lastSessionDay of [null, "2026-11-19", "2026-11-20"]) {
+      expect(showsNewTown({ programStartDate: start, townNumber: 2, lastSessionDay, hasIntro: true })).toBe(
+        showsNewTown({ programStartDate: start, townNumber: 2, lastSessionDay }),
+      );
+    }
+  });
 });
