@@ -9,8 +9,11 @@ import type { BattleTurn, Creature, DecisionCard, Move, Scenario, Town, TradeOff
 /** One thing the content says, with where it lives in the file, for example t01.dns.catch. */
 export type Claim = { where: string; text: string };
 
-/** The claims one page must support. The group with url "" holds the claims that have no page. */
-export type SourceGroup = { url: string; title: string; claims: Claim[] };
+/**
+ * The claims one page must support. The group with url "" holds the claims that have no page.
+ * `textFile` is the page's own words, saved by `npm run fact-check -- list` when the page loads.
+ */
+export type SourceGroup = { url: string; title: string; claims: Claim[]; textFile?: string };
 
 /** A reviewer's verdict on one claim. A verdict without a quote from the page counts for nothing. */
 export type Finding = {
@@ -218,16 +221,37 @@ export function formatFactCheckReport(townId: string, groups: SourceGroup[], fin
  * The page is the raw HTML of the cited url.
  */
 export function quoteOnPage(html: string, quote: string): boolean {
-  const page = lettersAndDigits(html.replace(/<[^>]*>/g, " "));
-  // "…" joins parts of the page that are apart: each part must be there, in order.
+  const page = lettersAndDigits(pageText(html));
+  // "…" joins parts of the page that are apart: each part must be there, in any order. Short parts,
+  // like a header name, are fine next to a real phrase, but scraps like "the … a" never pass alone.
   const parts = quote.split(/\.\.\.|…/).map(lettersAndDigits).filter(Boolean);
-  let from = 0;
-  for (const part of parts) {
-    const at = page.indexOf(part, from);
-    if (at < 0) return false;
-    from = at + part.length;
-  }
-  return parts.length > 0;
+  return parts.some((part) => part.length >= MIN_QUOTE_PART) && parts.every((part) => page.includes(part));
+}
+
+/** The fewest letters and digits of a quote's longest part: about three short words. */
+const MIN_QUOTE_PART = 12;
+
+/**
+ * The words of a page, as a reviewer reads them: the main part of the HTML, without scripts and
+ * tags, one block per line. A reviewer quotes from this text, so a quote is the page's own words.
+ */
+export function pageText(html: string): string {
+  const main = html.match(/<main[\s>][\s\S]*<\/main>/i)?.[0] ?? html;
+  return main
+    .replace(/<(script|style|svg)[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<\/(p|li|h[1-6]|tr|dt|dd|pre|blockquote|div)>|<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;|&#160;/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&#x27;|&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+    .replace(/&amp;/g, "&")
+    .split("\n")
+    .map((line) => line.replace(/[ \t]+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n");
 }
 
 function lettersAndDigits(text: string): string {

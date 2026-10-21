@@ -196,11 +196,48 @@
       "id": "t01",
       "number": 1,
       "name": "Web and HTTP in depth",
+      "intro": {
+        "title": "How a page reaches your browser",
+        "screens": [
+          "HTTP is how a browser fetches a web page. The browser is the client, and it always sends the first message: a request. The server answers with a response.",
+          "One page needs many requests. The browser first fetches the HTML document. Then it fetches the scripts, the CSS and the images that the page uses.",
+          "Between the browser and the server there are often proxies. A proxy can keep a cache of answers, filter them, or share the load between several servers.",
+          "HTTP is sent over TCP, or over a TCP connection that TLS encrypts."
+        ],
+        "diagram": "sequenceDiagram\n  Browser->>Proxy: Request\n  Proxy->>Server: Request\n  Server-->>Proxy: Response\n  Proxy-->>Browser: Response",
+        "source": {
+          "title": "MDN: Overview of HTTP",
+          "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Overview"
+        }
+      },
+      "skills": [
+        11,
+        19
+      ],
       "creatures": [
         {
           "id": "client-server",
           "name": "Client and server",
           "sprite": 2,
+          "lesson": {
+            "screens": [
+              {
+                "text": "HTTP is a client-server protocol. One side sends a request. The other side sends back a response. The side that sends the request is the client. It is usually your web browser."
+              },
+              {
+                "text": "The browser is always the one that begins a request. The server never begins one. Some mechanisms were added over the years to simulate messages that start at the server. But plain HTTP always starts at the client."
+              },
+              {
+                "text": "Example: you open the page developer.mozilla.org. The browser sends GET / HTTP/1.1 with the header Host: developer.mozilla.org. The server answers with HTTP/1.1 200 OK and the page.",
+                "diagram": "sequenceDiagram\n  Browser->>Server: GET / HTTP/1.1\n  Server-->>Browser: HTTP/1.1 200 OK"
+              }
+            ],
+            "answerScreen": 1,
+            "source": {
+              "title": "MDN: Overview of HTTP",
+              "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Overview"
+            }
+          },
           "catch": {
             "question": "In plain HTTP, which side sends the first message?",
             "choices": [
@@ -233,10 +270,88 @@
             ],
             "answer": "Plain HTTP cannot push data to the page. Let the page send a new request for the fresh price."
           },
+          "tradeOff": {
+            "id": "client-server.trade-off.fresh-price",
+            "situation": "A manager changes a price while a customer has the product page open. You only have plain HTTP, and the page must show the new price.",
+            "options": [
+              "Let the server send the new price to the page by itself",
+              "Let the page send a new request to ask for the price",
+              "Let a proxy start a request to the page"
+            ],
+            "rightOption": 1,
+            "reasons": [
+              {
+                "text": "In HTTP the client starts requests, so the page must ask again.",
+                "right": true
+              },
+              {
+                "text": "A server can start a request whenever it has new data.",
+                "right": false
+              },
+              {
+                "text": "A proxy sits between the two sides, so it can start requests to the page.",
+                "right": false
+              }
+            ],
+            "explanation": "The client starts every request, so the page must ask for the new price. The cost is delay: the page shows the old price until its next request.",
+            "skills": [
+              3
+            ],
+            "hash": "a50efba49d6d9722"
+          },
+          "decisionCards": [
+            {
+              "id": "client-server.decision.server-push",
+              "situation": "In a design review, a teammate says the server will push a message to the open page using plain HTTP. You must answer.",
+              "options": [
+                "Say the page must ask, because the client starts requests",
+                "Agree, because the server starts the message when ready"
+              ],
+              "rightOption": 0,
+              "reasons": [
+                {
+                  "text": "HTTP lets both sides start a request when they want.",
+                  "right": false
+                },
+                {
+                  "text": "Only a proxy stops a server from starting a message.",
+                  "right": false
+                },
+                {
+                  "text": "The browser always starts the request. The server never does.",
+                  "right": true
+                }
+              ],
+              "explanation": "In HTTP the client starts the request, never the server. So the page must ask, which adds delay, or you need another mechanism that simulates server messages.",
+              "skills": [
+                3,
+                19
+              ],
+              "hash": "fa30f8a2782998aa"
+            }
+          ],
           "moves": [
             {
               "id": "client-server.user-agent",
               "name": "User agent",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "A user agent is any tool that acts on behalf of the user. It sends the HTTP requests for the user. It is not the person who sits at the screen."
+                  },
+                  {
+                    "text": "Most of the time the user agent is a web browser. But it can be anything. For example, a robot that crawls the web can feed a search engine index."
+                  },
+                  {
+                    "text": "Example: you type a URL and press Enter. The browser sends GET / HTTP/1.1 for you. So the browser is the user agent. The person is only the user."
+                  }
+                ],
+                "answerScreen": 0,
+                "source": {
+                  "title": "MDN: Overview of HTTP",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Overview"
+                }
+              },
               "catch": {
                 "question": "What is a user agent in HTTP?",
                 "choices": [
@@ -260,11 +375,30 @@
                 "question": "Besides a web browser, what else can be a user agent?",
                 "answer": "A program that developers use to debug their applications."
               },
-              "hash": "fc17a6c5d58ca092"
+              "hash": "ca747565671fc134"
             },
             {
               "id": "client-server.web-server",
               "name": "Web server",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "The server serves the document that the client asks for. To the client, it appears as one single machine."
+                  },
+                  {
+                    "text": "In fact, it may be a collection of servers that share the load. This is called load balancing. So one address can hide many machines."
+                  },
+                  {
+                    "text": "Imagine one request to shop.example.com. A proxy can do load balancing. It passes the request to one of three servers. The browser still sees one server.",
+                    "diagram": "flowchart LR\n  Browser --> Balancer\n  Balancer --> ServerA\n  Balancer --> ServerB\n  Balancer --> ServerC"
+                  }
+                ],
+                "answerScreen": 1,
+                "source": {
+                  "title": "MDN: Overview of HTTP",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Overview"
+                }
+              },
               "catch": {
                 "question": "Your shop has one address, shop.example.com. How many machines can answer requests to it?",
                 "choices": [
@@ -288,15 +422,34 @@
                 "question": "What is load balancing?",
                 "answer": "Many servers share the requests. To the client, they look like one server."
               },
-              "hash": "8a6614591ce9972e"
+              "hash": "e38e01f7e2a7791b"
             }
           ],
-          "hash": "38c8482859651e2c"
+          "hash": "a37a667d7c995385"
         },
         {
           "id": "http-message",
           "name": "HTTP message",
           "sprite": 6,
+          "lesson": {
+            "screens": [
+              {
+                "text": "HTTP has two types of messages. The client sends a request to trigger an action on the server. The server sends a response, which is the answer."
+              },
+              {
+                "text": "Both types have the same structure. First comes a start-line. Then come optional headers. Then comes an empty line. Last comes an optional body."
+              },
+              {
+                "text": "Example: a sign-up form sends a request that starts with POST /users HTTP/1.1. The server answers with a response that starts with HTTP/1.1 201 Created.",
+                "diagram": "sequenceDiagram\n  Client->>Server: Request POST /users HTTP/1.1\n  Server-->>Client: Response HTTP/1.1 201 Created"
+              }
+            ],
+            "answerScreen": 0,
+            "source": {
+              "title": "MDN: HTTP messages",
+              "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Messages"
+            }
+          },
           "catch": {
             "question": "What are the two types of HTTP messages?",
             "choices": [
@@ -329,10 +482,89 @@
             ],
             "answer": "Send one empty line after the last header. Then the client knows where the body starts."
           },
+          "tradeOff": {
+            "id": "http-message.trade-off.missing-empty-line",
+            "situation": "Your API returns JSON, but a client cannot find where the body starts. In the raw response, the JSON comes right after the last header.",
+            "options": [
+              "Put the JSON in the reason phrase of the status line",
+              "Add a header called End: after the last header",
+              "Add one empty line after the last header"
+            ],
+            "rightOption": 2,
+            "reasons": [
+              {
+                "text": "The start-line already tells the client where the body starts.",
+                "right": false
+              },
+              {
+                "text": "An empty line shows that the metadata is complete, so the body comes after it.",
+                "right": true
+              },
+              {
+                "text": "Any extra header with a colon can mark the end of the headers.",
+                "right": false
+              }
+            ],
+            "explanation": "The empty line shows that the headers are complete, so the client finds the body. The cost is small, but if you forget this line, clients cannot read the body.",
+            "skills": [
+              3,
+              11
+            ],
+            "hash": "3a78695bbb1a158d"
+          },
+          "decisionCards": [
+            {
+              "id": "http-message.decision.no-body-204",
+              "situation": "Your endpoint answers a delete request with 204 No Content. A teammate wants to add a JSON body anyway.",
+              "options": [
+                "Add the JSON body, so the client always gets data",
+                "Send no body, because a 204 response does not have one"
+              ],
+              "rightOption": 1,
+              "reasons": [
+                {
+                  "text": "Responses with a status code like 204 No Content do not have a body.",
+                  "right": true
+                },
+                {
+                  "text": "Every response must have a body, or the client sees an error.",
+                  "right": false
+                },
+                {
+                  "text": "A body is how the client learns that the request worked.",
+                  "right": false
+                }
+              ],
+              "explanation": "A 204 No Content response does not have a body, and the status code already tells the client the result. The cost is that the client gets no extra data in this answer.",
+              "skills": [
+                3
+              ],
+              "hash": "537995dcc724efb8"
+            }
+          ],
           "moves": [
             {
               "id": "http-message.request-line",
               "name": "Request line",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "The first line of an HTTP/1.x request is called the request-line. It has three parts, always in the same order."
+                  },
+                  {
+                    "text": "The parts are the method, the request target, and the protocol. The method describes the meaning of the request. The request target is usually an absolute or relative URL. The protocol is the HTTP version."
+                  },
+                  {
+                    "text": "Example: in POST /users HTTP/1.1, the method is POST. The request target is /users. The protocol is HTTP/1.1.",
+                    "diagram": "flowchart LR\n  Method --> RequestTarget\n  RequestTarget --> Protocol"
+                  }
+                ],
+                "answerScreen": 1,
+                "source": {
+                  "title": "MDN: HTTP messages",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Messages"
+                }
+              },
               "catch": {
                 "question": "What are the three parts of the first line of an HTTP/1.1 request?",
                 "choices": [
@@ -356,11 +588,29 @@
                 "question": "In GET /products/42 HTTP/1.1, what is /products/42 called?",
                 "answer": "The request target. It is usually a URL."
               },
-              "hash": "393dfc4b92fbcfe0"
+              "hash": "cfe6b6c946911c4e"
             },
             {
               "id": "http-message.status-line",
               "name": "Status line",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "The first line of a response is called the status line. It has three parts: the protocol, the status code, and the reason phrase."
+                  },
+                  {
+                    "text": "The status code is a number. It says whether the request succeeded or failed. Common status codes are 200, 404, and 302."
+                  },
+                  {
+                    "text": "The reason phrase is optional. It is short text that helps a human understand the result. Example: in HTTP/1.1 201 Created, the optional text is the last word."
+                  }
+                ],
+                "answerScreen": 2,
+                "source": {
+                  "title": "MDN: HTTP messages",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Messages"
+                }
+              },
               "catch": {
                 "question": "Which part of the status line HTTP/1.1 201 Created is optional?",
                 "choices": [
@@ -384,11 +634,30 @@
                 "question": "What does the status code in a status line tell you?",
                 "answer": "Whether the request succeeded or failed."
               },
-              "hash": "8c72347a9fea52c8"
+              "hash": "c60968dce24e7c25"
             },
             {
               "id": "http-message.headers-and-body",
               "name": "Headers and body",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "After the start-line come the headers. In HTTP/1.x, a header is a case-insensitive name, a colon, and a value. The whole header is on one single line."
+                  },
+                  {
+                    "text": "After the last header comes one empty line. It shows that the metadata is complete. The optional body comes after it.",
+                    "diagram": "flowchart LR\n  StartLine --> Headers\n  Headers --> EmptyLine\n  EmptyLine --> Body"
+                  },
+                  {
+                    "text": "Example: the last header is Content-Length: 49. Then comes an empty line. Then comes the body name=FirstName+LastName&email=bsmth%40example.com. Only PATCH, POST, and PUT requests have a body."
+                  }
+                ],
+                "answerScreen": 1,
+                "source": {
+                  "title": "MDN: HTTP messages",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Messages"
+                }
+              },
               "catch": {
                 "question": "How does an HTTP/1.1 message show that the headers are finished?",
                 "choices": [
@@ -412,15 +681,34 @@
                 "question": "Which three request methods usually have a body?",
                 "answer": "PATCH, POST, and PUT."
               },
-              "hash": "e5fe565e79bfcf3e"
+              "hash": "4ea58d704bff177c"
             }
           ],
-          "hash": "b0a623c0dc76d0e3"
+          "hash": "0c2fd146500aa51c"
         },
         {
           "id": "http-method",
           "name": "HTTP method",
           "sprite": 18,
+          "lesson": {
+            "screens": [
+              {
+                "text": "Every HTTP request has a method. The method shows the purpose of the request. It also shows what is expected if the request is successful."
+              },
+              {
+                "text": "GET requests a resource and should only retrieve data. POST submits data, often causing a change of state on the server. PUT replaces a resource. PATCH changes part of it. DELETE deletes it."
+              },
+              {
+                "text": "Example: GET /products/42 retrieves product 42. DELETE /products/42 deletes it. The URL is the same. The method gives the meaning.",
+                "diagram": "sequenceDiagram\n  Client->>Server: GET /products/42\n  Client->>Server: DELETE /products/42"
+              }
+            ],
+            "answerScreen": 0,
+            "source": {
+              "title": "MDN: HTTP request methods",
+              "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods"
+            }
+          },
           "catch": {
             "question": "What does the method in a request tell the server?",
             "choices": [
@@ -453,10 +741,88 @@
             ],
             "answer": "Change it to POST /orders/9/cancel. Keep GET only for reading data."
           },
+          "tradeOff": {
+            "id": "http-method.trade-off.cancel-order",
+            "situation": "A teammate adds GET /orders/9/cancel. Anyone who opens this URL cancels order 9, and you must pick a fix.",
+            "options": [
+              "Change it to POST /orders/9/cancel",
+              "Keep GET and add a note in the API docs",
+              "Change it to HEAD, because HEAD is lighter"
+            ],
+            "rightOption": 0,
+            "reasons": [
+              {
+                "text": "The word cancel in the URL makes GET clear enough.",
+                "right": false
+              },
+              {
+                "text": "Any method works, if the server code handles it.",
+                "right": false
+              },
+              {
+                "text": "Cancelling changes server state, and GET should only retrieve data.",
+                "right": true
+              }
+            ],
+            "explanation": "Cancelling changes state on the server, so it needs a method that is not meant for reading. POST fits, but POST is not idempotent, so a repeated request may have extra effects.",
+            "skills": [
+              3,
+              12
+            ],
+            "hash": "9bd1086efe30ac1e"
+          },
+          "decisionCards": [
+            {
+              "id": "http-method.decision.replace-record",
+              "situation": "You design an endpoint that replaces a whole product record. The client may retry when the network drops.",
+              "options": [
+                "Use PUT, which replaces the resource",
+                "Use POST, which submits data to the resource"
+              ],
+              "rightOption": 0,
+              "reasons": [
+                {
+                  "text": "PUT is not safe, so a retry of PUT is always dangerous.",
+                  "right": false
+                },
+                {
+                  "text": "PUT is idempotent: several identical calls have the same effect as one.",
+                  "right": true
+                },
+                {
+                  "text": "POST is idempotent too, so both methods are the same here.",
+                  "right": false
+                }
+              ],
+              "explanation": "PUT replaces the resource, and it is idempotent, so a retry does no harm. POST is not guaranteed to be idempotent, so a retry may add extra effects.",
+              "skills": [
+                3
+              ],
+              "hash": "9621117628f32a89"
+            }
+          ],
           "moves": [
             {
               "id": "http-method.safe",
               "name": "Safe method",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "A method is safe if it does not alter the state of the server. In other words, it leads to a read-only operation."
+                  },
+                  {
+                    "text": "GET, HEAD, and OPTIONS are safe. POST, PUT, and DELETE are not safe. Safe is about meaning. Servers can still log requests or keep statistics."
+                  },
+                  {
+                    "text": "Example: GET /pageX.html HTTP/1.1 is safe. POST /pageX.html HTTP/1.1 may change the state of the server. So it is not safe."
+                  }
+                ],
+                "answerScreen": 1,
+                "source": {
+                  "title": "MDN: Safe (HTTP methods)",
+                  "url": "https://developer.mozilla.org/en-US/docs/Glossary/Safe/HTTP"
+                }
+              },
               "catch": {
                 "question": "Which of these HTTP methods is safe?",
                 "choices": [
@@ -480,11 +846,30 @@
                 "question": "Name three safe HTTP methods.",
                 "answer": "GET, HEAD, and OPTIONS."
               },
-              "hash": "6833161b5e835e23"
+              "hash": "327e1c8b43bf7b62"
             },
             {
               "id": "http-method.idempotent",
               "name": "Idempotent method",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "A method is idempotent if one request has the same intended effect on the server as several identical requests."
+                  },
+                  {
+                    "text": "The response can differ between calls. The first DELETE /idX/delete HTTP/1.1 will likely return 200. Later calls will likely return 404. The effect on the server is the same.",
+                    "diagram": "sequenceDiagram\n  Client->>Server: DELETE /idX/delete\n  Server-->>Client: 200 first call\n  Client->>Server: DELETE /idX/delete\n  Server-->>Client: 404 later call"
+                  },
+                  {
+                    "text": "All safe methods are idempotent, and so are PUT and DELETE. POST and PATCH are not guaranteed to be idempotent. A client can safely retry an idempotent request when it is unsure the request arrived."
+                  }
+                ],
+                "answerScreen": 1,
+                "source": {
+                  "title": "MDN: Idempotent",
+                  "url": "https://developer.mozilla.org/en-US/docs/Glossary/Idempotent"
+                }
+              },
               "catch": {
                 "question": "You send DELETE /idX/delete three times. The first call returns 200, the next two return 404. Is DELETE idempotent?",
                 "choices": [
@@ -508,11 +893,29 @@
                 "question": "Why can a client safely retry an idempotent request?",
                 "answer": "Several identical requests have the same intended effect as one. So a repeat does no harm."
               },
-              "hash": "e419ab338f1c2f48"
+              "hash": "24f00ded9baa1111"
             },
             {
               "id": "http-method.post",
               "name": "POST",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "POST sends data to the server. The Content-Type header says the type of the request body. HTML forms usually send data with POST, and this usually changes something on the server."
+                  },
+                  {
+                    "text": "POST is not safe and not idempotent. PUT is idempotent: one call is the same as many calls. Successive identical POST requests may have extra effects, such as creating the same order several times."
+                  },
+                  {
+                    "text": "Example: a form sends POST /test HTTP/1.1 with Content-Type: application/x-www-form-urlencoded. The body is field1=value1&field2=value2. Because POST is not idempotent, a repeat of this request can have extra effects."
+                  }
+                ],
+                "answerScreen": 1,
+                "source": {
+                  "title": "MDN: POST request method",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/POST"
+                }
+              },
               "catch": {
                 "question": "A customer clicks Pay, and the network drops. Your client sends the same POST /orders again. What can happen?",
                 "choices": [
@@ -536,15 +939,34 @@
                 "question": "Which method is idempotent: PUT or POST?",
                 "answer": "PUT. Identical POST requests may have extra effects."
               },
-              "hash": "5cf4db9a0aba11fa"
+              "hash": "9ae672ce4b0b889c"
             }
           ],
-          "hash": "1267bad4fdb82eb6"
+          "hash": "637bb2f339143511"
         },
         {
           "id": "status-code",
           "name": "Status code",
           "sprite": 22,
+          "lesson": {
+            "screens": [
+              {
+                "text": "Every HTTP response has a status code. It is a 3-digit number. It shows if the request completed successfully. Example: a wrong URL like GET /prodcts gets 404 Not Found.",
+                "diagram": "sequenceDiagram\n  Browser->>Server: GET /prodcts\n  Server-->>Browser: 404 Not Found"
+              },
+              {
+                "text": "The first digit gives the class. 100 to 199 are informational. 200 to 299 are success. 300 to 399 are redirects. 400 to 499 are client errors. 500 to 599 are server errors."
+              },
+              {
+                "text": "So you can read a code you do not know. Take 429. It starts with 4, so it is in the client error class. MDN describes 429 as too many requests in a given time."
+              }
+            ],
+            "answerScreen": 1,
+            "source": {
+              "title": "MDN: HTTP response status codes",
+              "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status"
+            }
+          },
           "catch": {
             "question": "A response has the status code 429. Without looking it up, what do you know?",
             "choices": [
@@ -577,10 +999,89 @@
             ],
             "answer": "Count only 4xx and 5xx codes as errors. A 3xx code is a redirect, not a failure."
           },
+          "tradeOff": {
+            "id": "status-code.trade-off.error-codes",
+            "situation": "Your API answers 200 OK and puts an error message in the body when a request fails. A partner's dashboard counts only 4xx and 5xx responses as errors.",
+            "options": [
+              "Keep 200 and add an error field to the body",
+              "Use a 4xx code for client mistakes and a 5xx code for server faults",
+              "Return 500 for every failure, so there is only one rule"
+            ],
+            "rightOption": 1,
+            "reasons": [
+              {
+                "text": "Clients always read the body, so the status code does not matter.",
+                "right": false
+              },
+              {
+                "text": "A 500 is the safest code because it fits every failure.",
+                "right": false
+              },
+              {
+                "text": "The class of the code shows who is at fault, so tools can count errors from the code alone.",
+                "right": true
+              }
+            ],
+            "explanation": "The status code class tells every client and tool what kind of failure happened, without reading the body. The cost is that you must pick the right code each time. 500 is only the generic code when no better 5xx fits.",
+            "skills": [
+              3,
+              11
+            ],
+            "hash": "e14b91dae6aaa200"
+          },
+          "decisionCards": [
+            {
+              "id": "status-code.decision.maintenance-code",
+              "situation": "Your shop is down for maintenance for 30 minutes. You must choose one status code for every page.",
+              "options": [
+                "503 Service Unavailable with a Retry-After header",
+                "500 Internal Server Error"
+              ],
+              "rightOption": 0,
+              "reasons": [
+                {
+                  "text": "503 is for temporary conditions, and Retry-After can give the expected recovery time.",
+                  "right": true
+                },
+                {
+                  "text": "500 is more honest, because the server did not work at all.",
+                  "right": false
+                },
+                {
+                  "text": "500 is the standard code for any planned downtime.",
+                  "right": false
+                }
+              ],
+              "explanation": "503 says the server is not ready, often because of maintenance, and Retry-After can show when to come back. The cost is that you must remember to add the header.",
+              "skills": [
+                3
+              ],
+              "hash": "c19f0d3ba9302c07"
+            }
+          ],
           "moves": [
             {
               "id": "status-code.success",
               "name": "Success (2xx)",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "A 2xx code means the request succeeded. But what success means depends on the HTTP method. For a GET, 200 OK means the resource was fetched and sent in the message body."
+                  },
+                  {
+                    "text": "When a request creates something, a more exact code exists. 201 Created means the request succeeded and a new resource was created. A server typically sends it after a POST request, or after some PUT requests."
+                  },
+                  {
+                    "text": "Example: a sign-up form sends POST /users. The server creates the user and answers 201 Created. Later, GET /users/123 returns 200 OK with the user data.",
+                    "diagram": "sequenceDiagram\n  Browser->>Server: POST /users\n  Server-->>Browser: 201 Created"
+                  }
+                ],
+                "answerScreen": 1,
+                "source": {
+                  "title": "MDN: HTTP response status codes",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status"
+                }
+              },
               "catch": {
                 "question": "Your API creates a new user from a POST request. Which status code fits best?",
                 "choices": [
@@ -604,11 +1105,30 @@
                 "question": "When does a server typically send 201 Created?",
                 "answer": "After a POST, or some PUT requests, that create a new resource."
               },
-              "hash": "de540216e80c743a"
+              "hash": "3d9a503bcf36aadb"
             },
             {
               "id": "status-code.redirect",
               "name": "Redirect (3xx)",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "A redirect response has a status code that starts with 3. It tells the browser that the page it asked for is available at another URL."
+                  },
+                  {
+                    "text": "The new URL is in a Location header on the same response. When a browser gets a redirect, it loads the URL from that header at once. Users rarely notice it."
+                  },
+                  {
+                    "text": "Example: an old page moved. The server answers 301 Moved Permanently with Location: https://example.com/new-page. The browser then opens the new page. 301 and 308 are permanent. 302, 303, and 307 are temporary.",
+                    "diagram": "sequenceDiagram\n  Browser->>Server: GET /old-page\n  Server-->>Browser: 301 and Location header\n  Browser->>Server: GET /new-page"
+                  }
+                ],
+                "answerScreen": 1,
+                "source": {
+                  "title": "MDN: Redirections in HTTP",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Redirections"
+                }
+              },
               "catch": {
                 "question": "How does the browser know where to go after a 301 response?",
                 "choices": [
@@ -632,11 +1152,29 @@
                 "question": "Which two redirect codes are permanent?",
                 "answer": "301 and 308. Search engines then update the old URL."
               },
-              "hash": "b4885087c8750895"
+              "hash": "ea4c58d9a95084ff"
             },
             {
               "id": "status-code.client-error",
               "name": "Client error (4xx)",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "Codes from 400 to 499 are client errors. Three of them are easy to mix up: 401, 403, and 404. Start with 404 Not Found. It means the server cannot find the resource."
+                  },
+                  {
+                    "text": "401 Unauthorized really means unauthenticated. The client must prove who it is. Example: a visitor who is not logged in asks for GET /account and gets 401."
+                  },
+                  {
+                    "text": "403 Forbidden means the client has no access rights. Unlike 401, the server already knows who the client is, but it refuses to give the resource. Example: a normal customer asks for GET /admin and gets 403."
+                  }
+                ],
+                "answerScreen": 2,
+                "source": {
+                  "title": "MDN: HTTP response status codes",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status"
+                }
+              },
               "catch": {
                 "question": "A logged-in customer opens another customer's invoice. The server knows who they are, but blocks them. Which code fits?",
                 "choices": [
@@ -660,11 +1198,30 @@
                 "question": "What is the difference between 401 and 403?",
                 "answer": "With 401, the client must authenticate first. With 403, the server knows the client, but it has no access."
               },
-              "hash": "9007ca07fa997858"
+              "hash": "b0e7205dee5c86f9"
             },
             {
               "id": "status-code.server-error",
               "name": "Server error (5xx)",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "Codes from 500 to 599 are server errors. 500 Internal Server Error is generic. The server sends it when it cannot find a more appropriate 5xx code."
+                  },
+                  {
+                    "text": "502 Bad Gateway is more exact. It means a server that works as a gateway got an invalid response while it handled your request.",
+                    "diagram": "sequenceDiagram\n  Browser->>Gateway: GET /shop\n  Gateway->>App: GET /shop\n  App-->>Gateway: invalid response\n  Gateway-->>Browser: 502 Bad Gateway"
+                  },
+                  {
+                    "text": "503 Service Unavailable means the server is not ready. Common causes are maintenance or overload. Use it for temporary conditions. The server can add a Retry-After header with the expected recovery time."
+                  }
+                ],
+                "answerScreen": 1,
+                "source": {
+                  "title": "MDN: HTTP response status codes",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status"
+                }
+              },
               "catch": {
                 "question": "Your shop sits behind a gateway. The gateway gets an invalid response from your app server. Which code fits?",
                 "choices": [
@@ -688,15 +1245,34 @@
                 "question": "Which server error code fits a temporary condition, like maintenance?",
                 "answer": "503 Service Unavailable."
               },
-              "hash": "98166d13b44ef2e4"
+              "hash": "0b2be27609d53b33"
             }
           ],
-          "hash": "f9604cdc5525d003"
+          "hash": "8cb9aa2a38242026"
         },
         {
           "id": "content-type",
           "name": "Content type",
           "sprite": 4,
+          "lesson": {
+            "screens": [
+              {
+                "text": "The Content-Type header gives the media type of a resource. In a response, it tells the client the type of the returned data. Example: Content-Type: text/html; charset=utf-8."
+              },
+              {
+                "text": "Requests use it too. In a POST or a PUT, the client uses Content-Type to name the type of content it sends. A file upload can send multipart/form-data.",
+                "diagram": "sequenceDiagram\n  Client->>Server: POST with Content-Type multipart/form-data\n  Server-->>Client: Response with Content-Type text/html"
+              },
+              {
+                "text": "A strict server may answer with a 415 client error if it dislikes the type. Browsers may ignore the value if they do MIME sniffing. X-Content-Type-Options: nosniff stops that."
+              }
+            ],
+            "answerScreen": 1,
+            "source": {
+              "title": "MDN: Content-Type header",
+              "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Type"
+            }
+          },
           "catch": {
             "question": "In a POST request, what does the Content-Type header describe?",
             "choices": [
@@ -729,10 +1305,89 @@
             ],
             "answer": "Send Content-Type: application/json with the JSON body."
           },
+          "tradeOff": {
+            "id": "content-type.trade-off.stop-sniffing",
+            "situation": "Your site serves files that users upload. A security review asks that browsers must not guess the type of those files.",
+            "options": [
+              "Send the right Content-Type and add X-Content-Type-Options: nosniff",
+              "Rely on the file extension, because browsers check it",
+              "Send no Content-Type, because browsers always guess the right type"
+            ],
+            "rightOption": 0,
+            "reasons": [
+              {
+                "text": "Browsers use the file extension, so the header does not matter.",
+                "right": false
+              },
+              {
+                "text": "The nosniff value stops MIME sniffing, so browsers follow the type that you declare.",
+                "right": true
+              },
+              {
+                "text": "Sniffing always finds the correct type, so a header is extra work.",
+                "right": false
+              }
+            ],
+            "explanation": "A correct Content-Type plus nosniff makes browsers follow the type you declare. The cost is that you must send the right type for every file.",
+            "skills": [
+              3,
+              12
+            ],
+            "hash": "f5bedd39689b31c9"
+          },
+          "decisionCards": [
+            {
+              "id": "content-type.decision.wrong-type",
+              "situation": "A client sends a JSON body to your API, but its Content-Type says text/plain. You can accept it or refuse it.",
+              "options": [
+                "Accept it and guess that the body is JSON",
+                "Answer 415 and ask for the right type"
+              ],
+              "rightOption": 1,
+              "reasons": [
+                {
+                  "text": "Guessing is friendlier, because the body always shows its true type.",
+                  "right": false
+                },
+                {
+                  "text": "A 415 is a server error, so it hurts your uptime.",
+                  "right": false
+                },
+                {
+                  "text": "A strict server may answer with a 415 client error when the type is wrong.",
+                  "right": true
+                }
+              ],
+              "explanation": "A strict server may return 415, so the client learns the header is wrong. The cost is that some careless clients will fail until they fix the header.",
+              "skills": [
+                3
+              ],
+              "hash": "e53da9703a38067f"
+            }
+          ],
           "moves": [
             {
               "id": "content-type.mime-type",
               "name": "MIME type",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "A MIME type, or media type, says the nature and format of a file. It has a type and a subtype, with a slash between and no spaces. Example: text/html."
+                  },
+                  {
+                    "text": "Browsers use the MIME type, not the file extension, to decide how to process a URL. The server sends the MIME type in the Content-Type header, so the header must be correct.",
+                    "diagram": "sequenceDiagram\n  Browser->>Server: GET styles.css\n  Server-->>Browser: Content-Type text/plain"
+                  },
+                  {
+                    "text": "CSS files must be sent as text/css. A browser can load a CSS file from a link element. If it is text/plain, the browser does not treat it as CSS. So styles.css sent as text/plain does not style the page."
+                  }
+                ],
+                "answerScreen": 2,
+                "source": {
+                  "title": "MDN: MIME types",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/MIME_types"
+                }
+              },
               "catch": {
                 "question": "Your server sends styles.css with Content-Type: text/plain. What do most browsers do?",
                 "choices": [
@@ -756,11 +1411,30 @@
                 "question": "What does a browser use to decide how to handle a file?",
                 "answer": "The MIME type in the Content-Type header, not the file extension."
               },
-              "hash": "44964f5420972cf8"
+              "hash": "dfe5854240460308"
             },
             {
               "id": "content-type.negotiation",
               "name": "Content negotiation",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "Content negotiation is how a client and a server agree on a content type. The client makes proposals. The server uses content negotiation to select one of them."
+                  },
+                  {
+                    "text": "The proposals go in the Accept request header. It lists the MIME types that the client can understand. A weight written ;q= shows the order of preference. image/* means any image type."
+                  },
+                  {
+                    "text": "The server tells the client its choice in the Content-Type response header. Example: a browser sends Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8. The server can answer with Content-Type: text/html.",
+                    "diagram": "sequenceDiagram\n  Browser->>Server: Accept lists text/html first\n  Server-->>Browser: Content-Type text/html"
+                  }
+                ],
+                "answerScreen": 1,
+                "source": {
+                  "title": "MDN: Accept header",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Accept"
+                }
+              },
               "catch": {
                 "question": "Which request header tells the server which media types the client can understand?",
                 "choices": [
@@ -784,15 +1458,34 @@
                 "question": "After content negotiation, which header tells the client what the server chose?",
                 "answer": "The Content-Type response header."
               },
-              "hash": "44e5f62655a31807"
+              "hash": "405d3b03145b567b"
             }
           ],
-          "hash": "54acaf0ec3813931"
+          "hash": "42bfc47fdfbed11a"
         },
         {
           "id": "stateless-http",
           "name": "Stateless HTTP",
           "sprite": 10,
+          "lesson": {
+            "screens": [
+              {
+                "text": "Think of a shopping basket. You add a shoe with one request. Then you open the basket page with a second request. Does the server link these two requests?",
+                "diagram": "sequenceDiagram\n  Browser->>Server: Request 1 add a shoe\n  Server-->>Browser: Answer 1\n  Browser->>Server: Request 2 open the basket\n  Server-->>Browser: Answer 2"
+              },
+              {
+                "text": "HTTP is stateless. There is no link between two requests that follow each other. This is true even on the same connection. Each request stands alone."
+              },
+              {
+                "text": "This is a problem for pages like shopping baskets. But HTTP is not sessionless. Cookies are added to the workflow. They let requests share the same context. A cookie is what links your two requests."
+              }
+            ],
+            "answerScreen": 1,
+            "source": {
+              "title": "MDN: An overview of HTTP",
+              "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Overview"
+            }
+          },
           "catch": {
             "question": "Your browser sends two requests on the same connection. What does HTTP itself link between them?",
             "choices": [
@@ -825,10 +1518,89 @@
             ],
             "answer": "Set a cookie with a session id. The browser sends it back with each request."
           },
+          "tradeOff": {
+            "id": "stateless-http.trade-off.basket-state",
+            "situation": "A customer adds items to the basket, but the next page shows an empty basket. A teammate wants to fix it at the connection level.",
+            "options": [
+              "Keep one open connection for each customer",
+              "Switch to HTTP/2, because it sends messages over one connection",
+              "Use a cookie that links each request to the basket state on the server"
+            ],
+            "rightOption": 2,
+            "reasons": [
+              {
+                "text": "Cookies add a session through headers, so each request shares the same state.",
+                "right": true
+              },
+              {
+                "text": "A shared connection links requests, so a longer connection is enough.",
+                "right": false
+              },
+              {
+                "text": "HTTP/2 makes HTTP stateful, so an upgrade removes the need for sessions.",
+                "right": false
+              }
+            ],
+            "explanation": "Cookies use header extensibility, so each request carries the context that links it to the basket on the server. The cost is that the server must keep and look up that state.",
+            "skills": [
+              3,
+              11
+            ],
+            "hash": "467887bd05271b5f"
+          },
+          "decisionCards": [
+            {
+              "id": "stateless-http.decision.identify-user",
+              "situation": "Your server must know which user sent each request. A teammate says the open connection is enough.",
+              "options": [
+                "Send a session cookie with every request",
+                "Trust the open connection to identify the user"
+              ],
+              "rightOption": 0,
+              "reasons": [
+                {
+                  "text": "A shared connection links requests, so the server already knows the user.",
+                  "right": false
+                },
+                {
+                  "text": "A cookie travels in headers with each request, so requests share the same state.",
+                  "right": true
+                },
+                {
+                  "text": "HTTP keeps state, but only over HTTPS.",
+                  "right": false
+                }
+              ],
+              "explanation": "HTTP has no link between requests, even on one connection, so a cookie must add the link. The cost is that the server must store the state for each session.",
+              "skills": [
+                3,
+                12
+              ],
+              "hash": "59891502079d4ca8"
+            }
+          ],
           "moves": [
             {
               "id": "stateless-http.no-memory",
               "name": "No link between requests",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "A browser can send many requests over one connection. Many people think the connection links them. The next screen shows if that is true."
+                  },
+                  {
+                    "text": "HTTP is stateless. There is no link between two requests that follow each other on the same connection. HTTP does not link a request to the request before it."
+                  },
+                  {
+                    "text": "Example: a request for GET /cart does not say who you are. HTTP alone cannot tell that two requests belong together. This makes pages like shopping baskets hard to build."
+                  }
+                ],
+                "answerScreen": 1,
+                "source": {
+                  "title": "MDN: An overview of HTTP",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Overview"
+                }
+              },
               "catch": {
                 "question": "Which statement about HTTP is true?",
                 "choices": [
@@ -852,11 +1624,30 @@
                 "question": "Does sharing one TCP connection link two HTTP requests?",
                 "answer": "No. HTTP has no link between two requests, even on the same connection."
               },
-              "hash": "236c6bd4291c165c"
+              "hash": "339005640ec3a964"
             },
             {
               "id": "stateless-http.session",
               "name": "Session on top of HTTP",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "The core of HTTP is stateless. But HTTP is not sessionless. A site can still keep a session, for example for a shopping basket."
+                  },
+                  {
+                    "text": "HTTP can get new headers. This is header extensibility. HTTP cookies use it. They are added to the workflow, so each request shares the same context, or the same state.",
+                    "diagram": "sequenceDiagram\n  Browser->>Server: Request with a Cookie header\n  Server-->>Browser: Basket for that session"
+                  },
+                  {
+                    "text": "So cookies link requests with the state of the server. This creates sessions, even though basic HTTP is stateless. That is why a basket can stay full from page to page."
+                  }
+                ],
+                "answerScreen": 1,
+                "source": {
+                  "title": "MDN: An overview of HTTP",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Overview"
+                }
+              },
               "catch": {
                 "question": "HTTP is stateless. How do sites still keep you logged in across pages?",
                 "choices": [
@@ -880,15 +1671,34 @@
                 "question": "What adds a session on top of stateless HTTP?",
                 "answer": "HTTP cookies. They travel in headers, so requests can share the same state."
               },
-              "hash": "21691f3861ce207d"
+              "hash": "f379f2f11808a8f4"
             }
           ],
-          "hash": "66e85e17e240fe67"
+          "hash": "8255d83bb4212674"
         },
         {
           "id": "cookie",
           "name": "Cookie",
           "sprite": 21,
+          "lesson": {
+            "screens": [
+              {
+                "text": "A cookie is a small piece of data. A server sends it to your web browser. Cookies are mainly used for three things: session management, personalization and tracking."
+              },
+              {
+                "text": "The browser may store the cookie. Later, the browser sends the cookie back to the same server with new requests. So the browser holds the cookie between requests."
+              },
+              {
+                "text": "Example: the server answers with Set-Cookie: yummy_cookie=chocolate. The browser stores it. Your next request to that server has Cookie: yummy_cookie=chocolate.",
+                "diagram": "sequenceDiagram\n  Browser->>Server: GET /sample_page.html\n  Server-->>Browser: Set-Cookie yummy_cookie=chocolate\n  Browser->>Server: Cookie yummy_cookie=chocolate"
+              }
+            ],
+            "answerScreen": 1,
+            "source": {
+              "title": "MDN: Using HTTP cookies",
+              "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies"
+            }
+          },
           "catch": {
             "question": "Who stores a cookie and sends it back to the server?",
             "choices": [
@@ -921,10 +1731,89 @@
             ],
             "answer": "Add Max-Age. For example, Max-Age=2592000 keeps the cookie for 30 days."
           },
+          "tradeOff": {
+            "id": "cookie.trade-off.httponly-sign-in",
+            "situation": "Your shop keeps the sign-in status in a cookie. A third-party script runs on your pages, and you do not want it to read that cookie. Your own pages never need to read it.",
+            "options": [
+              "Add the Secure attribute to the cookie",
+              "Add the HttpOnly attribute to the cookie",
+              "Add a short Max-Age to the cookie"
+            ],
+            "rightOption": 1,
+            "reasons": [
+              {
+                "text": "HttpOnly forbids JavaScript from reading the cookie, and the browser still sends it to the server.",
+                "right": true
+              },
+              {
+                "text": "Secure stops JavaScript from reading the cookie when the page uses HTTPS.",
+                "right": false
+              },
+              {
+                "text": "A short Max-Age makes the cookie unreadable for scripts while it lives.",
+                "right": false
+              }
+            ],
+            "explanation": "HttpOnly keeps the cookie out of reach of JavaScript, for example through Document.cookie. The cost is that your own front-end code cannot read the cookie either.",
+            "skills": [
+              3,
+              12
+            ],
+            "hash": "bbc7a4789e8174bc"
+          },
+          "decisionCards": [
+            {
+              "id": "cookie.decision.samesite-widget",
+              "situation": "Your widget runs on other sites. Its cookie must be sent with cross-site requests. You must choose a SameSite value.",
+              "options": [
+                "SameSite=Lax",
+                "SameSite=None, together with Secure"
+              ],
+              "rightOption": 1,
+              "reasons": [
+                {
+                  "text": "Lax sends the cookie with every cross-site request.",
+                  "right": false
+                },
+                {
+                  "text": "SameSite=None works without the Secure attribute.",
+                  "right": false
+                },
+                {
+                  "text": "None sends the cookie with cross-site requests, and it needs Secure.",
+                  "right": true
+                }
+              ],
+              "explanation": "None sends the cookie with both same-site and cross-site requests, and Secure must also be set. The cost is that the cookie has less SameSite protection against cross-site attacks.",
+              "skills": [
+                3,
+                12
+              ],
+              "hash": "56b4b14f47602c0c"
+            }
+          ],
           "moves": [
             {
               "id": "cookie.set-cookie",
               "name": "Set-Cookie and Cookie",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "A server gives a cookie to the browser in the response. It uses the Set-Cookie response header. Each Set-Cookie header sets one separate cookie."
+                  },
+                  {
+                    "text": "One response can have one or more Set-Cookie headers. Example: Set-Cookie: yummy_cookie=chocolate and Set-Cookie: tasty_cookie=strawberry. The browser stores both cookies."
+                  },
+                  {
+                    "text": "When a new request is made, the browser usually sends the stored cookies for the current domain. It uses the Cookie request header. Example: Cookie: yummy_cookie=chocolate; tasty_cookie=strawberry."
+                  }
+                ],
+                "answerScreen": 0,
+                "source": {
+                  "title": "MDN: Using HTTP cookies",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies"
+                }
+              },
               "catch": {
                 "question": "Which header does a server use to give your browser a cookie?",
                 "choices": [
@@ -948,11 +1837,29 @@
                 "question": "Which header carries cookies from the browser to the server?",
                 "answer": "The Cookie request header, for example Cookie: yummy_cookie=chocolate."
               },
-              "hash": "7c5a6dace1832caa"
+              "hash": "3ef87e98bc1441eb"
             },
             {
               "id": "cookie.lifetime",
               "name": "Cookie lifetime",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "A cookie without Expires and without Max-Age is a session cookie. The browser removes it when the session ends. A session ends when the client shuts down."
+                  },
+                  {
+                    "text": "Many browsers have a session restore feature. It saves all tabs and restores them next time. Session cookies are restored too, as if the browser was never closed."
+                  },
+                  {
+                    "text": "A permanent cookie is removed at a date or after a time. Expires sets the date. Max-Age sets the seconds. Example: Max-Age=2592000. If both are set, Max-Age has precedence."
+                  }
+                ],
+                "answerScreen": 0,
+                "source": {
+                  "title": "MDN: Set-Cookie header",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie"
+                }
+              },
               "catch": {
                 "question": "A cookie has no Expires and no Max-Age. When is it deleted?",
                 "choices": [
@@ -966,7 +1873,7 @@
               },
               "card": {
                 "text": "A session cookie has no Expires and no Max-Age attribute. The browser removes it when the session ends, which is when the browser shuts down. Many browsers can restore a session, and then session cookies come back too. A permanent cookie ends at the Expires date, or after Max-Age seconds. Max-Age wins when both are set.",
-                "example": "Set-Cookie: id=a3fWa; Max-Age=2592000 keeps the cookie for 2592000 seconds. Set-Cookie: id=a3fWa; Expires=Thu, 31 Oct 2021 07:28:00 GMT keeps it until that date.",
+                "example": "Set-Cookie: id=a3fWa; Max-Age=2592000 keeps the cookie for 2592000 seconds. Set-Cookie: id=a3fWa; Expires=Wed, 21 Oct 2015 07:28:00 GMT keeps it until that date.",
                 "source": {
                   "title": "MDN: Set-Cookie header",
                   "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie"
@@ -976,11 +1883,29 @@
                 "question": "Expires and Max-Age are both set. Which one wins?",
                 "answer": "Max-Age. It has precedence over Expires."
               },
-              "hash": "f53a1c8873b8dc5b"
+              "hash": "1d41bb31f90a9cbe"
             },
             {
               "id": "cookie.secure-httponly",
               "name": "Secure and HttpOnly",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "The Secure attribute limits how a cookie is sent. The browser sends the cookie only with an encrypted HTTPS request. It never sends it with plain HTTP. Localhost is an exception, but Safari does not support that."
+                  },
+                  {
+                    "text": "The HttpOnly attribute limits who can read a cookie. JavaScript cannot access the cookie, for example through Document.cookie."
+                  },
+                  {
+                    "text": "Example: Set-Cookie: id=a3fWa; Expires=Thu, 21 Oct 2021 07:28:00 GMT; Secure; HttpOnly. This cookie goes only over HTTPS, and scripts cannot read it. HttpOnly helps against cross-site scripting attacks."
+                  }
+                ],
+                "answerScreen": 1,
+                "source": {
+                  "title": "MDN: Using HTTP cookies",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies"
+                }
+              },
               "catch": {
                 "question": "What does the HttpOnly attribute do?",
                 "choices": [
@@ -1004,11 +1929,29 @@
                 "question": "What does the Secure attribute do?",
                 "answer": "The cookie is only sent with HTTPS requests, never with plain HTTP. Localhost is the one exception."
               },
-              "hash": "9c01e039fdbccba2"
+              "hash": "4561db45a31a2413"
             },
             {
               "id": "cookie.samesite",
               "name": "SameSite",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "SameSite tells the browser when to send a cookie with cross-site requests. Strict sends it only for requests from the site that set it. Lax also sends it when the user navigates to that site from another site."
+                  },
+                  {
+                    "text": "None sends the cookie with both same-site and cross-site requests. When you set SameSite=None, the Secure attribute must also be set. Without SameSite, some browsers treat the cookie as Lax."
+                  },
+                  {
+                    "text": "Example: a widget used on other sites sets Set-Cookie: widget_session=xyz789; SameSite=None; Secure. A shop cart cookie can use SameSite=Strict instead."
+                  }
+                ],
+                "answerScreen": 1,
+                "source": {
+                  "title": "MDN: Set-Cookie header",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie"
+                }
+              },
               "catch": {
                 "question": "You set SameSite=None on a cookie. What must the cookie also have?",
                 "choices": [
@@ -1032,15 +1975,34 @@
                 "question": "Which SameSite value sends a cookie only with requests from the site that set it?",
                 "answer": "Strict."
               },
-              "hash": "5d9d3b9e8f42594f"
+              "hash": "b30f91a3d5f20d2f"
             }
           ],
-          "hash": "b5a1b01018a1a41a"
+          "hash": "a7684c5dba1dcf3a"
         },
         {
           "id": "proxy",
           "name": "Proxy",
           "sprite": 31,
+          "lesson": {
+            "screens": [
+              {
+                "text": "Many machines relay HTTP messages between your browser and the server. Most of them work at the transport, network or physical level. HTTP does not see them."
+              },
+              {
+                "text": "Machines that work at the application layer are called proxies. A proxy sits between the client and the server and relays HTTP messages. Some proxies pass a request on unchanged. Others change it first.",
+                "diagram": "flowchart LR\n  Browser --> Proxy\n  Proxy --> Server"
+              },
+              {
+                "text": "Proxies can do many jobs: caching, filtering, load balancing, authentication and logging. Example: an antivirus scan on each page is filtering. Storing a history of requests is logging."
+              }
+            ],
+            "answerScreen": 1,
+            "source": {
+              "title": "MDN: An overview of HTTP",
+              "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Overview"
+            }
+          },
           "catch": {
             "question": "What is a proxy in HTTP?",
             "choices": [
@@ -1065,18 +2027,97 @@
             "answer": "A transparent proxy forwards requests unchanged. A non-transparent proxy changes the request before it passes it on."
           },
           "workedExample": {
-            "problem": "Your shop runs behind a load balancer. Your server logs show the same IP address for every customer.",
+            "problem": "Staff in one office load the same shop logo many times a day.",
             "steps": [
-              "The load balancer is a proxy in front of your servers.",
-              "Your server only sees the IP address of the last proxy.",
-              "The X-Forwarded-For request header carries the original client IP address."
+              "A proxy sits between their browsers and the server.",
+              "A caching proxy keeps a copy of the logo.",
+              "Later requests get the copy, so the server sends less."
             ],
-            "answer": "Read the client IP from X-Forwarded-For, for example X-Forwarded-For: 203.0.113.195."
+            "answer": "Use a proxy that caches public files, such as images."
           },
+          "tradeOff": {
+            "id": "proxy.trade-off.reverse-proxy-front",
+            "situation": "Your site runs on three web servers. You want to spread the load and cache pictures, without changing each server.",
+            "options": [
+              "Ask customers to use a different browser",
+              "Let each server cache on its own",
+              "Put a proxy in front of the servers"
+            ],
+            "rightOption": 2,
+            "reasons": [
+              {
+                "text": "Servers spread the load between themselves without help.",
+                "right": false
+              },
+              {
+                "text": "A proxy between clients and servers can balance the load and cache answers.",
+                "right": true
+              },
+              {
+                "text": "The browser decides which server gets each request.",
+                "right": false
+              }
+            ],
+            "explanation": "A proxy in front of the servers can balance the load and cache answers in one place. The cost is one more machine between customers and your servers.",
+            "skills": [
+              3
+            ],
+            "hash": "b22ae2ecaf3a4bb0"
+          },
+          "decisionCards": [
+            {
+              "id": "proxy.decision.client-ip",
+              "situation": "Your company wants to block some websites for its staff.",
+              "options": [
+                "Put a filtering proxy between the staff browsers and the internet",
+                "Ask each website to block your staff"
+              ],
+              "rightOption": 0,
+              "reasons": [
+                {
+                  "text": "Websites must block any company that asks them to.",
+                  "right": false
+                },
+                {
+                  "text": "A filter only works inside each website's own server.",
+                  "right": false
+                },
+                {
+                  "text": "A proxy between browsers and servers can filter the requests.",
+                  "right": true
+                }
+              ],
+              "explanation": "A proxy sees the requests on the way, so it can filter them in one place. The cost is one more machine on every request.",
+              "skills": [
+                3,
+                12
+              ],
+              "hash": "148668ced782c513"
+            }
+          ],
           "moves": [
             {
               "id": "proxy.forward",
               "name": "Forward proxy",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "A forward proxy gives proxy services to a client or to a group of clients. It acts on behalf of clients. It is also called a gateway, or just a proxy."
+                  },
+                  {
+                    "text": "Forward proxies store and forward Internet services, like DNS or web pages. This reduces and controls the bandwidth that the group uses."
+                  },
+                  {
+                    "text": "A forward proxy can also hide your IP address while you browse. Example: all laptops in an office use one forward proxy. The proxy can hide each laptop IP address from web servers.",
+                    "diagram": "flowchart LR\n  Laptops --> ForwardProxy\n  ForwardProxy --> WebServers"
+                  }
+                ],
+                "answerScreen": 0,
+                "source": {
+                  "title": "MDN: Proxy servers and tunneling",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Proxy_servers_and_tunneling"
+                }
+              },
               "catch": {
                 "question": "A forward proxy acts for whom?",
                 "choices": [
@@ -1100,11 +2141,30 @@
                 "question": "Name one reason to use a forward proxy.",
                 "answer": "To reduce and control the bandwidth of a group, or to hide the client's IP address."
               },
-              "hash": "400393f2a5e555f2"
+              "hash": "c2b954402aa307e8"
             },
             {
               "id": "proxy.reverse",
               "name": "Reverse proxy",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "A reverse proxy does the opposite of a forward proxy. A forward proxy acts on behalf of clients and can hide them. A reverse proxy can hide the identity of servers."
+                  },
+                  {
+                    "text": "A reverse proxy is used to control and protect access to a server. One use is load balancing. It distributes the load to several web servers. It can also cache static content and compress content."
+                  },
+                  {
+                    "text": "Example: customers open https://shop.example.com. A reverse proxy sends each request to one of three web servers. The customers do not see which server answered.",
+                    "diagram": "flowchart LR\n  Customers --> ReverseProxy\n  ReverseProxy --> Server1\n  ReverseProxy --> Server2\n  ReverseProxy --> Server3"
+                  }
+                ],
+                "answerScreen": 1,
+                "source": {
+                  "title": "MDN: Proxy servers and tunneling",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Proxy_servers_and_tunneling"
+                }
+              },
               "catch": {
                 "question": "Your site has three web servers behind one public address. What spreads requests between them?",
                 "choices": [
@@ -1128,15 +2188,33 @@
                 "question": "What can a reverse proxy hide?",
                 "answer": "The identity of the servers behind it. A forward proxy hides clients instead."
               },
-              "hash": "7e7b6b4dffb972ea"
+              "hash": "6fc3fbf58865d712"
             }
           ],
-          "hash": "4ea3e17d0b4cbdc2"
+          "hash": "0cd6efc84f6571ae"
         },
         {
           "id": "dns",
           "name": "DNS",
           "sprite": 24,
+          "lesson": {
+            "screens": [
+              {
+                "text": "DNS means Domain Name System. It keeps a list of domain names and the resources linked to them, such as IP addresses."
+              },
+              {
+                "text": "The main job of DNS is to turn a human-friendly domain name into a numeric IP address. This is called a DNS lookup. With the IP address, your browser can talk to the web server."
+              },
+              {
+                "text": "Example: a DNS lookup for mozilla.org can give the IP address 192.0.2.172. A reverse DNS lookup does the opposite. It finds the domain name for an IP address."
+              }
+            ],
+            "answerScreen": 1,
+            "source": {
+              "title": "MDN Glossary: DNS",
+              "url": "https://developer.mozilla.org/en-US/docs/Glossary/DNS"
+            }
+          },
           "catch": {
             "question": "You type shop.example.com. What must be found before your browser can reach the server?",
             "choices": [
@@ -1161,18 +2239,98 @@
             "answer": "Mapping a domain name to its IP address."
           },
           "workedExample": {
-            "problem": "You moved your shop to a new server with a new IP address. Some customers still reach the old server.",
+            "problem": "A visitor types shop.example.com, but computers connect to IP addresses.",
             "steps": [
-              "Each DNS server keeps the data of a domain for some time.",
-              "Then the data expires, and the DNS server fetches fresh data from an authoritative server.",
-              "Until that happens, the DNS server can still give out the old IP address."
+              "The browser asks DNS for the IP address of the name.",
+              "DNS answers with the numeric IP address.",
+              "The browser then connects to that address."
             ],
-            "answer": "Wait for the DNS servers to refresh. Keep the old server running until all traffic reaches the new one."
+            "answer": "DNS turns the domain name into the IP address the browser connects to."
           },
+          "tradeOff": {
+            "id": "dns.trade-off.subdomain-help-site",
+            "situation": "Your shop moves to a new server with a new IP address. Customers still type the same name.",
+            "options": [
+              "Ask customers to type the new IP address",
+              "Change the DNS record to the new IP address",
+              "Give the shop a new domain name"
+            ],
+            "rightOption": 1,
+            "reasons": [
+              {
+                "text": "DNS turns the name into the IP address, so only the record must change.",
+                "right": true
+              },
+              {
+                "text": "People remember IP addresses better than names.",
+                "right": false
+              },
+              {
+                "text": "A new server always needs a new domain name.",
+                "right": false
+              }
+            ],
+            "explanation": "Customers keep the name, and DNS points it to the new address. The cost is that you must update the record and check it.",
+            "skills": [
+              3,
+              19
+            ],
+            "hash": "85a9e89bf57c10d7"
+          },
+          "decisionCards": [
+            {
+              "id": "dns.decision.reverse-lookup",
+              "situation": "Your logs show the IP address 192.0.2.172. You want to know which domain name belongs to it.",
+              "options": [
+                "Do a DNS lookup on the IP address",
+                "Do a reverse DNS lookup on the IP address"
+              ],
+              "rightOption": 1,
+              "reasons": [
+                {
+                  "text": "A normal DNS lookup maps an IP address to its domain name.",
+                  "right": false
+                },
+                {
+                  "text": "A reverse DNS lookup finds the domain name that belongs to an IP address.",
+                  "right": true
+                },
+                {
+                  "text": "A reverse DNS lookup only works for names that your company controls.",
+                  "right": false
+                }
+              ],
+              "explanation": "A reverse DNS lookup is used to find the domain name for an IP address. The cost is that it answers only this reverse question and does not tell you if the web server works.",
+              "skills": [
+                3,
+                11
+              ],
+              "hash": "5bdf00ef800409c2"
+            }
+          ],
           "moves": [
             {
               "id": "dns.lookup",
               "name": "DNS lookup steps",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "You type a domain name in your browser. First, the browser asks your computer if it already knows the IP address. The computer checks its local DNS cache."
+                  },
+                  {
+                    "text": "If the IP address is in the cache, the name becomes the IP address. The browser then talks to the web server. No more steps are needed."
+                  },
+                  {
+                    "text": "If the computer does not know the IP address, it asks a DNS server. A DNS server tells your computer which IP address matches each registered domain name. Then the browser contacts the web server.",
+                    "diagram": "sequenceDiagram\n  Browser->>Computer: IP of mozilla.org?\n  Computer->>DNSServer: Not in cache. Which IP?\n  DNSServer-->>Computer: IP address"
+                  }
+                ],
+                "answerScreen": 0,
+                "source": {
+                  "title": "MDN: What is a domain name?",
+                  "url": "https://developer.mozilla.org/en-US/docs/Learn_web_development/Howto/Web_mechanics/What_is_a_domain_name"
+                }
+              },
               "catch": {
                 "question": "You type example.com. Where does your computer look first for the IP address?",
                 "choices": [
@@ -1196,11 +2354,30 @@
                 "question": "What does a DNS server tell your computer?",
                 "answer": "Which IP address matches a registered domain name."
               },
-              "hash": "0e1e959290e8c992"
+              "hash": "feea4f16f21879d6"
             },
             {
               "id": "dns.domain-name",
               "name": "Parts of a domain name",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "A domain name has parts that are separated by dots. You read them from right to left. The rightmost part is the top-level domain, or TLD."
+                  },
+                  {
+                    "text": "The label right before the TLD is the secondary level domain, or SLD. For a domain you control, you can create subdomains with different content."
+                  },
+                  {
+                    "text": "Example: in developer.mozilla.org, org is the TLD. The label mozilla is the SLD. The label developer is a subdomain.",
+                    "diagram": "flowchart LR\n  org --> mozilla\n  mozilla --> developer"
+                  }
+                ],
+                "answerScreen": 0,
+                "source": {
+                  "title": "MDN: What is a domain name?",
+                  "url": "https://developer.mozilla.org/en-US/docs/Learn_web_development/Howto/Web_mechanics/What_is_a_domain_name"
+                }
+              },
               "catch": {
                 "question": "How do you read the parts of a domain name?",
                 "choices": [
@@ -1224,15 +2401,34 @@
                 "question": "Which label is the secondary level domain (SLD)?",
                 "answer": "The label right before the TLD, like example in shop.example.com."
               },
-              "hash": "1151a484f336ee5b"
+              "hash": "dd76bb71a07a53de"
             }
           ],
-          "hash": "75f6ccb349de1028"
+          "hash": "dbe6d1711e8aab18"
         },
         {
           "id": "http-version",
           "name": "HTTP versions",
           "sprite": 5,
+          "lesson": {
+            "screens": [
+              {
+                "text": "HTTP/1.1 lets you reuse one TCP connection for many requests. But clients still had to wait for each resource to download before asking for the next one. A request line looks like this: GET /logo.png HTTP/1.1."
+              },
+              {
+                "text": "HTTP/2 is a binary protocol, not a text protocol. It sends parallel requests over the same connection. It also compresses headers. HTTP/2 needed no changes to websites. Only an up-to-date server and a recent browser were needed."
+              },
+              {
+                "text": "HTTP/3 has the same semantics as earlier versions of HTTP. It changes the transport layer: it uses QUIC instead of TCP. So the big change across versions is how messages travel over the connection.",
+                "diagram": "flowchart LR\n  Semantics --> TCP\n  Semantics --> QUIC\n  QUIC --> UDP"
+              }
+            ],
+            "answerScreen": 2,
+            "source": {
+              "title": "MDN: Evolution of HTTP",
+              "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Evolution_of_HTTP"
+            }
+          },
           "catch": {
             "question": "What changed most from HTTP/1.1 to HTTP/2 to HTTP/3?",
             "choices": [
@@ -1265,10 +2461,90 @@
             ],
             "answer": "Turn on HTTP/2 or HTTP/3 on your server or reverse proxy. Websites need no changes for HTTP/2."
           },
+          "tradeOff": {
+            "id": "http-version.trade-off.enable-http2",
+            "situation": "Your shop page loads 30 images and feels slow. A teammate wants to rewrite the site to fix it.",
+            "options": [
+              "Rewrite the site code to work in a new way",
+              "Keep HTTP/1.1 and wait for browsers to change",
+              "Turn on HTTP/2 or HTTP/3 on the server"
+            ],
+            "rightOption": 2,
+            "reasons": [
+              {
+                "text": "HTTP/2 only works if the site code sends its files in a new format",
+                "right": false
+              },
+              {
+                "text": "HTTP/2 sends parallel requests over one connection and needs no change to the website",
+                "right": true
+              },
+              {
+                "text": "HTTP/3 replaces the HTTP methods, so the site must be rewritten",
+                "right": false
+              }
+            ],
+            "explanation": "HTTP/2 gives parallel requests over one connection, and the website itself does not change. The cost is that you need an up-to-date server and a recent browser.",
+            "skills": [
+              3,
+              19
+            ],
+            "hash": "f321bc02e8ee47a4"
+          },
+          "decisionCards": [
+            {
+              "id": "http-version.decision.add-http3",
+              "situation": "Many of your users load pages on weak phone networks. With HTTP/2, one lost packet can block all streams.",
+              "options": [
+                "Add HTTP/3 next to HTTP/2",
+                "Stay on HTTP/2 only"
+              ],
+              "rightOption": 0,
+              "reasons": [
+                {
+                  "text": "Packet loss only hurts HTTP/1.1, so HTTP/2 is already safe",
+                  "right": false
+                },
+                {
+                  "text": "HTTP/3 stops packets from getting lost",
+                  "right": false
+                },
+                {
+                  "text": "QUIC handles packet loss for each stream alone, so only one stream waits",
+                  "right": true
+                }
+              ],
+              "explanation": "QUIC runs streams over UDP. It handles packet loss for each stream, so only the stream with data in the lost packet waits. The cost is server work, because HTTP/3 uses QUIC instead of TCP.",
+              "skills": [
+                3,
+                11
+              ],
+              "hash": "4e7fce6841e7963c"
+            }
+          ],
           "moves": [
             {
               "id": "http-version.persistent-connection",
               "name": "Persistent connection",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "In a short-lived connection, each request gets its own connection. So a TCP handshake happens before every request. The TCP handshake is time-consuming. HTTP/1.0 used this model by default."
+                  },
+                  {
+                    "text": "A persistent connection stays open for a period of time. It can be reused for several requests. It is also called a keep-alive connection. Idle connections are still closed after some time.",
+                    "diagram": "sequenceDiagram\n  Browser->>Server: Request 1\n  Server-->>Browser: Response 1\n  Browser->>Server: Request 2 on the same connection\n  Server-->>Browser: Response 2"
+                  },
+                  {
+                    "text": "In HTTP/1.1, persistence is the default. The short-lived model is used only when the Connection header is sent with the value close. For example, a response with Connection: close ends the connection."
+                  }
+                ],
+                "answerScreen": 2,
+                "source": {
+                  "title": "MDN: Connection management in HTTP/1.x",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Connection_management_in_HTTP_1.x"
+                }
+              },
               "catch": {
                 "question": "In HTTP/1.1, when does a connection close right after one response?",
                 "choices": [
@@ -1292,11 +2568,30 @@
                 "question": "What does a persistent connection save you?",
                 "answer": "A new TCP handshake for each request. One connection is reused for several requests."
               },
-              "hash": "7f5a31b8097593b8"
+              "hash": "f9f8c2615b4b190f"
             },
             {
               "id": "http-version.multiplexing",
               "name": "Multiplexing",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "In HTTP/1.1, the connection could be reused. But a client had to wait for each resource to download before it asked for the next one."
+                  },
+                  {
+                    "text": "HTTP/2 is a binary protocol. You cannot read or write it by hand. It also compresses headers, because headers are often similar between requests."
+                  },
+                  {
+                    "text": "HTTP/2 is multiplexed. Parallel requests can be made over the same connection. A browser can ask for style.css, app.js and logo.png at the same time on one connection.",
+                    "diagram": "sequenceDiagram\n  Browser->>Server: GET style.css\n  Browser->>Server: GET app.js\n  Browser->>Server: GET logo.png"
+                  }
+                ],
+                "answerScreen": 2,
+                "source": {
+                  "title": "MDN: Evolution of HTTP",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Evolution_of_HTTP"
+                }
+              },
               "catch": {
                 "question": "What does multiplexing in HTTP/2 mean?",
                 "choices": [
@@ -1320,11 +2615,30 @@
                 "question": "What is head-of-line blocking in HTTP/1.1?",
                 "answer": "The client waits for one resource to download before it asks for the next one."
               },
-              "hash": "a11b2b92d1797eed"
+              "hash": "ed48d268fca487a1"
             },
             {
               "id": "http-version.quic",
               "name": "HTTP/3 and QUIC",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "HTTP/3 has the same semantics as earlier versions of HTTP. The change is in the transport layer. HTTP/2 runs over one single TCP connection."
+                  },
+                  {
+                    "text": "With TCP, packet loss detection and retransmission can block all streams. So one lost packet can stop every request that shares the connection."
+                  },
+                  {
+                    "text": "HTTP/3 uses QUIC instead of TCP. QUIC runs multiple streams over UDP. It handles packet loss for each stream alone. So only the stream with data in the lost packet is blocked.",
+                    "diagram": "flowchart LR\n  HTTP3 --> QUIC\n  QUIC --> UDP"
+                  }
+                ],
+                "answerScreen": 2,
+                "source": {
+                  "title": "MDN: Evolution of HTTP",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Evolution_of_HTTP"
+                }
+              },
               "catch": {
                 "question": "What is the main change in HTTP/3?",
                 "choices": [
@@ -1348,15 +2662,33 @@
                 "question": "Which transport protocol does QUIC run on?",
                 "answer": "UDP. QUIC runs many streams over UDP."
               },
-              "hash": "33fe909e7457ad73"
+              "hash": "5785e045a11295af"
             }
           ],
-          "hash": "bcb2045df6ffdd78"
+          "hash": "6e54a3dd308344d9"
         },
         {
           "id": "tls",
           "name": "TLS",
           "sprite": 41,
+          "lesson": {
+            "screens": [
+              {
+                "text": "Transport Layer Security (TLS) lets a client talk to a server safely across an untrusted network. HTTP secured with TLS is called HTTPS. For example, https://example.com uses TLS."
+              },
+              {
+                "text": "TLS gives encryption: attackers cannot read the data while it travels. It also gives integrity: an attacker cannot secretly change the data without detection."
+              },
+              {
+                "text": "The third protection is authentication. Each side can prove to the other that it is who it claims to be. On the web, usually only the server proves its identity. So TLS hides data, detects changes and proves identity."
+              }
+            ],
+            "answerScreen": 2,
+            "source": {
+              "title": "MDN: Transport Layer Security (TLS)",
+              "url": "https://developer.mozilla.org/en-US/docs/Web/Security/Transport_Layer_Security"
+            }
+          },
           "catch": {
             "question": "HTTPS protects your shop's traffic with TLS. What does TLS give the connection?",
             "choices": [
@@ -1390,10 +2722,91 @@
             ],
             "answer": "Serve every page and every subresource over HTTPS, with a valid certificate."
           },
+          "tradeOff": {
+            "id": "tls.trade-off.https-everywhere",
+            "situation": "Your shop serves only the login page over HTTPS. A teammate says the product pages hold no secrets, so HTTP is fine for them.",
+            "options": [
+              "Use HTTPS for every page and subresource",
+              "Use HTTPS for only the login page",
+              "Use HTTPS for the login and cart pages only"
+            ],
+            "rightOption": 0,
+            "reasons": [
+              {
+                "text": "Only pages with passwords are worth attacking, so other pages can stay on HTTP",
+                "right": false
+              },
+              {
+                "text": "A page without secrets cannot be harmed if an attacker changes it",
+                "right": false
+              },
+              {
+                "text": "A manipulator in the middle can read and change plain HTTP traffic. HTTPS defends against that on every page.",
+                "right": true
+              }
+            ],
+            "explanation": "All pages and subresources should use HTTPS, because HTTPS is the defense against a manipulator in the middle. The cost is that you must set up a certificate and the server configuration.",
+            "skills": [
+              3,
+              12,
+              19
+            ],
+            "hash": "7844aad3c71d61e4"
+          },
+          "decisionCards": [
+            {
+              "id": "tls.decision.retire-old-tls",
+              "situation": "A partner system can only connect with TLS 1.0. Your security review says old TLS versions should go.",
+              "options": [
+                "Keep TLS 1.0 on for the partner",
+                "Turn off TLS 1.0 and ask the partner to update"
+              ],
+              "rightOption": 1,
+              "reasons": [
+                {
+                  "text": "TLS 1.1 and TLS 1.0 should no longer be used. The current version is TLS 1.3.",
+                  "right": true
+                },
+                {
+                  "text": "All TLS versions give the same protection if the certificate is valid",
+                  "right": false
+                },
+                {
+                  "text": "Turning off a version breaks the handshake for every user, so never do it",
+                  "right": false
+                }
+              ],
+              "explanation": "TLS 1.1 and 1.0 should no longer be used, so the server should not allow them. The cost is that the partner cannot connect until it updates.",
+              "skills": [
+                3,
+                12
+              ],
+              "hash": "15e2974f606b206d"
+            }
+          ],
           "moves": [
             {
               "id": "tls.handshake",
               "name": "TLS handshake",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "When a client connects with TLS, it runs a handshake. First, client and server agree on which version of TLS to use."
+                  },
+                  {
+                    "text": "Next, they agree on a cipher suite. It defines the algorithms for key agreement, authentication, encryption and message authentication. The server also proves who it is to the client."
+                  },
+                  {
+                    "text": "The handshake also gives them a secret key. Client and server use that key to encrypt and decrypt messages. So the key is agreed first. Example: a visit to https://example.com/cart.",
+                    "diagram": "flowchart LR\n  Version --> Cipher\n  Cipher --> Identity\n  Identity --> Key\n  Key --> Messages"
+                  }
+                ],
+                "answerScreen": 2,
+                "source": {
+                  "title": "MDN: Transport Layer Security (TLS)",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/Security/Transport_Layer_Security"
+                }
+              },
               "catch": {
                 "question": "When does TLS agree on the secret key for a connection?",
                 "choices": [
@@ -1417,11 +2830,30 @@
                 "question": "After the TLS handshake, which parts of an HTTP message are encrypted?",
                 "answer": "All of it, the HTTP headers as well as the body."
               },
-              "hash": "56cc3bf6fc95a8b5"
+              "hash": "97a92b6329c06c4e"
             },
             {
               "id": "tls.certificate",
               "name": "Certificate",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "Certificate authorities let browsers check who a website is, and then connect securely over TLS, that is, over HTTPS."
+                  },
+                  {
+                    "text": "A certificate authority (CA) is an organization that signs digital certificates. A website certificate names at least the organization, the site and the certificate authority."
+                  },
+                  {
+                    "text": "Browsers come with a list of root certificates. The browser checks that the site certificate was signed by a CA that chains back to a root. A signature from a trusted CA makes it genuine.",
+                    "diagram": "flowchart LR\n  Root --> CA\n  CA --> Certificate"
+                  }
+                ],
+                "answerScreen": 2,
+                "source": {
+                  "title": "MDN: Certificate authority",
+                  "url": "https://developer.mozilla.org/en-US/docs/Glossary/Certificate_authority"
+                }
+              },
               "catch": {
                 "question": "How does a browser know that a certificate for example.com is genuine?",
                 "choices": [
@@ -1445,11 +2877,29 @@
                 "question": "What does a certificate authority do?",
                 "answer": "It signs digital certificates and their public keys. This says the information in them is correct."
               },
-              "hash": "39412cb6947b5c9e"
+              "hash": "e3f525c36319b9ef"
             },
             {
               "id": "tls.version",
               "name": "TLS version",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "In the handshake, client and server agree on a TLS version. Your server configuration decides which TLS versions and algorithms can be used."
+                  },
+                  {
+                    "text": "The current version is TLS 1.3, defined in RFC 8446. It is also the most widely used version. TLS 1.2 is still used by some websites."
+                  },
+                  {
+                    "text": "TLS 1.1 and TLS 1.0 should no longer be used. So a server should not allow these old versions. Allow the current version, TLS 1.3, and turn off TLS 1.0 and TLS 1.1."
+                  }
+                ],
+                "answerScreen": 2,
+                "source": {
+                  "title": "MDN: Transport Layer Security (TLS)",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/Security/Transport_Layer_Security"
+                }
+              },
               "catch": {
                 "question": "Which TLS versions should a web server stop using?",
                 "choices": [
@@ -1473,15 +2923,34 @@
                 "question": "What is the current version of TLS?",
                 "answer": "TLS 1.3, defined in RFC 8446."
               },
-              "hash": "4f8245b6b7ed17de"
+              "hash": "96ed6b82485564e1"
             }
           ],
-          "hash": "0c6b2f3c55b522af"
+          "hash": "855ce4cb30b0ee41"
         },
         {
           "id": "hsts",
           "name": "HSTS",
           "sprite": 1,
+          "lesson": {
+            "screens": [
+              {
+                "text": "The Strict-Transport-Security header tells browsers that a host must be reached only with HTTPS. This is called HSTS. A server must send it over HTTPS only. Browsers ignore it over plain HTTP."
+              },
+              {
+                "text": "On later visits, the browser will not let the user bypass secure connection errors for that host. An invalid certificate is one example of such an error."
+              },
+              {
+                "text": "The browser remembers the header. Later, if the user opens an http URL for that host, the browser upgrades it to https by itself. Example header: Strict-Transport-Security: max-age=31536000.",
+                "diagram": "sequenceDiagram\n  User->>Browser: Opens an http URL\n  Browser->>Server: Asks for the https URL instead"
+              }
+            ],
+            "answerScreen": 2,
+            "source": {
+              "title": "MDN: Strict-Transport-Security header",
+              "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Strict-Transport-Security"
+            }
+          },
           "catch": {
             "question": "A user types http://example.com after an earlier HTTPS visit. What makes the browser go straight to HTTPS?",
             "choices": [
@@ -1509,15 +2978,93 @@
             "problem": "Your shop redirects http://shop.example.com to HTTPS with a 301. An attacker on public Wi-Fi stops that redirect.",
             "steps": [
               "The first HTTP request is not protected, so an attacker can block the upgrade.",
-              "This is called an SSL stripping attack.",
               "Strict-Transport-Security makes the browser use HTTPS directly on later visits."
             ],
             "answer": "Keep the 301 redirect, and send Strict-Transport-Security on every HTTPS response."
           },
+          "tradeOff": {
+            "id": "hsts.trade-off.redirect-and-header",
+            "situation": "Your shop redirects http to https with a 301. Security asks you to add the Strict-Transport-Security header too.",
+            "options": [
+              "Keep only the 301 redirect",
+              "Keep the 301 and send the header on HTTPS responses only",
+              "Send the header on the http redirect response as well"
+            ],
+            "rightOption": 1,
+            "reasons": [
+              {
+                "text": "The host must send the header over HTTPS only. Browsers then upgrade later http requests by themselves.",
+                "right": true
+              },
+              {
+                "text": "A 301 redirect already protects every visit, so the header adds nothing",
+                "right": false
+              },
+              {
+                "text": "The redirect is the first response, so it should carry the header",
+                "right": false
+              }
+            ],
+            "explanation": "The header must come over HTTPS only, and browsers ignore it over HTTP. The cost is that the first http request stays open to attacks until the browser has seen the header.",
+            "skills": [
+              3,
+              12
+            ],
+            "hash": "e013254c6d915251"
+          },
+          "decisionCards": [
+            {
+              "id": "hsts.decision.join-preload",
+              "situation": "You want the first visit to be safe too. Your header today is Strict-Transport-Security: max-age=31536000.",
+              "options": [
+                "Only raise the max-age value",
+                "Add includeSubDomains and preload, and join the preload service"
+              ],
+              "rightOption": 1,
+              "reasons": [
+                {
+                  "text": "A longer max-age protects the first visit",
+                  "right": false
+                },
+                {
+                  "text": "Preloading mitigates the first-visit weakness, because browsers connect to your domain only via secure connections",
+                  "right": true
+                },
+                {
+                  "text": "The includeSubDomains directive alone protects the first visit",
+                  "right": false
+                }
+              ],
+              "explanation": "Preloading mitigates the first-visit weakness. The cost is that includeSubDomains must be present, so every subdomain falls under the policy.",
+              "skills": [
+                3,
+                12
+              ],
+              "hash": "373f9c4df36db070"
+            }
+          ],
           "moves": [
             {
               "id": "hsts.max-age",
               "name": "max-age",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "Look at this header: Strict-Transport-Security: max-age=31536000. The max-age value is a time in seconds. The browser remembers for that long that the host is HTTPS-only. 31536000 seconds is one year."
+                  },
+                  {
+                    "text": "Each time the browser gets the header, it adds max-age to the current time again. So the timer starts over on every response."
+                  },
+                  {
+                    "text": "The optional includeSubDomains directive applies the policy to all subdomains too. To turn HSTS off, send max-age=0. This takes effect only after the browser gets it over HTTPS."
+                  }
+                ],
+                "answerScreen": 0,
+                "source": {
+                  "title": "MDN: Strict-Transport-Security header",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Strict-Transport-Security"
+                }
+              },
               "catch": {
                 "question": "In Strict-Transport-Security, what does max-age=31536000 mean?",
                 "choices": [
@@ -1541,11 +3088,29 @@
                 "question": "How do you turn HSTS off for your host?",
                 "answer": "Send Strict-Transport-Security with max-age=0 over HTTPS. You cannot turn it off over plain HTTP."
               },
-              "hash": "2b5ccb91d983e428"
+              "hash": "cc05a45e763fb85c"
             },
             {
               "id": "hsts.preload",
               "name": "HSTS preload",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "HSTS has one weakness. It does not work until the browser has made one secure connection and received the header. The first http request is open to network attacks."
+                  },
+                  {
+                    "text": "Preloading mitigates this problem. Google maintains an HSTS preload service. After you submit your domain, browsers connect to it only via secure connections."
+                  },
+                  {
+                    "text": "Preload has rules. The max-age must be at least 31536000, which is one year. The includeSubDomains directive must be present. Example: Strict-Transport-Security: max-age=63072000; includeSubDomains; preload."
+                  }
+                ],
+                "answerScreen": 1,
+                "source": {
+                  "title": "MDN: Strict-Transport-Security header",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Strict-Transport-Security"
+                }
+              },
               "catch": {
                 "question": "HSTS only works after one HTTPS visit. What protects the very first visit?",
                 "choices": [
@@ -1569,15 +3134,34 @@
                 "question": "What is the smallest max-age a domain needs for the HSTS preload list?",
                 "answer": "31536000 seconds, which is one year. The header also needs includeSubDomains and preload."
               },
-              "hash": "f9e96aa293300c73"
+              "hash": "f142fa3fd71fb814"
             }
           ],
-          "hash": "d8fc4de1db4b6e2d"
+          "hash": "e4488ef46eece774"
         },
         {
           "id": "mixed-content",
           "name": "Mixed content",
           "sprite": 28,
+          "lesson": {
+            "screens": [
+              {
+                "text": "A page loaded over HTTPS is secure. The browser wants every resource on that page to be secure too. A resource is a script, an image, a style file and so on."
+              },
+              {
+                "text": "Mixed content is a secure page that fetches a resource over HTTP or another insecure protocol. An attacker can read that resource on its way. The attacker may also change it.",
+                "diagram": "flowchart LR\n  A[Secure page] --> B[HTTP resource]\n  B --> C[Attacker can read or change it]"
+              },
+              {
+                "text": "Example: https://shop.example.com loads http://cdn.example.com/logo.png. This is mixed content. The best fix is to serve all content over HTTPS. Use https links or relative links."
+              }
+            ],
+            "answerScreen": 1,
+            "source": {
+              "title": "MDN: Mixed content",
+              "url": "https://developer.mozilla.org/en-US/docs/Web/Security/Mixed_content"
+            }
+          },
           "catch": {
             "question": "Your page loads over HTTPS, but one script loads from an http URL. What is this called?",
             "choices": [
@@ -1610,10 +3194,90 @@
             ],
             "answer": "Change the script URL to https or to a relative link. Do the same for every other http URL."
           },
+          "tradeOff": {
+            "id": "mixed-content.trade-off.fix-http-links",
+            "situation": "Your shop moves to HTTPS. The console lists many http URLs, and the menu script is blocked.",
+            "options": [
+              "Keep the http URLs, because browsers upgrade all mixed content",
+              "Change every http URL to https or a relative link, then check the console",
+              "Keep the http scripts and only fix the images"
+            ],
+            "rightOption": 1,
+            "reasons": [
+              {
+                "text": "Browsers upgrade every kind of mixed content, so nothing needs a change.",
+                "right": false
+              },
+              {
+                "text": "Images are harmless, so only scripts matter.",
+                "right": false
+              },
+              {
+                "text": "The best strategy is to serve all content over HTTPS, so every link must be secure.",
+                "right": true
+              }
+            ],
+            "explanation": "Serving all content over HTTPS removes the risk for scripts and images. It costs time: you must check every link, and each third party needs an https version.",
+            "skills": [
+              3,
+              12
+            ],
+            "hash": "dcb1fe835f659f86"
+          },
+          "decisionCards": [
+            {
+              "id": "mixed-content.decision.blocked-script",
+              "situation": "Your HTTPS page has a script at http://cdn.example.com/menu.js. The browser blocks it and the menu breaks.",
+              "options": [
+                "Tell users to allow mixed content in their browser",
+                "Change the script URL to https or a relative link"
+              ],
+              "rightOption": 1,
+              "reasons": [
+                {
+                  "text": "The browser will upgrade the script to https by itself soon.",
+                  "right": false
+                },
+                {
+                  "text": "A script can change any part of the page, so it must load over HTTPS.",
+                  "right": true
+                },
+                {
+                  "text": "Blocking a script is a browser bug, so users should switch it off.",
+                  "right": false
+                }
+              ],
+              "explanation": "A script can change any part of the page, so you must fix the URL. The cost is a code change and a new deploy.",
+              "skills": [
+                3,
+                12
+              ],
+              "hash": "da3a5bfbb2000e6e"
+            }
+          ],
           "moves": [
             {
               "id": "mixed-content.upgradable",
               "name": "Upgradable content",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "Some mixed content is easy for the browser to repair. The browser has two ways to handle mixed content: upgrade it or block it. This move is about the upgrade."
+                  },
+                  {
+                    "text": "Upgradable content is repaired by the browser. It changes the scheme from http to https by itself. Images, audio and video with a src are in this group.",
+                    "diagram": "flowchart LR\n  A[Page asks for an http image] --> B[Browser upgrades it]\n  B --> C[https request]"
+                  },
+                  {
+                    "text": "Example: your HTTPS page has a video with src http://example.com/demo.mp4. The browser requests https://example.com/demo.mp4. But if the host is an IP address, the browser blocks the request instead."
+                  }
+                ],
+                "answerScreen": 1,
+                "source": {
+                  "title": "MDN: Mixed content",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/Security/Mixed_content"
+                }
+              },
               "catch": {
                 "question": "An HTTPS page has <img src=\"http://example.com/cat.png\">. What should a current browser do?",
                 "choices": [
@@ -1637,11 +3301,30 @@
                 "question": "What does a browser do with upgradable mixed content?",
                 "answer": "It changes the request scheme from http to https automatically."
               },
-              "hash": "c9639e14f508f2bc"
+              "hash": "8af48c99c0e4ae04"
             },
             {
               "id": "mixed-content.blockable",
               "name": "Blockable content",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "Not all mixed content can be upgraded. The browser has no safe automatic repair for some of it. For those requests, it does something else."
+                  },
+                  {
+                    "text": "Blockable content is all mixed content that is not upgradable. The browser blocks the request. Scripts, stylesheets, iframes, fetch and XMLHttpRequest calls are in this group.",
+                    "diagram": "flowchart LR\n  A[HTTPS page] --> B[fetch to an http URL]\n  B --> C[Browser blocks it]"
+                  },
+                  {
+                    "text": "Example: your HTTPS page has a script with src http://example.com/menu.js. The browser blocks the script, so the menu does not work. A fetch to an http URL is blocked in the same way."
+                  }
+                ],
+                "answerScreen": 1,
+                "source": {
+                  "title": "MDN: Mixed content",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/Security/Mixed_content"
+                }
+              },
               "catch": {
                 "question": "An HTTPS page calls fetch(\"http://api.example.com/cart\"). What happens?",
                 "choices": [
@@ -1665,15 +3348,34 @@
                 "question": "Name two kinds of blockable mixed content.",
                 "answer": "For example, a <script> with an http src, and a fetch() call to an http URL."
               },
-              "hash": "fbe93468def52a14"
+              "hash": "c264ea97e4e0cb38"
             }
           ],
-          "hash": "4a88a3b8b2918bad"
+          "hash": "481e31c44470f81e"
         },
         {
           "id": "same-origin-policy",
           "name": "Same-origin policy",
           "sprite": 13,
+          "lesson": {
+            "screens": [
+              {
+                "text": "The same-origin policy limits how a script from one origin can use a resource from another origin. It helps to isolate documents that may be harmful."
+              },
+              {
+                "text": "Cross-origin actions fall in three groups. Writes, like links and form submissions, are typically allowed. Embedding, like images and scripts, is typically allowed. Reads are typically not allowed.",
+                "diagram": "flowchart LR\n  A[Shop script] --> B[Browser]\n  B --> C[Read blocked]"
+              },
+              {
+                "text": "Example: a page on https://shop.example.com shows an image from https://cdn.example.net. This works. But its script cannot read a fetch response from there. The server must use CORS to allow it."
+              }
+            ],
+            "answerScreen": 1,
+            "source": {
+              "title": "MDN: Same-origin policy",
+              "url": "https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy"
+            }
+          },
           "catch": {
             "question": "A script on https://shop.example.com fetches JSON from https://api.example.net. By default, what can the script do?",
             "choices": [
@@ -1706,10 +3408,90 @@
             ],
             "answer": "Let the API allow the app's origin with CORS headers."
           },
+          "tradeOff": {
+            "id": "same-origin-policy.trade-off.private-image",
+            "situation": "Your site serves a private image. You want other sites to learn nothing about it, not even its size.",
+            "options": [
+              "Rely on the same-origin policy alone, because it blocks every cross-origin read",
+              "Send Access-Control-Allow-Origin with a star on the image response",
+              "Make sure other sites cannot embed the image"
+            ],
+            "rightOption": 2,
+            "reasons": [
+              {
+                "text": "Embedding a resource always leaks some information about it, even when reads are blocked.",
+                "right": true
+              },
+              {
+                "text": "The same-origin policy blocks every cross-origin action, including embedding.",
+                "right": false
+              },
+              {
+                "text": "A star in CORS keeps a resource private from other origins.",
+                "right": false
+              }
+            ],
+            "explanation": "Embedding always leaks some information, such as the size of an image, so the policy alone is not enough. The cost is that no other site can show this image.",
+            "skills": [
+              3,
+              12
+            ],
+            "hash": "22b9a882363bc63c"
+          },
+          "decisionCards": [
+            {
+              "id": "same-origin-policy.decision.cross-origin-form",
+              "situation": "A form on https://shop.example.com posts to https://pay.example.net. Do you need CORS for the form to be sent?",
+              "options": [
+                "Yes, the server must send CORS headers first",
+                "No, cross-origin form submissions are typically allowed"
+              ],
+              "rightOption": 1,
+              "reasons": [
+                {
+                  "text": "Every cross-origin request is blocked until the server opts in.",
+                  "right": false
+                },
+                {
+                  "text": "Cross-origin writes, like form submissions, are typically allowed.",
+                  "right": true
+                },
+                {
+                  "text": "Forms are embedding, and embedding is blocked by default.",
+                  "right": false
+                }
+              ],
+              "explanation": "Cross-origin writes such as form submissions are typically allowed. The cost is that a script on the shop page still cannot read the answer without CORS.",
+              "skills": [
+                3,
+                19
+              ],
+              "hash": "3a93dac078e5193a"
+            }
+          ],
           "moves": [
             {
               "id": "same-origin-policy.origin",
               "name": "Origin",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "The browser checks three parts of a URL to decide its origin. These parts are the protocol, the host and the port.",
+                    "diagram": "flowchart LR\n  Protocol --> Host\n  Host --> Port\n  Port --> Origin"
+                  },
+                  {
+                    "text": "Two URLs have the same origin when the protocol, host and port are all equal. The path does not count. For http, the default port is 80."
+                  },
+                  {
+                    "text": "Compare with http://store.example.com/dir/page.html. Same origin: http://store.example.com/dir2/other.html, because only the path changed. Different origin: https at the start, port 81, or the host news.example.com."
+                  }
+                ],
+                "answerScreen": 1,
+                "source": {
+                  "title": "MDN: Same-origin policy",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy"
+                }
+              },
               "catch": {
                 "question": "Which URL has the same origin as http://store.example.com/dir/page.html?",
                 "choices": [
@@ -1733,11 +3515,30 @@
                 "question": "Which three parts of a URL make its origin?",
                 "answer": "The protocol (scheme), the host and the port."
               },
-              "hash": "287cac6b9f316949"
+              "hash": "db1ca509a8c318c2"
             },
             {
               "id": "same-origin-policy.cross-origin-read",
               "name": "Cross-origin read",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "The same-origin policy sorts cross-origin actions into three groups: writes, embedding and reads. The browser treats each group in its own way.",
+                    "diagram": "flowchart LR\n  Write --> Allowed\n  Embed --> Allowed\n  Read --> Blocked"
+                  },
+                  {
+                    "text": "Writes are typically allowed: links, redirects and form submissions. Embedding is typically allowed too: images, scripts, video and iframes."
+                  },
+                  {
+                    "text": "Reads are typically not allowed. A script cannot read a response from another origin. Example: a form on https://shop.example.com posts to https://pay.example.net, which works. A fetch response from there cannot be read."
+                  }
+                ],
+                "answerScreen": 2,
+                "source": {
+                  "title": "MDN: Same-origin policy",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy"
+                }
+              },
               "catch": {
                 "question": "Which cross-origin action does the same-origin policy typically block?",
                 "choices": [
@@ -1761,15 +3562,34 @@
                 "question": "Give one example of a cross-origin write that is typically allowed.",
                 "answer": "A link, a redirect or a form submission to another origin."
               },
-              "hash": "06d2ea61484f1a8a"
+              "hash": "ee2596633392a03a"
             }
           ],
-          "hash": "dedacdef63aa173c"
+          "hash": "31b33c39afc7f22f"
         },
         {
           "id": "cors",
           "name": "CORS",
           "sprite": 27,
+          "lesson": {
+            "screens": [
+              {
+                "text": "By default, fetch and XMLHttpRequest follow the same-origin policy. A script cannot read a response from another origin. The server must allow it."
+              },
+              {
+                "text": "CORS means Cross-Origin Resource Sharing. It is based on HTTP headers. The server tells the browser which other origins may load its resources. So the server must change, not the user."
+              },
+              {
+                "text": "Example: a page on https://foo.example sends a GET to https://bar.other with the header Origin: https://foo.example. The response has Access-Control-Allow-Origin: *. So the page can read it.",
+                "diagram": "sequenceDiagram\n  Browser->>API: GET with an Origin header\n  API-->>Browser: Access-Control-Allow-Origin header"
+              }
+            ],
+            "answerScreen": 1,
+            "source": {
+              "title": "MDN: Cross-Origin Resource Sharing (CORS)",
+              "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS"
+            }
+          },
           "catch": {
             "question": "Your front end on another origin cannot read your API's response. Who must change something to allow it?",
             "choices": [
@@ -1802,10 +3622,88 @@
             ],
             "answer": "Make the API send Access-Control-Allow-Origin: https://shop.example.com. Also send Vary: Origin."
           },
+          "tradeOff": {
+            "id": "cors.trade-off.preflight-cache",
+            "situation": "Your front end sends JSON with PUT to your API many times each minute. Each call starts with a preflight request.",
+            "options": [
+              "Send Access-Control-Max-Age: 86400 on the preflight response",
+              "Change the API so it accepts only GET",
+              "Send Access-Control-Allow-Origin on the real response only"
+            ],
+            "rightOption": 0,
+            "reasons": [
+              {
+                "text": "The browser can keep the preflight answer, so it sends fewer preflight requests.",
+                "right": true
+              },
+              {
+                "text": "With Max-Age the server no longer needs to answer OPTIONS at all.",
+                "right": false
+              },
+              {
+                "text": "Preflight is only needed for old browsers, so you can switch it off.",
+                "right": false
+              }
+            ],
+            "explanation": "Access-Control-Max-Age lets the browser keep the preflight answer, so there are fewer extra requests. The cost is that each browser has its own maximum, so the cache time may be shorter.",
+            "skills": [
+              3,
+              11
+            ],
+            "hash": "f093c675c89524fc"
+          },
+          "decisionCards": [
+            {
+              "id": "cors.decision.cors-error-details",
+              "situation": "Your front end gets a CORS error. The JavaScript code only learns that an error happened.",
+              "options": [
+                "Look in the browser console for the details",
+                "Read the JavaScript error object for the failed header"
+              ],
+              "rightOption": 0,
+              "reasons": [
+                {
+                  "text": "For security, the browser does not give the details to JavaScript.",
+                  "right": true
+                },
+                {
+                  "text": "The JavaScript error object always names the missing header.",
+                  "right": false
+                },
+                {
+                  "text": "The server log always shows the reason the browser gave.",
+                  "right": false
+                }
+              ],
+              "explanation": "The browser hides the details from JavaScript, but the console shows them. The cost is that your code cannot show users the exact cause.",
+              "skills": [
+                11
+              ],
+              "hash": "0e26de36ab011712"
+            }
+          ],
           "moves": [
             {
               "id": "cors.allow-origin",
               "name": "Access-Control-Allow-Origin",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "Access-Control-Allow-Origin says which origin may read a response. The value is one origin, or a star for any origin."
+                  },
+                  {
+                    "text": "If you name one origin, also send Vary: Origin. This tells clients that the response depends on the Origin request header."
+                  },
+                  {
+                    "text": "Example: Access-Control-Allow-Origin: https://mozilla.org together with Vary: Origin. Only pages from https://mozilla.org can read this response. A star works only for requests without credentials."
+                  }
+                ],
+                "answerScreen": 1,
+                "source": {
+                  "title": "MDN: Cross-Origin Resource Sharing (CORS)",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS"
+                }
+              },
               "catch": {
                 "question": "Your API allows only one origin in Access-Control-Allow-Origin. Which other header should it also send?",
                 "choices": [
@@ -1829,11 +3727,29 @@
                 "question": "What does Access-Control-Allow-Origin: * mean?",
                 "answer": "Any origin can read the resource. It only works for requests without credentials."
               },
-              "hash": "f15a5b9f6251c39b"
+              "hash": "ffa31fda7487d1bb"
             },
             {
               "id": "cors.simple-request",
               "name": "Simple request",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "Some cross-origin requests need no preflight. The browser calls them simple requests. The server still must send Access-Control-Allow-Origin so the script can read the response."
+                  },
+                  {
+                    "text": "A simple request uses GET, HEAD or POST. It sets only safelisted headers. Content-Type must be application/x-www-form-urlencoded, multipart/form-data or text/plain."
+                  },
+                  {
+                    "text": "Example: a POST with Content-Type text/plain and no custom headers is simple. A POST with Content-Type application/json is not, so the browser sends a preflight first."
+                  }
+                ],
+                "answerScreen": 1,
+                "source": {
+                  "title": "MDN: Cross-Origin Resource Sharing (CORS)",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS"
+                }
+              },
               "catch": {
                 "question": "Which cross-origin fetch() is a simple request, with no preflight?",
                 "choices": [
@@ -1857,11 +3773,30 @@
                 "question": "Which three methods can a simple request use?",
                 "answer": "GET, HEAD and POST."
               },
-              "hash": "41e16a63058f57ba"
+              "hash": "d3e033701b878f11"
             },
             {
               "id": "cors.preflight",
               "name": "Preflight request",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "Before a request that is not simple, the browser asks first. A PUT is one example. This first request is called a preflight. It checks if the real request is safe to send."
+                  },
+                  {
+                    "text": "The preflight uses the OPTIONS method. It names the real method in Access-Control-Request-Method. The server answers with Access-Control-Allow-Methods and Access-Control-Allow-Headers."
+                  },
+                  {
+                    "text": "Example: OPTIONS /doc with Access-Control-Request-Method: POST. The answer is 204 No Content with Access-Control-Allow-Methods: POST, GET, OPTIONS. Access-Control-Max-Age: 86400 lets the browser keep this answer for 24 hours.",
+                    "diagram": "sequenceDiagram\n  Browser->>API: OPTIONS /doc\n  API-->>Browser: 204 No Content\n  Browser->>API: the real request"
+                  }
+                ],
+                "answerScreen": 1,
+                "source": {
+                  "title": "MDN: Cross-Origin Resource Sharing (CORS)",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS"
+                }
+              },
               "catch": {
                 "question": "Before a cross-origin PUT, the browser sends a request first. Which method does that first request use?",
                 "choices": [
@@ -1885,11 +3820,29 @@
                 "question": "In a preflight, which header tells the server the method of the actual request?",
                 "answer": "Access-Control-Request-Method, for example Access-Control-Request-Method: POST."
               },
-              "hash": "41a0527c4d40b781"
+              "hash": "add08ebbe6b5137d"
             },
             {
               "id": "cors.credentials",
               "name": "CORS with credentials",
+              "lesson": {
+                "screens": [
+                  {
+                    "text": "By default, a cross-origin fetch does not send credentials such as cookies. To send them, set credentials to include."
+                  },
+                  {
+                    "text": "Then the server must send Access-Control-Allow-Credentials: true. It must also name one exact origin in Access-Control-Allow-Origin, not a star. Otherwise the browser blocks the response and reports a CORS error."
+                  },
+                  {
+                    "text": "Example: a fetch with credentials include from https://foo.example. The response has Access-Control-Allow-Origin: https://foo.example and Access-Control-Allow-Credentials: true. Now the page can read it. A preflight never carries credentials."
+                  }
+                ],
+                "answerScreen": 1,
+                "source": {
+                  "title": "MDN: Cross-Origin Resource Sharing (CORS)",
+                  "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS"
+                }
+              },
               "catch": {
                 "question": "A cross-origin fetch() uses credentials: \"include\". The response has Access-Control-Allow-Origin: *. What happens?",
                 "choices": [
@@ -1913,10 +3866,10 @@
                 "question": "Which response header must be true for a credentialed cross-origin response?",
                 "answer": "Access-Control-Allow-Credentials: true."
               },
-              "hash": "1392ed5d09fc577b"
+              "hash": "015e8bc5c6a0d751"
             }
           ],
-          "hash": "d3ad578dcb5c32fc"
+          "hash": "2d2d09fcd3cc4cdb"
         }
       ],
       "placement": [
@@ -1934,9 +3887,9 @@
         },
         {
           "creatureId": "http-method",
-          "question": "What does idempotent mean for an HTTP method?",
-          "answer": "Several identical requests have the same intended effect on the server as one request.",
-          "hash": "de527c62aacb53c4"
+          "question": "Which HTTP method asks only to get data?",
+          "answer": "GET. A GET request should only retrieve data.",
+          "hash": "55b838acd05981b9"
         },
         {
           "creatureId": "status-code",
@@ -1964,9 +3917,9 @@
         },
         {
           "creatureId": "proxy",
-          "question": "What is the difference between a forward proxy and a reverse proxy?",
-          "answer": "A forward proxy acts for clients. A reverse proxy sits in front of servers.",
-          "hash": "9d7f39a16a922ac0"
+          "question": "Name two jobs a proxy can do between a client and a server.",
+          "answer": "For example caching and filtering, or load balancing and logging.",
+          "hash": "bed60bca073044bd"
         },
         {
           "creatureId": "dns",
@@ -2383,7 +4336,7 @@
                 {
                   "moveId": "status-code.success",
                   "damage": 2,
-                  "counterattack": "The API sends 201 Created with the new user's URL, but old apps still expect 200."
+                  "counterattack": "The API now sends 201 Created, but old apps still expect 200."
                 },
                 {
                   "moveId": "status-code.redirect",
@@ -2401,11 +4354,11 @@
                   "counterattack": "You resend the POST to get the data, so a second user is created."
                 }
               ],
-              "modelAnswer": "201 Created says the request succeeded and made a new resource. Servers typically send it after POST. Add the new user's URL in the Location header. The cost: old apps that expect 200 must change.",
+              "modelAnswer": "201 Created says the request succeeded and made a new resource. Servers typically send it after POST. The cost: old apps that expect 200 must change.",
               "keyPoints": [
                 "201 Created means a new resource was made.",
                 "It typically answers a POST.",
-                "The Location header can point to the new resource."
+                "Old apps that expect 200 must change."
               ]
             },
             {
@@ -2440,7 +4393,7 @@
               ]
             }
           ],
-          "hash": "db9955b9e988d881"
+          "hash": "9c872cf588e58bea"
         },
         {
           "id": "t01-moved-shop",
@@ -2516,7 +4469,7 @@
                 {
                   "moveId": "status-code.server-error",
                   "damage": 2,
-                  "counterattack": "You check the new server config, find a redirect loop, and roll the change back."
+                  "counterattack": "You check the new server config, find the mistake, and roll the change back."
                 },
                 {
                   "moveId": "status-code.client-error",
@@ -2529,15 +4482,15 @@
                   "counterattack": "You read the error body, but it only says something went wrong."
                 }
               ],
-              "modelAnswer": "5xx codes are server errors, and 500 is the generic one. So look at what changed on the server. A 500 soon after a config change is likely a redirect loop. The cost: you roll the change back.",
+              "modelAnswer": "5xx codes are server errors, and 500 is the generic one. So look first at what changed on the server, like the new redirect config. The cost: you roll the change back while you fix it.",
               "keyPoints": [
                 "5xx means the server failed, not the client.",
                 "500 is a generic server error.",
-                "A 500 after a config change can be a redirect loop."
+                "Check the last change on the server first."
               ]
             }
           ],
-          "hash": "52cd3700ebd3ba9a"
+          "hash": "fd03a1fb31cc5fcf"
         },
         {
           "id": "t01-broken-styles",
@@ -2600,11 +4553,11 @@
                   "counterattack": "You restart the server, but it still rejects the photos."
                 }
               ],
-              "modelAnswer": "In a POST, the Content-Type header says the type of the request body. A strict server answers 415 for a type it does not take. Forms with files use multipart/form-data. The cost: every upload client must send it.",
+              "modelAnswer": "In a POST, the Content-Type header says the type of the request body. Forms with files use multipart/form-data. The cost: every upload client must send it.",
               "keyPoints": [
                 "Content-Type in a request says the body's type.",
-                "415 means the server does not take that type.",
-                "File uploads use multipart/form-data."
+                "A form with files is sent as multipart/form-data.",
+                "Every upload client must send the new type."
               ]
             },
             {
@@ -2639,7 +4592,7 @@
               ]
             }
           ],
-          "hash": "d2e34c3544684bdf"
+          "hash": "1642b714b446f04a"
         },
         {
           "id": "t01-lost-cart",
@@ -2812,7 +4765,7 @@
                 {
                   "moveId": "stateless-http.session",
                   "damage": 2,
-                  "counterattack": "The cookie holds only a session id now, but the server must look up each profile."
+                  "counterattack": "The requests now share one session, but the server must keep the session state."
                 },
                 {
                   "moveId": "cookie.set-cookie",
@@ -2830,15 +4783,15 @@
                   "counterattack": "You tighten SameSite, so users are signed out inside partner sites, and the cookie is still large."
                 }
               ],
-              "modelAnswer": "Cookies go with every request, and one cookie is usually at most 4KB. Keep only a session id in the cookie. The server looks up the profile. The cost: one lookup per request.",
+              "modelAnswer": "HTTP is stateless, but not sessionless. Cookies let requests share the same state, like one session, so keep the profile on the server. The cost: the server keeps the session.",
               "keyPoints": [
-                "Cookies are sent with every request.",
-                "A cookie is usually at most 4KB.",
-                "Store a session id and look up the data on the server."
+                "HTTP itself is stateless.",
+                "Cookies let requests share one session.",
+                "The server keeps the session state."
               ]
             }
           ],
-          "hash": "80318e1b3e541139"
+          "hash": "d010766384b800b6"
         },
         {
           "id": "t01-busy-night",
@@ -3320,7 +5273,7 @@
                   "counterattack": "Plain http visits get a 301 to HTTPS, but each one costs an extra request."
                 }
               ],
-              "modelAnswer": "Listen for plain http requests and answer 301 Moved Permanently to the HTTPS URL. The cost: one extra request on each plain visit. Add HSTS later to skip it.",
+              "modelAnswer": "Listen for plain http requests and answer 301 Moved Permanently to the HTTPS URL. The cost: one extra request on each plain visit.",
               "keyPoints": [
                 "Answer plain http with a 301 to HTTPS.",
                 "The Location header holds the https URL.",
@@ -3328,7 +5281,7 @@
               ]
             }
           ],
-          "hash": "cc04246d701bc8c6"
+          "hash": "04891b5374f0ab5a"
         },
         {
           "id": "t01-new-blog",

@@ -12,7 +12,7 @@ The `fact-check` skill (`.claude/skills/fact-check/SKILL.md`) runs every step be
    npm run fact-check -- list content/towns/t01.json --out <scratchpad>/fc-t01
    ```
 
-   Each `part-N.json` is a list of pages. Each page lists the claims it must support:
+   Each `part-N.json` is a list of pages. The script also saves each page's own words in `pages/page-N.txt`, and the page's `textFile` points to it, so reviewers quote the page and not a summary of it. Each page lists the claims it must support:
    - the Town Intro screens, against the intro's source;
    - for each creature and move: card text and example, catch question with its right answer, review answer, worked example and Lesson screens (with their diagrams);
    - Decision Cards and trade-off questions, against the creature's page;
@@ -30,7 +30,7 @@ The `fact-check` skill (`.claude/skills/fact-check/SKILL.md`) runs every step be
    npm run fact-check -- report content/towns/t01.json <scratchpad>/fc-t01/findings-*.json --verify
    ```
 
-   `--verify` reads every cited page once and checks that each quote is really on it. Reviewers read pages through WebFetch, which can summarise, so a quote can drift from the page's words. The report lists a claim as **check by hand** when it has no page, no finding, no quote, two findings, a quote that backs 3 or more claims, or a quote that is not on the page.
+   `--verify` reads every cited page once and checks that each quote is really on it, in case a reviewer quoted from memory or from a summary. The report lists a claim as **check by hand** when it has no page, no finding, no quote, two findings, a quote that backs 3 or more claims, or a quote that is not on the page.
 
 4. Post the report as a PR comment (`gh pr comment <n> --body-file report.md`). Put a "## Fact check report" section in the PR body with its summary table and the link to that comment (it ends in `#issuecomment-<id>`). The "Content PR" CI check looks for both. The section shape is in `.github/PULL_REQUEST_TEMPLATE/content.md`. A GitHub comment holds at most 65,536 characters; split the supported list if it is longer.
 
@@ -42,16 +42,18 @@ Replace `<part>` and `<findings>` with the two file paths.
 
 ```text
 You are a fact checker for a learning app. Answer in simple English (B1, short sentences).
-Read <part>. It is a JSON list of pages: { url, title, claims: [{ where, text }] }.
+Read <part>. It is a JSON list of pages: { url, title, textFile, claims: [{ where, text }] }.
 
 For each page:
-1. Open the url with WebFetch. Open each page once. If it does not load, try once more.
+1. Read the page's words from its textFile: the script saved the page there. Quote from that text.
+   Only when the textFile is empty or missing, open the url with WebFetch, once.
 2. For each claim of that page, decide:
    - "supported": the page says the same thing. Small simplifications for a beginner are fine.
    - "wrong": the page says something different.
    - "not-on-page": the page does not say it.
 3. Copy a quote from the page: the exact words, at most 40 words, that support the claim or show it is wrong.
-   Give each claim its own quote, the words for that claim. One quote may back at most 2 claims.
+   Give each claim its own quote, the words for that claim. The claims of one item (its card, catch, review and
+   Lesson) may share a quote. One quote may back the claims of at most 2 different items.
    Copy the words as the page has them. You may join two parts of the page with "…".
    Never write a quote from memory. If you cannot find words on the page, leave the quote out.
 4. For "wrong" and "not-on-page", add a note: one sentence on what is wrong and what the page says.

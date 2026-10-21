@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { claimsDiffer, factCheckList, factReportProblem, formatFactCheckReport, quoteOnPage, type Finding } from "./fact-check.ts";
+import { claimsDiffer, factCheckList, factReportProblem, formatFactCheckReport, pageText, quoteOnPage, type Finding } from "./fact-check.ts";
 import { fixtureTown, fixtureTownV2 } from "./fixture-town.ts";
 import { townSchema } from "./schema.ts";
 
@@ -170,6 +170,13 @@ describe("the report never hides a problem", () => {
   });
 });
 
+describe("pageText", () => {
+  it("keeps the words of the main part, one block per line, with no tags, scripts or entities", () => {
+    const html = `<nav>Menu</nav><main><h1>HTTP &amp; you</h1><p>A <code>GET</code> request&nbsp;asks.</p><script>x()</script><ul><li>One</li><li>Two</li></ul></main>`;
+    expect(pageText(html)).toBe("HTTP & you\nA GET request asks.\nOne\nTwo");
+  });
+});
+
 describe("quoteOnPage", () => {
   const page = "<main><p>The <code>max-age</code> directive   says how long a response stays <em>fresh</em>.</p></main>";
 
@@ -183,9 +190,15 @@ describe("quoteOnPage", () => {
     expect(quoteOnPage(list, "Informational responses (100 - 199), Successful responses")).toBe(true);
   });
 
-  it("finds parts joined by an ellipsis, in page order only", () => {
+  it("finds parts joined by an ellipsis, in any order, and only when every part is there", () => {
     expect(quoteOnPage(page, "The max-age directive … stays fresh.")).toBe(true);
-    expect(quoteOnPage(page, "stays fresh ... The max-age directive")).toBe(false);
+    expect(quoteOnPage(page, "stays fresh ... The max-age directive")).toBe(true);
+    expect(quoteOnPage(page, "stays fresh ... The expires directive")).toBe(false);
+  });
+
+  it("does not let short scraps pass as a quote, but lets a short code part sit next to a real phrase", () => {
+    expect(quoteOnPage(page, "The … fresh")).toBe(false);
+    expect(quoteOnPage(page, "says how long a response stays … max-age")).toBe(true);
   });
 
   it("does not find words that are not on the page", () => {
