@@ -191,6 +191,9 @@ describe("review events with Decision Cards and trade-off questions (#109)", () 
       { skill_ids: null },
       { graded_at: "2026-10-18T02:00:00Z" },
       { item_kind: "quiz" },
+      // The id must be <creature>.<item kind>.<name>: the replay finds the creature from it.
+      { item_id: "cache" },
+      { item_id: "cache.trade-off.fresh-prices" },
     ]) {
       expect((await insert(bad)).error?.code, JSON.stringify(bad)).toBe("23514");
     }

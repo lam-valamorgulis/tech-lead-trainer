@@ -1,6 +1,7 @@
 -- Decision Cards and the Stage 3 trade-off question in review (ticket #109, design 6.4, 6.5 and 12.2).
--- Expand only: no old row changes, and every old row stays valid. Old rows are creature and move
--- reviews with every review field filled and every new field empty.
+-- Expand only: it adds columns and loosens checks, and no old row changes. It drops 5 not-null
+-- rules, but the new shape check below still needs those 5 fields on every creature and move row.
+-- So every old row stays valid: every review field filled, every new field empty.
 --
 -- A scored card is a review row of a new item kind:
 --   'decision'  — a Decision Card: 2 options, then a Reason. Its id is <creature>.decision.<name>.
@@ -50,6 +51,8 @@ alter table public.review_events
         and choice_index is not null and choice_correct is not null
         and reason_index is not null and reason_correct is not null and skill_ids is not null
         and shown_at <= graded_at
+        -- The id is <creature>.<item kind>.<name>. The replay finds the creature from it.
+        and item_id ~ ('^[a-z0-9]+(-[a-z0-9]+)*\.' || item_kind || '\.[a-z0-9]+(-[a-z0-9]+)*$')
         -- A Decision Card has 2 options.
         and (item_kind = 'trade-off' or choice_index <= 1)
     end

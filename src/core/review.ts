@@ -82,11 +82,12 @@ export function evolvesTo(state: ReviewState, grade: Grade, gradedDay: LearningD
 }
 
 /**
- * Whether the trade-off question follows this review of a creature (design 6.5): after this grade
- * the creature is at Stage 2 and past the 30-day step. A wrong answer keeps Stage 2, so the question
- * comes again at the next such review.
+ * Whether the trade-off question follows this review of a creature (design 6.5): the learner knew it
+ * (Good or Easy), and after this grade the creature is at Stage 2 and past the 30-day step. A wrong
+ * answer keeps Stage 2, so the question comes again after the next such review.
  */
 export function asksTradeOff(state: ReviewState, grade: Grade, gradedDay: LearningDay): boolean {
+  if (grade !== "good" && grade !== "easy") return false;
   const graded = gradeReview({ step: state.step, gradedDay, grade, dueDay: state.dueDay });
   const stage = stageAfter(state.stage, grade, graded, true);
   return stage === 2 && (graded.dueDay === null || graded.step > STAGE_3_STEP);

@@ -177,7 +177,7 @@ function ReviewCard({
         stage={2}
         sessionId={sessionId}
         outcome={(right) =>
-          right ? `${item.name} is ready to evolve.` : `${item.name} stays at Stage 2. This question comes back at its next review.`
+          right ? `${item.name} is ready to evolve.` : `${item.name} stays at Stage 2. You can try again after its next review.`
         }
         onContinue={(right) => done(right ? [{ name: "evolved", stage: 3 }] : followUps.slice(1))}
       />

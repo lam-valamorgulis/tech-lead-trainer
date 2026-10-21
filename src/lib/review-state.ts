@@ -27,8 +27,8 @@ export type CardRow = {
 };
 
 /** The review rows of creatures and moves, and the scored-card rows, of review_events. */
-export const REVIEW_KINDS = ["creature", "move"];
-export const CARD_KINDS: CardKind[] = ["decision", "trade-off"];
+export const REVIEW_KINDS = ["creature", "move"] as const;
+export const CARD_KINDS = ["decision", "trade-off"] as const satisfies CardKind[];
 
 /** A scored-card row as the rules read it: right means the right option and the right Reason. */
 export function cardRecord(row: CardRow): CardRecord {

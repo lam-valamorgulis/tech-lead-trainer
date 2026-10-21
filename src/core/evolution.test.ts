@@ -182,15 +182,16 @@ describe("Stage 3 with the trade-off question (v1.5, design 6.5)", () => {
       expect(asksTradeOff(onStep(14, 2), "easy", "2026-10-20")).toBe(true);
     });
 
-    it("asks again at the next review after a wrong answer, while past the 30-day step", () => {
+    it("asks again at the next Good or Easy after a wrong answer, while past the 30-day step", () => {
       expect(asksTradeOff(onStep(90, 2), "good", "2026-10-20")).toBe(true);
-      expect(asksTradeOff(onStep(90, 2), "hard", "2026-10-20")).toBe(true);
+      expect(asksTradeOff(onStep(90, 2), "easy", "2026-10-20")).toBe(true);
     });
 
-    it("does not ask before the 30-day step, after an Again back to it, or at Stage 3", () => {
+    it("does not ask before the 30-day step, after Hard or Again, or at Stage 3", () => {
       expect(asksTradeOff(onStep(14, 2), "good", "2026-10-20")).toBe(false);
       expect(asksTradeOff(onStep(30, 2), "hard", "2026-10-20")).toBe(false);
-      expect(asksTradeOff(onStep(90, 2), "again", "2026-10-20")).toBe(false);
+      expect(asksTradeOff(onStep(90, 2), "hard", "2026-10-20")).toBe(false);
+      expect(asksTradeOff(onStep(180, 2), "again", "2026-10-20")).toBe(false);
       expect(asksTradeOff(onStep(30, 3), "good", "2026-10-20")).toBe(false);
     });
   });

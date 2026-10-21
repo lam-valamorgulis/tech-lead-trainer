@@ -3,6 +3,8 @@
 // a failure leaves the database as empty as it was.
 // Relative imports with .ts let `scripts/backup.mjs` run this file in Node.
 import {
+  CARD_KINDS,
+  REVIEW_KINDS,
   reviewStateRows,
   type BattleCheckRow,
   type BattleEndRow,
@@ -101,15 +103,15 @@ async function rebuildFromLog(db: Database, userId: string): Promise<StateRow[]>
     `select item_id, correct, ${learningDayText}, ${occurredAtText} from public.catch_events ${oneUserInTimeOrder}`,
     [userId],
   );
+  // Review cards and scored cards share review_events (#109). Each list reads its own item kinds.
+  const ofKinds = "where user_id = $1 and item_kind = any($2) order by occurred_at, id";
   const reviews = await db.query(
-    `select item_id, ${learningDayText}, grade, rules_version from public.review_events
-      where user_id = $1 and item_kind in ('creature', 'move') order by occurred_at, id`,
-    [userId],
+    `select item_id, ${learningDayText}, grade, rules_version from public.review_events ${ofKinds}`,
+    [userId, REVIEW_KINDS],
   );
   const cards = await db.query(
-    `select item_id, item_kind, ${learningDayText}, choice_correct, reason_correct from public.review_events
-      where user_id = $1 and item_kind in ('decision', 'trade-off') order by occurred_at, id`,
-    [userId],
+    `select item_id, item_kind, ${learningDayText}, choice_correct, reason_correct from public.review_events ${ofKinds}`,
+    [userId, CARD_KINDS],
   );
   const battleTurns = await db.query("select battle_id, move_id from public.battle_turn_events where user_id = $1 order by id", [userId]);
   const battleEnds = await db.query(
