@@ -75,8 +75,7 @@ All text is plain text, as above. Only a `diagram` and a `diff` may have line br
 | Field | On | What it holds | Rules |
 | --- | --- | --- | --- |
 | `lesson` | creature and move | What the learner reads before the catch question (design 6.3) | Exactly 3 `screens`. Each screen has a `text` of at most 50 words and an optional `diagram`. `answerScreen` (0, 1 or 2) is the screen that holds the catch answer. One `source` for the whole Lesson |
-| `sprite` | creature | The species number in the creature art pack | A whole number from 1. Display only: changing it does not change the content hash |
-| `mapNode` | creature | Where the creature sits on the System Map (design 6.2) | One of `browser`, `cdn`, `api`, `cache`, `database`, `queue`, `link`, `layer` |
+| `sprite` | creature | The species number in the creature art pack | A whole number from 1. No two creatures share one, in any town. Display only: changing it does not change the content hash |
 | `tradeOff` | creature | The hard trade-off question for Stage 3 (design 6.5) | 3 `options`, see "Scored cards" below |
 | `decisionCards` | creature | Decision Cards for review (design 6.4) | Each has 2 `options`, see "Scored cards" below |
 
@@ -101,7 +100,7 @@ A Skill id is a fixed number from 1 to 26. The numbers match the list in `resear
 
 ### Battle scenarios
 
-A scenario becomes a **v1.5 scenario** when one of its turns has a `constraint`, `reasons` or `skills`, or when it has a `kind` other than `battle`, or a `reverses`. A v1.5 scenario must follow every rule here.
+A scenario becomes a **v1.5 scenario** when one of its turns has a `constraint`, `reasons` or `skills`, or when it has a `kind` other than `battle`. A v1.5 scenario must follow every rule here.
 
 | Field | On | What it holds | Rules |
 | --- | --- | --- | --- |
@@ -109,8 +108,7 @@ A scenario becomes a **v1.5 scenario** when one of its turns has a `constraint`,
 | `source` | scenario | The real incident or situation the battle comes from (design 7.6) | Required in a v1.5 scenario |
 | `person` | scenario | Who asks in a Meeting Battle | Only in `meeting`, and required there: `client`, `manager` or `cto` |
 | `diff` | scenario | The short diff an AI agent wrote, with one planted problem | Only in `agent-diff`, and required there. May have line breaks |
-| `reverses` | scenario | A Gym twin: the id of a scenario in the same town whose Constraints this one reverses (design 7.5) | Another scenario of the same town |
-| `constraint` | turn | The one-line situation that decides the best move (design 7.2) | Required on every turn. One sentence, at most 20 words |
+| `constraint` | turn | The one-line situation that decides the best move (design 7.2) | Required on every turn. One short line: each sentence at most 20 words |
 | `reasons` | turn | The 3 Reasons the learner picks from before the result | Exactly 3, exactly 1 `right` |
 | `skills` | turn | The Skills the turn trains | 1 or more Skill ids |
 | `label` | move row | The words on the button of a Meeting answer | Only in `meeting`, and required there |

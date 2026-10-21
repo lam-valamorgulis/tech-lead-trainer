@@ -1,6 +1,6 @@
 // Battle rules (design 7, ticket #16). Pure functions: no clock, no database.
 import type { BundledCreature, BundledScenario, BundledTown } from "@/content/bundle";
-import { KEY_POINTS, type BattleTurn } from "../content/schema.ts";
+import { KEY_POINTS, kindOf, type BattleTurn } from "../content/schema.ts";
 import { caughtIds, type CatchRecord } from "./catch.ts";
 import type { LearningDay } from "./day.ts";
 import type { RecheckRecord } from "./review.ts";
@@ -94,7 +94,7 @@ export function readyOffers({
   const ready = town.scenarios.filter(
     (scenario) =>
       !scenario.retired &&
-      (scenario.kind ?? "battle") === "battle" &&
+      kindOf(scenario) === "battle" &&
       [...conceptsOf(scenario)].every((concept) => choices.includes(concept)),
   );
   const plays = (scenario: BundledScenario) => battles.filter((battle) => battle.scenarioId === scenario.id).length;

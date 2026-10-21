@@ -60,7 +60,6 @@
           "id": "cache",
           "name": "Cache",
           "sprite": 12,
-          "mapNode": "cache",
           "lesson": {
             "screens": [
               {
@@ -269,7 +268,6 @@
           "id": "cookie",
           "name": "Cookie",
           "sprite": 7,
-          "mapNode": "browser",
           "lesson": {
             "screens": [
               {
@@ -353,7 +351,6 @@
           "id": "proxy",
           "name": "Proxy",
           "sprite": 30,
-          "mapNode": "cdn",
           "catch": {
             "question": "What sits between the browser and the server and passes requests on?",
             "choices": [
@@ -502,12 +499,12 @@
               "constraint": "The price changes every minute during the sale.",
               "reasons": [
                 {
-                  "text": "A price must never come from an old copy.",
-                  "right": true
-                },
-                {
                   "text": "No store makes every page faster.",
                   "right": false
+                },
+                {
+                  "text": "A price must never come from an old copy.",
+                  "right": true
                 },
                 {
                   "text": "A CDN always has the newest price.",
@@ -547,16 +544,16 @@
               "constraint": "Half the visitors live on another continent.",
               "reasons": [
                 {
-                  "text": "A copy near the visitor cuts the travel time.",
-                  "right": true
-                },
-                {
                   "text": "No store makes far pages faster.",
                   "right": false
                 },
                 {
                   "text": "A cookie makes the page lighter.",
                   "right": false
+                },
+                {
+                  "text": "A copy near the visitor cuts the travel time.",
+                  "right": true
                 }
               ],
               "skills": [
@@ -587,7 +584,7 @@
               ]
             }
           ],
-          "hash": "effb851f4012bee2"
+          "hash": "652f52dba343af77"
         },
         {
           "id": "t99-flash-sale",
@@ -596,7 +593,6 @@
             "title": "Cloudflare: What is a CDN?",
             "url": "https://www.cloudflare.com/learning/cdn/what-is-a-cdn/"
           },
-          "reverses": "t99-sale-day",
           "opponentType": "traffic",
           "problem": "A sale starts at noon. Ten times more people open the shop.",
           "turns": [
@@ -649,12 +645,12 @@
               "constraint": "The price changes every minute during the sale.",
               "reasons": [
                 {
-                  "text": "A price must never come from an old copy.",
-                  "right": true
-                },
-                {
                   "text": "No store makes every page faster.",
                   "right": false
+                },
+                {
+                  "text": "A price must never come from an old copy.",
+                  "right": true
                 },
                 {
                   "text": "A CDN always has the newest price.",
@@ -694,16 +690,16 @@
               "constraint": "Half the visitors live on another continent.",
               "reasons": [
                 {
-                  "text": "A copy near the visitor cuts the travel time.",
-                  "right": true
-                },
-                {
                   "text": "No store makes far pages faster.",
                   "right": false
                 },
                 {
                   "text": "A cookie makes the page lighter.",
                   "right": false
+                },
+                {
+                  "text": "A copy near the visitor cuts the travel time.",
+                  "right": true
                 }
               ],
               "skills": [
@@ -734,7 +730,7 @@
               ]
             }
           ],
-          "hash": "effb851f4012bee2"
+          "hash": "652f52dba343af77"
         },
         {
           "id": "t99-holiday-rush",
@@ -795,12 +791,12 @@
               "constraint": "The price changes every minute during the sale.",
               "reasons": [
                 {
-                  "text": "A price must never come from an old copy.",
-                  "right": true
-                },
-                {
                   "text": "No store makes every page faster.",
                   "right": false
+                },
+                {
+                  "text": "A price must never come from an old copy.",
+                  "right": true
                 },
                 {
                   "text": "A CDN always has the newest price.",
@@ -840,16 +836,16 @@
               "constraint": "Half the visitors live on another continent.",
               "reasons": [
                 {
-                  "text": "A copy near the visitor cuts the travel time.",
-                  "right": true
-                },
-                {
                   "text": "No store makes far pages faster.",
                   "right": false
                 },
                 {
                   "text": "A cookie makes the page lighter.",
                   "right": false
+                },
+                {
+                  "text": "A copy near the visitor cuts the travel time.",
+                  "right": true
                 }
               ],
               "skills": [
@@ -880,7 +876,7 @@
               ]
             }
           ],
-          "hash": "effb851f4012bee2"
+          "hash": "652f52dba343af77"
         },
         {
           "id": "t99-launch-day",
@@ -941,12 +937,12 @@
               "constraint": "The price changes every minute during the sale.",
               "reasons": [
                 {
-                  "text": "A price must never come from an old copy.",
-                  "right": true
-                },
-                {
                   "text": "No store makes every page faster.",
                   "right": false
+                },
+                {
+                  "text": "A price must never come from an old copy.",
+                  "right": true
                 },
                 {
                   "text": "A CDN always has the newest price.",
@@ -986,16 +982,16 @@
               "constraint": "Half the visitors live on another continent.",
               "reasons": [
                 {
-                  "text": "A copy near the visitor cuts the travel time.",
-                  "right": true
-                },
-                {
                   "text": "No store makes far pages faster.",
                   "right": false
                 },
                 {
                   "text": "A cookie makes the page lighter.",
                   "right": false
+                },
+                {
+                  "text": "A copy near the visitor cuts the travel time.",
+                  "right": true
                 }
               ],
               "skills": [
@@ -1026,7 +1022,7 @@
               ]
             }
           ],
-          "hash": "effb851f4012bee2"
+          "hash": "652f52dba343af77"
         },
         {
           "id": "t99-price-drop",
@@ -1087,12 +1083,12 @@
               "constraint": "The price changes every minute during the sale.",
               "reasons": [
                 {
-                  "text": "A price must never come from an old copy.",
-                  "right": true
-                },
-                {
                   "text": "No store makes every page faster.",
                   "right": false
+                },
+                {
+                  "text": "A price must never come from an old copy.",
+                  "right": true
                 },
                 {
                   "text": "A CDN always has the newest price.",
@@ -1132,16 +1128,16 @@
               "constraint": "Half the visitors live on another continent.",
               "reasons": [
                 {
-                  "text": "A copy near the visitor cuts the travel time.",
-                  "right": true
-                },
-                {
                   "text": "No store makes far pages faster.",
                   "right": false
                 },
                 {
                   "text": "A cookie makes the page lighter.",
                   "right": false
+                },
+                {
+                  "text": "A copy near the visitor cuts the travel time.",
+                  "right": true
                 }
               ],
               "skills": [
@@ -1172,7 +1168,7 @@
               ]
             }
           ],
-          "hash": "effb851f4012bee2"
+          "hash": "652f52dba343af77"
         },
         {
           "id": "t99-late-launch",

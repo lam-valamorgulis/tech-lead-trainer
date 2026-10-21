@@ -19,10 +19,21 @@ Give the writer agent these rules:
 - Spread the right choice over all positions. The catch screen shuffles the choices, but the readable PR comments show them in file order.
 - Give every battle turn a `modelAnswer` and exactly 3 `keyPoints` (`content/README.md`). The model answer explains the best move and its cost. Each key point is one short idea a learner can say in their "why". The learner ticks the points they said, so each point must be easy to recognise.
 
+For v1.5 content (design v1.5, `content/README.md` "v1.5 fields"), add these rules:
+
+- **Lesson:** 3 screens, one idea each, at most 50 words. Put one real example in one screen. Use one primary source for the whole Lesson. Add a diagram only when the idea needs one: boxes and arrows, readable on an iPhone. Set `answerScreen` to the screen that holds the catch answer.
+- **Constraint:** one short line that changes which move is best. Two scenarios with the same threat and a different Constraint must have a different best move. A Constraint names a fact (budget, team, deadline, data), never the answer.
+- **Reasons:** 3 per turn and per card, exactly 1 right. Make the 2 wrong Reasons believable: a wrong belief a real engineer has. Spread the right Reason over positions 0, 1 and 2. The app logs a Reason by its position, so after a merge only change the order together with the content.
+- **Decision Card and trade-off question:** a short situation, then 2 options (Decision Card) or 3 options (trade-off question). Spread the right option too. An id never changes: to replace a card, retire it and add a new id.
+- **Skills:** tag each turn and card with the Skill numbers of `research/tech-lead-skills.md`. A number never changes its meaning.
+- **Meeting Battle:** each answer is `answer.<name>` with a `label`. The best answer follows "what good looks like in a meeting" in `research/tech-lead-skills.md`.
+- **Scenario source:** link the real incident or situation (design 7.6). It is fine to make the story shorter, but the link points to the real one.
+
 ## The fact check
 
 - Run one reviewer agent per about 5 creatures. Each reviewer fetches every cited page and checks each card, catch question and review answer against it.
 - Check each battle turn the same way: its move table, its model answer and its 3 key points, against the cited pages of the moves it names.
+- For v1.5 content, also check each Lesson screen, each Constraint and each Reason against its source.
 - A finding must quote the page. In town 1, one finding said "503 is for temporary conditions" was not on the page, and it was. Before you change content for a finding with no quote, check the page yourself.
 - Fix every finding before the merge.
 

@@ -49,6 +49,8 @@ export const skillIdSchema = z
 export const diagramSchema = z.string().trim().min(1);
 
 export const LESSON_SCREENS = 3;
+/** Design 6.3: each Lesson screen has at most 50 words. */
+export const LESSON_SCREEN_WORD_LIMIT = 50;
 
 /** One swipe screen of a Lesson: one idea in at most 50 words, and a diagram when the idea needs one. */
 export const lessonScreenSchema = z.object({ text, diagram: diagramSchema.optional() });
@@ -92,24 +94,16 @@ function choiceCardSchema(options: number, id: z.ZodString) {
 
 const segment = "[a-z0-9]+(-[a-z0-9]+)*";
 
+/** The id of a scored card of a creature: <creature>.<group>.<name>. */
+function cardIdSchema(group: string, example: string, label: string) {
+  return z.string().regex(new RegExp(`^${segment}\\.${group}\\.${segment}$`), `${label} id is <creature>.${group}.<name>, for example ${example}.`);
+}
+
 /** A Decision Card in review: a short situation and 2 options. Its id is <creature>.decision.<name>. */
-export const decisionCardSchema = choiceCardSchema(
-  2,
-  z
-    .string()
-    .regex(new RegExp(`^${segment}\\.decision\\.${segment}$`), "A Decision Card id is <creature>.decision.<name>, for example cache.decision.prices."),
-);
+export const decisionCardSchema = choiceCardSchema(2, cardIdSchema("decision", "cache.decision.prices", "A Decision Card"));
 
 /** The hard trade-off question for Stage 3: 3 options. Its id is <creature>.trade-off.<name>. */
-export const tradeOffSchema = choiceCardSchema(
-  3,
-  z
-    .string()
-    .regex(new RegExp(`^${segment}\\.trade-off\\.${segment}$`), "A trade-off question id is <creature>.trade-off.<name>, for example cache.trade-off.fresh-prices."),
-);
-
-/** Where a creature sits on the System Map (design 6.2). "link" and "layer" are for towns outside the request path. */
-export const SYSTEM_MAP_NODES = ["browser", "cdn", "api", "cache", "database", "queue", "link", "layer"] as const;
+export const tradeOffSchema = choiceCardSchema(3, cardIdSchema("trade-off", "cache.trade-off.fresh-prices", "A trade-off question"));
 
 export const reviewQuestionSchema = z.object({ question: text, answer: text });
 
@@ -135,7 +129,6 @@ export const creatureSchema = z.object({
   retired: z.boolean().optional(),
   /** The species number in the creature art pack. Display only: it is not in the content hash. */
   sprite: z.int().min(1).optional(),
-  mapNode: z.enum(SYSTEM_MAP_NODES).optional(),
   lesson: lessonSchema.optional(),
   catch: catchQuestionSchema,
   card: cardSchema,
@@ -165,7 +158,8 @@ export const scenarioIdSchema = z
  * a Meeting answer is answer.<name>, with its words in the row's label. A review verdict is one of AGENT_VERDICTS.
  */
 export const MEETING_ANSWER_PREFIX = "answer.";
-export const AGENT_VERDICTS = ["verdict.approve", "verdict.ask-for-test", "verdict.block", "verdict.narrow"] as const;
+export const VERDICT_PREFIX = "verdict.";
+export const AGENT_VERDICTS = ["approve", "ask-for-test", "block", "narrow"].map((name) => `${VERDICT_PREFIX}${name}`);
 
 /** One row of a move table: the damage this move does to this threat, and what it costs. */
 export const moveTableRowSchema = z.object({
@@ -200,6 +194,11 @@ export const battleTurnSchema = z.object({
 /** The three kinds of Battle (design 7.1). A scenario with no kind is a normal "battle". */
 export const SCENARIO_KINDS = ["battle", "meeting", "agent-diff"] as const;
 
+/** The kind of a scenario: a scenario with no kind is a normal Battle. */
+export function kindOf(scenario: { kind?: (typeof SCENARIO_KINDS)[number] }): (typeof SCENARIO_KINDS)[number] {
+  return scenario.kind ?? "battle";
+}
+
 /** Who asks the questions in a Meeting Battle. */
 export const MEETING_PEOPLE = ["client", "manager", "cto"] as const;
 
@@ -215,8 +214,6 @@ export const scenarioSchema = z.object({
   diff: z.string().trim().min(1).optional(),
   /** v1.5: the real incident or situation this battle comes from (design 7.6). */
   source: sourceSchema.optional(),
-  /** A Gym twin: the id of the scenario in this town whose Constraints this one reverses (design 7.5). */
-  reverses: scenarioIdSchema.optional(),
   opponentType: z.enum(OPPONENT_TYPES),
   /** Only in a "two-types" town, where it is required: the opponent's second type (#36). */
   secondType: z.enum(OPPONENT_TYPES).optional(),

@@ -90,9 +90,9 @@ describe("buildBundle", () => {
     const v2 = () => townSchema.parse(fixtureTownV2());
     const v1Cache = () => buildBundle([town()]).towns[0].creatures[0];
 
-    it("keeps the hash of a creature and its moves when only the sprite or the System Map node is added", () => {
+    it("keeps the hash of a creature and its moves when only the sprite is added", () => {
       const placed = town();
-      Object.assign(placed.creatures[0], { sprite: 12, mapNode: "cache" });
+      Object.assign(placed.creatures[0], { sprite: 12 });
       const after = buildBundle([placed]).towns[0].creatures[0];
       expect(after.hash).toBe(v1Cache().hash);
       expect(after.moves[0].hash).toBe(v1Cache().moves[0].hash);

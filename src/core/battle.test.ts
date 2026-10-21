@@ -81,6 +81,7 @@ describe("nextBattle", () => {
       .filter((s) => s.kind === undefined)
       .map((s, i) => ({ battleId: `b${i}`, scenarioId: s.id, learningDay: "2026-10-19" }));
     const offer = nextBattle({ town: v2, catches: caught("cache", "proxy"), battles, today: TODAY, committedMinutes: 15 });
+    expect(offer).not.toBeNull();
     expect(offer?.scenario.kind).toBeUndefined();
   });
 

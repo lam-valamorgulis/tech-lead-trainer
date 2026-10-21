@@ -2,7 +2,10 @@ import { bestRow, creatureOf, OPPONENT_HP } from "../core/battle.ts";
 import {
   AGENT_VERDICTS,
   glossarySchema,
+  kindOf,
+  LESSON_SCREEN_WORD_LIMIT,
   MEETING_ANSWER_PREFIX,
+  VERDICT_PREFIX,
   townSchema,
   type BattleTurn,
   type Creature,
@@ -29,15 +32,13 @@ export const CARD_WORD_LIMIT = 150;
 export const SENTENCE_WORD_LIMIT = 20;
 /** Design section 8: 10 placement questions per town. */
 export const PLACEMENT_QUESTIONS = 10;
-/** Design 6.3: each Lesson screen has at most 50 words. */
-export const LESSON_SCREEN_WORD_LIMIT = 50;
 
 /** Fields that hold Mermaid or code. They keep their line breaks and backticks. */
 const CODE_FIELDS = new Set(["diagram", "diff"]);
 /** The first word of a Mermaid diagram: its type. */
 const DIAGRAM_TYPES = ["flowchart", "graph", "sequenceDiagram", "stateDiagram", "stateDiagram-v2", "classDiagram", "erDiagram"];
 /** The first part of a move id that is not a creature: Meeting answers and review verdicts. */
-const RESERVED_CREATURE_IDS = [MEETING_ANSWER_PREFIX.slice(0, -1), "verdict"];
+const RESERVED_CREATURE_IDS = [MEETING_ANSWER_PREFIX, VERDICT_PREFIX].map((prefix) => prefix.slice(0, -1));
 
 /** Returns every problem in the content. An empty list means the content can ship. */
 export function checkContent(input: ContentInput): Problem[] {
@@ -64,9 +65,28 @@ export function checkContent(input: ContentInput): Problem[] {
   if (towns.length < input.towns.length) return problems;
 
   problems.push(...idProblems(towns, input.ledger));
+  problems.push(...spriteProblems(towns));
   for (const town of towns) {
     problems.push(...townProblems(town, towns));
     problems.push(...townPlainTextProblems(town));
+  }
+  return problems;
+}
+
+/** Each concept is its own species (design 9, rule 19), so no two creatures share a sprite, in any town. */
+function spriteProblems(towns: Town[]): Problem[] {
+  const owner = new Map<number, string>();
+  const problems: Problem[] = [];
+  for (const town of towns) {
+    for (const creature of town.creatures) {
+      if (creature.sprite === undefined) continue;
+      const first = owner.get(creature.sprite);
+      if (first) {
+        problems.push({ where: itemLabel(town, creature), message: `Sprite ${creature.sprite} is already used by ${first}. Each creature has its own sprite.` });
+      } else {
+        owner.set(creature.sprite, creature.id);
+      }
+    }
   }
   return problems;
 }
@@ -296,7 +316,7 @@ function moveRowProblems(
   row: BattleTurn["moves"][number],
   moves: Map<string, Move>,
 ): Problem[] {
-  const kind = scenario.kind ?? "battle";
+  const kind = kindOf(scenario);
   const at = `${turnAt}.moves.${index}`;
   const problems: Problem[] = [];
   if (kind === "meeting") {
@@ -309,7 +329,7 @@ function moveRowProblems(
   }
   if (row.label !== undefined) problems.push({ where: `${at}.label`, message: "Only a Meeting answer has a label." });
   if (kind === "agent-diff") {
-    if (!(AGENT_VERDICTS as readonly string[]).includes(row.moveId)) {
+    if (!AGENT_VERDICTS.includes(row.moveId)) {
       problems.push({ where: at, message: `An Agent Diff Battle move is a review verdict: one of ${AGENT_VERDICTS.join(", ")}.` });
     }
     return problems;
@@ -332,7 +352,7 @@ function isV2Turn(turn: BattleTurn): boolean {
  */
 function v2ScenarioProblems(town: Town, scenario: Scenario, allTowns: Town[]): Problem[] {
   const at = `${town.id}.${scenario.id}`;
-  const kind = scenario.kind ?? "battle";
+  const kind = kindOf(scenario);
   const problems: Problem[] = [];
 
   if (kind === "meeting" && scenario.person === undefined) {
@@ -347,14 +367,7 @@ function v2ScenarioProblems(town: Town, scenario: Scenario, allTowns: Town[]): P
   if (kind !== "agent-diff" && scenario.diff !== undefined) {
     problems.push({ where: `${at}.diff`, message: "Only an Agent Diff Battle has a diff." });
   }
-  if (scenario.reverses !== undefined) {
-    const twin = town.scenarios.find((other) => other.id === scenario.reverses);
-    if (!twin || twin.id === scenario.id) {
-      problems.push({ where: `${at}.reverses`, message: `${scenario.reverses} is not another scenario of ${town.id}.` });
-    }
-  }
-
-  const v2 = kind !== "battle" || scenario.reverses !== undefined || scenario.turns.some(isV2Turn);
+  const v2 = kind !== "battle" || scenario.turns.some(isV2Turn);
   if (!v2) return problems;
 
   if (scenario.source === undefined) {
@@ -365,8 +378,6 @@ function v2ScenarioProblems(town: Town, scenario: Scenario, allTowns: Town[]): P
     if (turn.constraint === undefined) {
       problems.push({ where: `${turnAt}.constraint`, message: "Every turn of a v1.5 scenario has one Constraint." });
     } else {
-      const count = sentences(turn.constraint).length;
-      if (count !== 1) problems.push({ where: `${turnAt}.constraint`, message: `A Constraint is one sentence. This has ${count}.` });
       problems.push(...sentenceProblems(`${turnAt}.constraint`, turn.constraint));
     }
     if (turn.reasons === undefined) {
@@ -376,14 +387,18 @@ function v2ScenarioProblems(town: Town, scenario: Scenario, allTowns: Town[]): P
     }
     if (turn.skills === undefined) {
       problems.push({ where: `${turnAt}.skills`, message: "Every turn of a v1.5 scenario names the Skills it trains." });
+    } else {
+      problems.push(...skillProblems(`${turnAt}.skills`, turn.skills));
     }
   });
 
   // From Town 2 on, one turn needs a creature of an earlier town (design 7.5). Only normal Battles use creatures.
   if (kind === "battle" && town.number >= 2) {
-    const townOf = new Map(allTowns.flatMap((t) => t.creatures.map((c) => [c.id, t.number])));
-    const old = scenario.turns.some((turn) => (townOf.get(creatureOf(bestRow(turn).moveId)) ?? town.number) < town.number);
-    if (!old) {
+    const townNumberOfCreature = new Map(allTowns.flatMap((t) => t.creatures.map((c) => [c.id, t.number])));
+    const usesEarlierTown = scenario.turns.some(
+      (turn) => (townNumberOfCreature.get(creatureOf(bestRow(turn).moveId)) ?? town.number) < town.number,
+    );
+    if (!usesEarlierTown) {
       problems.push({ where: at, message: `From Town 2 on, one turn's best move must be a move of a creature from an earlier town.` });
     }
   }
@@ -395,7 +410,12 @@ function reasonProblems(at: string, reasons: Reason[]): Problem[] {
   const right = reasons.filter((reason) => reason.right).length;
   if (right !== 1) problems.push({ where: at, message: `Exactly 1 of the 3 Reasons is right. Here ${right} are.` });
   reasons.forEach((reason, i) => problems.push(...sentenceProblems(`${at}.${i}.text`, reason.text)));
+  problems.push(...sameTextProblems(at, reasons.map((reason) => reason.text), "Reason"));
   return problems;
+}
+
+function skillProblems(at: string, skills: number[]): Problem[] {
+  return new Set(skills).size === skills.length ? [] : [{ where: at, message: "A Skill is named more than once." }];
 }
 
 /** A Lesson: 3 screens of at most 50 words, each with a diagram that Mermaid can name. */
@@ -430,6 +450,8 @@ function scoredCardProblems(town: Town, creature: Creature, card: TradeOff | Dec
   card.options.forEach((option, i) => problems.push(...sentenceProblems(`${at}.options.${i}`, option)));
   problems.push(...sentenceProblems(`${at}.explanation`, card.explanation));
   problems.push(...reasonProblems(`${at}.reasons`, card.reasons));
+  problems.push(...sameTextProblems(`${at}.options`, card.options, "option"));
+  problems.push(...skillProblems(`${at}.skills`, card.skills));
   return problems;
 }
 
@@ -487,12 +509,17 @@ function twistProblems(town: Town, scenario: Scenario): Problem[] {
 // The catch screen checks the answer by its text, so two equal choices would both count as right.
 // Choices that differ only in capital letters or spaces look the same to a learner, so they count as equal.
 function catchChoiceProblems(where: string, choices: string[]): Problem[] {
+  return sameTextProblems(where, choices, "choice");
+}
+
+/** `noun` is one item in the singular, for example "choice". */
+function sameTextProblems(where: string, texts: string[], noun: string): Problem[] {
   const seen = new Set<string>();
   const problems: Problem[] = [];
-  for (const choice of choices) {
-    const key = choice.toLowerCase().split(/\s+/).join(" ");
+  for (const text of texts) {
+    const key = text.toLowerCase().split(/\s+/).join(" ");
     if (seen.has(key)) {
-      problems.push({ where, message: `Two choices are the same: "${choice}". Every choice must be different.` });
+      problems.push({ where, message: `Two ${noun}s are the same: "${text}". Every ${noun} must be different.` });
     }
     seen.add(key);
   }

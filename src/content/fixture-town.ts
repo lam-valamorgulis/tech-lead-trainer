@@ -387,11 +387,12 @@ function fixtureLesson(name: string, answer: string) {
   };
 }
 
-const reasons = (right: string, wrong: [string, string]) => [
-  { text: right, right: true },
-  { text: wrong[0], right: false },
-  { text: wrong[1], right: false },
-];
+/** 3 Reasons with the right one at `at` (0, 1 or 2), so the fixture spreads it like real content. */
+const reasons = (right: string, wrong: [string, string], at = 0) => {
+  const list = wrong.map((text) => ({ text, right: false }));
+  list.splice(at, 0, { text: right, right: true });
+  return list;
+};
 
 /** The v1.5 fields of one fixture turn, in turn order: a Constraint, 3 Reasons and the Skills. */
 const SALE_DAY_V2 = [
@@ -402,20 +403,19 @@ const SALE_DAY_V2 = [
   },
   {
     constraint: "The price changes every minute during the sale.",
-    reasons: reasons("A price must never come from an old copy.", ["No store makes every page faster.", "A CDN always has the newest price."]),
+    reasons: reasons("A price must never come from an old copy.", ["No store makes every page faster.", "A CDN always has the newest price."], 1),
     skills: [3, 10],
   },
   {
     constraint: "Half the visitors live on another continent.",
-    reasons: reasons("A copy near the visitor cuts the travel time.", ["No store makes far pages faster.", "A cookie makes the page lighter."]),
+    reasons: reasons("A copy near the visitor cuts the travel time.", ["No store makes far pages faster.", "A cookie makes the page lighter."], 2),
     skills: [2],
   },
 ];
 
 /**
- * The fixture town with every v1.5 field (#93): a Town Intro, Skills, Lessons, sprites, System
- * Map nodes, a trade-off question, Decision Cards, v1.5 battles, a Gym twin, a Meeting Battle and
- * an Agent Diff Battle. Seam C uses it in place of fixtureTown(), so the app must run with it.
+ * The fixture town with every v1.5 field (#93): a Town Intro, Skills, Lessons, sprites, a
+ * trade-off question, Decision Cards, v1.5 battles, a Meeting Battle and an Agent Diff Battle. Seam C uses it in place of fixtureTown(), so the app must run with it.
  */
 export function fixtureTownV2(): Town {
   const town = fixtureTown();
@@ -426,7 +426,6 @@ export function fixtureTownV2(): Town {
   Object.assign(saleDay, { source: saleSource });
   const [, ...copies] = town.scenarios;
   for (const copy of copies) Object.assign(copy, structuredClone({ turns: saleDay.turns, source: saleSource }));
-  Object.assign(copies[0], { reverses: "t99-sale-day" });
 
   const v2 = {
     ...town,
@@ -441,7 +440,6 @@ export function fixtureTownV2(): Town {
       {
         ...cache,
         sprite: 12,
-        mapNode: "cache",
         lesson: fixtureLesson("Cache", "A cache keeps a copy, so the next visit loads faster."),
         tradeOff: {
           id: "cache.trade-off.fresh-prices",
@@ -465,8 +463,8 @@ export function fixtureTownV2(): Town {
         ],
         moves: cache.moves.map((move) => ({ ...move, lesson: fixtureLesson(move.name, move.catch.explanation) })),
       },
-      { ...cookie, sprite: 7, mapNode: "browser", lesson: fixtureLesson("Cookie", "A cookie is small data the browser sends back.") },
-      { ...proxy, sprite: 30, mapNode: "cdn" },
+      { ...cookie, sprite: 7, lesson: fixtureLesson("Cookie", "A cookie is small data the browser sends back.") },
+      { ...proxy, sprite: 30 },
     ],
     scenarios: [
       ...town.scenarios,

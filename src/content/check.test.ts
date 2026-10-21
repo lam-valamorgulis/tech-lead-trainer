@@ -455,12 +455,20 @@ describe("checkContent for v1.5 content (#93)", () => {
     ]);
   });
 
-  it("fails when a Constraint is more than one sentence", () => {
+  it("accepts a Constraint of two short sentences, as in the design, but not a sentence over 20 words", () => {
     const town = fixtureTownV2();
-    turn(town).constraint = "The logo changes once a year. The team is small.";
+    turn(town).constraint = "Prices change once a day. The team has 2 people.";
+    expect(checkV2(town)).toEqual([]);
+    turn(town).constraint = `${words(21)}.`;
     expect(checkV2(town)).toEqual([
-      { where: "t99.t99-sale-day.turns.0.constraint", message: "A Constraint is one sentence. This has 2." },
+      { where: "t99.t99-sale-day.turns.0.constraint", message: 'A sentence has 21 words. The limit is 20: "word0 word1 word2 …"' },
     ]);
+  });
+
+  it("fails when two creatures share a sprite, also across towns", () => {
+    const town = fixtureTownV2();
+    town.creatures[2].sprite = 12;
+    expect(checkV2(town)).toEqual([{ where: "t99.proxy", message: "Sprite 12 is already used by cache. Each creature has its own sprite." }]);
   });
 
   it("fails when a turn has 2 right Reasons", () => {
@@ -583,12 +591,6 @@ describe("checkContent for v1.5 content (#93)", () => {
     ]);
   });
 
-  it("fails a Gym twin that reverses a scenario not in its town", () => {
-    const town = fixtureTownV2();
-    Object.assign(town.scenarios[1], { reverses: "t99-nowhere" });
-    expect(checkV2(town)).toEqual([{ where: "t99.t99-flash-sale.reverses", message: "t99-nowhere is not another scenario of t99." }]);
-  });
-
   it("fails a Decision Card with a wrong id or 2 right Reasons, and keeps its id in the ledger", () => {
     const town = fixtureTownV2();
     town.creatures[0].decisionCards![0].reasons[2].right = true;
@@ -628,6 +630,16 @@ describe("checkContent for v1.5 content (#93)", () => {
       where: "t99.verdict",
       message: "verdict is kept for Meeting answers and review verdicts. Give the creature another id.",
     });
+  });
+
+  it("fails 2 Reasons with the same text, and a Skill named twice", () => {
+    const town = fixtureTownV2();
+    turn(town).reasons[2].text = turn(town).reasons[1].text;
+    turn(town, 1).skills = [3, 3];
+    expect(checkV2(town)).toEqual([
+      { where: "t99.t99-sale-day.turns.0.reasons", message: `Two Reasons are the same: "${turn(town).reasons[1].text}". Every Reason must be different.` },
+      { where: "t99.t99-sale-day.turns.1.skills", message: "A Skill is named more than once." },
+    ]);
   });
 
   it("fails a town with more than 2 Skills", () => {
