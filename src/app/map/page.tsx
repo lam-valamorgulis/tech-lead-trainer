@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { AuthGate } from "../auth-gate";
-import { useMusic } from "../effects";
-import { SpeakerButton } from "../speaker-button";
+import { SilentModeHint, SpeakerButton } from "../speaker-button";
 import { MapScreen } from "./map-screen";
 
+// The map music plays from the map layout, so it goes on without a break into a town's page.
 export default function MapPage() {
-  useMusic("map");
   return (
     <main className="shell">
       <h1>Map</h1>
@@ -15,6 +14,7 @@ export default function MapPage() {
         {(signedIn) => (
           <>
             <SpeakerButton {...signedIn} />
+            <SilentModeHint />
             <MapScreen programStartDate={signedIn.profile.programStartDate} />
           </>
         )}

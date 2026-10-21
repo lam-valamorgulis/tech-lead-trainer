@@ -94,6 +94,9 @@ test("the Gym: 5 battles in a row, 4 wins give the badge, and the badge shows on
     await page.getByRole("link", { name: "Map" }).click();
     await expect(page.getByRole("heading", { name: "Badges" })).toBeVisible();
     await expect(page.getByRole("listitem").filter({ hasText: "Town 1: Fixture Town" })).toBeVisible();
+    // #111: the town's own page shows its badge too.
+    await page.getByRole("link", { name: /^Town 1 / }).click();
+    await expect(page.getByText(/Badge earned · \d{1,2} \w{3} \d{4}$/)).toBeVisible({ timeout: 15_000 });
   } finally {
     await user.forget();
   }

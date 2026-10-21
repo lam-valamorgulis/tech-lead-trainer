@@ -56,6 +56,10 @@ export default function CreditsPage() {
           <p>Made for this app, in code. No outside sound is used.</p>
         </li>
         <li className="card stack">
+          <h2>Map and town icons</h2>
+          <p>Drawn for this app, in code. No outside art is used.</p>
+        </li>
+        <li className="card stack">
           <h2>Pixel font</h2>
           <p>
             Press Start 2P by CodeMan38, under the{" "}
