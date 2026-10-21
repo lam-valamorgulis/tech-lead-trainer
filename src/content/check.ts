@@ -195,6 +195,13 @@ function townProblems(town: Town, allTowns: Town[]): Problem[] {
       }
     }
     for (const card of scoredCards(creature)) problems.push(...scoredCardProblems(town, creature, card));
+    // A town with Skills is a v1.5 town. Its creatures reach Stage 3 with a trade-off answer (design 6.5).
+    if (town.skills && !creature.retired && (!creature.tradeOff || creature.tradeOff.retired)) {
+      problems.push({
+        where: `${itemLabel(town, creature)}.tradeOff`,
+        message: "A creature of a v1.5 town needs a trade-off question that is not retired, for Stage 3. Edit it in place.",
+      });
+    }
   }
 
   if (town.intro) {

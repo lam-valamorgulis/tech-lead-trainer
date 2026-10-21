@@ -1,7 +1,7 @@
 // Catch rules (design 6, ticket #6). Pure functions: no clock, no database.
 import type { BundledCreature, BundledMove, BundledTown } from "@/content/bundle";
 import type { LearningDay } from "./day.ts";
-import { reviewStates, type ReviewRecord, type Stage } from "./review.ts";
+import { reviewStates, type CardRecord, type ReviewRecord, type Stage } from "./review.ts";
 
 export type ItemKind = "creature" | "move";
 
@@ -101,9 +101,11 @@ export function fieldGuideProgress(
   town: BundledTown,
   records: CatchRecord[],
   reviews: ReviewRecord[],
+  /** The answered scored cards: a right trade-off answer gives Stage 3 (design 6.5). */
+  cards: CardRecord[] = [],
 ): FieldGuideProgress {
   const caught = caughtIds(records);
-  const states = reviewStates(records, reviews);
+  const states = reviewStates(records, reviews, [], cards);
   const seen = new Set(records.map((r) => r.itemId));
   const creatures = town.creatures
     // A retired creature stays in the guide of someone who caught it.

@@ -4,6 +4,7 @@ import type { Creature, CreatureOf } from "../core/week.ts";
 import type { BundledTown, ContentBundle } from "./bundle.ts";
 import type { Boss } from "./weekend.ts";
 import type { Card } from "./schema.ts";
+import { reviewCards, type ScoredCard } from "./scored-cards.ts";
 import generated from "./bundle.generated.json";
 import fixture from "./fixture.generated.json";
 
@@ -71,6 +72,23 @@ for (const town of bundle.towns) {
 /** The review question of a creature or move in any town. Retired items are not reviewed. */
 export function reviewItem(id: string): ReviewItem | undefined {
   return reviewItems.get(id);
+}
+
+export type { ScoredCard };
+
+const { decisionCards: scoredCards, tradeOffs } = reviewCards(bundle.towns);
+
+/** Every Decision Card that review can show: retired cards and the cards of retired creatures are left out. */
+export const decisionCardIds: string[] = [...scoredCards.keys()];
+
+/** A Decision Card by its id, or undefined when it cannot be shown. */
+export function decisionCard(id: string): ScoredCard | undefined {
+  return scoredCards.get(id);
+}
+
+/** The Stage 3 trade-off question of a creature, or undefined when it has none to show. */
+export function tradeOffQuestion(creatureId: string): ScoredCard | undefined {
+  return tradeOffs.get(creatureId);
 }
 
 /** The creature a reviewed item belongs to: the creature itself, or the creature of a move. */

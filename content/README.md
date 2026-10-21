@@ -87,7 +87,7 @@ The app scores these by itself: the learner picks one option, then one Reason.
 
 | Field | Rules |
 | --- | --- |
-| `id` | Never changes, because review stores it. A Decision Card is `<creature>.decision.<name>`, for example `cache.decision.logo`. A trade-off question is `<creature>.trade-off.<name>`, for example `cache.trade-off.fresh-prices`. To replace one, retire it and add one with a new name |
+| `id` | Never changes, because review stores it. A Decision Card is `<creature>.decision.<name>`, for example `cache.decision.logo`. A trade-off question is `<creature>.trade-off.<name>`, for example `cache.trade-off.fresh-prices`. To replace a Decision Card, retire it and add one with a new name. A creature has one trade-off question only, so edit it in place: its id stays and its hash changes. Never retire it: in a town with Skills, the checker needs a trade-off question that is not retired on every creature, for Stage 3 |
 | `situation` | A short situation |
 | `options`, `rightOption` | 2 options for a Decision Card, 3 for a trade-off question. `rightOption` is the index of the right one |
 | `reasons` | Exactly 3 Reasons, each `{ "text": "…", "right": true or false }`. Exactly 1 is right |

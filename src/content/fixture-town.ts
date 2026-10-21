@@ -470,8 +470,33 @@ export function fixtureTownV2(): Town {
         ],
         moves: cache.moves.map((move) => ({ ...move, lesson: fixtureLesson(move.name, move.catch.explanation) })),
       },
-      { ...cookie, sprite: 7, lesson: fixtureLesson("Cookie", "A cookie is small data the browser sends back.") },
-      { ...proxy, sprite: 30 },
+      {
+        ...cookie,
+        sprite: 7,
+        lesson: fixtureLesson("Cookie", "A cookie is small data the browser sends back."),
+        tradeOff: {
+          id: "cookie.trade-off.sign-in",
+          situation: "The sign-in cookie must survive a page script bug.",
+          options: ["Mark it HttpOnly", "Store it in a page variable", "Send it in the address"],
+          rightOption: 0,
+          reasons: reasons("A page script cannot read an HttpOnly cookie.", ["Page variables are private.", "Addresses are never logged."]),
+          explanation: "HttpOnly hides the cookie from page scripts.",
+          skills: [3],
+        },
+      },
+      {
+        ...proxy,
+        sprite: 30,
+        tradeOff: {
+          id: "proxy.trade-off.near-visitors",
+          situation: "Visitors on another continent wait for every image.",
+          options: ["Put a proxy close to them", "Make the images bigger", "Turn off the cache"],
+          rightOption: 0,
+          reasons: reasons("A copy near the visitor cuts the travel time.", ["Bigger images load faster.", "A cache always slows pages."]),
+          explanation: "A proxy near the visitor serves saved copies quickly.",
+          skills: [2],
+        },
+      },
     ],
     scenarios: [
       ...town.scenarios,
@@ -525,7 +550,15 @@ export function fixtureTownV2(): Town {
   return townSchema.parse(v2);
 }
 
-export const fixtureLedgerV2 = [...fixtureLedger, "cache.trade-off.fresh-prices", "cache.decision.logo", "t99-late-launch", "t99-cache-diff"];
+export const fixtureLedgerV2 = [
+  ...fixtureLedger,
+  "cache.trade-off.fresh-prices",
+  "cache.decision.logo",
+  "cookie.trade-off.sign-in",
+  "proxy.trade-off.near-visitors",
+  "t99-late-launch",
+  "t99-cache-diff",
+];
 
 /**
  * The fixture towns of the seam C bundle. Town 1 has every v1.5 field except its Town Intro, so a

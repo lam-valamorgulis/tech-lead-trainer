@@ -115,6 +115,22 @@ const events: LearningEvent[] = [
       confidence: null,
     };
   }),
+  // A wrong Decision Card (#109) brings cache back tomorrow: the restore must replay it too.
+  {
+    type: "review-card",
+    ...base(daysAgo(1)),
+    itemId: "cache.decision.logo",
+    itemKind: "decision",
+    contentHash: "0123456789abcdef",
+    choiceIndex: 1,
+    choiceCorrect: false,
+    reasonIndex: 0,
+    reasonCorrect: true,
+    skillIds: [3],
+    shownAt: daysAgo(1),
+    gradedAt: daysAgo(1),
+    rulesVersion: "v1.5",
+  },
 ];
 
 type User = { id: string; email: string; client: SupabaseClient };
@@ -175,7 +191,7 @@ describe("weekly backup and restore", () => {
     expect(backup.users).toEqual([expect.objectContaining({ id: learner.id, email: learner.email })]);
     expect(Object.keys(backup.tables)).toEqual([...BACKUP_TABLES]);
     expect(backup.tables.allowed_emails).toEqual([expect.objectContaining({ email: learner.email })]);
-    expect(backup.tables.review_events).toHaveLength(3);
+    expect(backup.tables.review_events).toHaveLength(4);
     expect(backup.tables.battle_turn_events).toEqual([expect.objectContaining({ best_move: true, damage: 2 })]);
     expect(backup.tables.battle_events).toEqual([expect.objectContaining({ result: "won", team: ["cache", "dns"] })]);
     expect(backup.tables.battle_check_events).toEqual([expect.objectContaining({ best_move_id: "cache", ticked_points: [1, 3] })]);

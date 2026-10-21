@@ -304,6 +304,35 @@
             ],
             "answer": "The cookie brings the cart id back with each request."
           },
+          "tradeOff": {
+            "id": "cookie.trade-off.sign-in",
+            "situation": "The sign-in cookie must survive a page script bug.",
+            "options": [
+              "Mark it HttpOnly",
+              "Store it in a page variable",
+              "Send it in the address"
+            ],
+            "rightOption": 0,
+            "reasons": [
+              {
+                "text": "A page script cannot read an HttpOnly cookie.",
+                "right": true
+              },
+              {
+                "text": "Page variables are private.",
+                "right": false
+              },
+              {
+                "text": "Addresses are never logged.",
+                "right": false
+              }
+            ],
+            "explanation": "HttpOnly hides the cookie from page scripts.",
+            "skills": [
+              3
+            ],
+            "hash": "adedbe122da74531"
+          },
           "moves": [
             {
               "id": "cookie.http-only",
@@ -368,6 +397,35 @@
               "Let it keep copies of the pages."
             ],
             "answer": "The proxy answers from a nearby copy."
+          },
+          "tradeOff": {
+            "id": "proxy.trade-off.near-visitors",
+            "situation": "Visitors on another continent wait for every image.",
+            "options": [
+              "Put a proxy close to them",
+              "Make the images bigger",
+              "Turn off the cache"
+            ],
+            "rightOption": 0,
+            "reasons": [
+              {
+                "text": "A copy near the visitor cuts the travel time.",
+                "right": true
+              },
+              {
+                "text": "Bigger images load faster.",
+                "right": false
+              },
+              {
+                "text": "A cache always slows pages.",
+                "right": false
+              }
+            ],
+            "explanation": "A proxy near the visitor serves saved copies quickly.",
+            "skills": [
+              2
+            ],
+            "hash": "78682dc99af012a9"
           },
           "moves": [
             {

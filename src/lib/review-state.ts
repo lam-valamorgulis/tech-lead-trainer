@@ -1,7 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { battleRechecks } from "../core/battle.ts";
 import { placementCatches } from "../core/placement.ts";
-import { reviewStates, type Grade } from "../core/review.ts";
+import {
+  cardCreatureId,
+  reviewStates,
+  type CardKind,
+  type CardRecord,
+  type Grade,
+  type ReviewRules,
+} from "../core/review.ts";
 import { selectAll } from "./select-all.ts";
 
 // The review_state table is a cache of `reviewStates` over the event log (design 12.2).
@@ -9,7 +16,24 @@ import { selectAll } from "./select-all.ts";
 
 export type CatchRow = { item_id: string; correct: boolean; learning_day: string; occurred_at: string };
 export type PlacementRow = CatchRow & { town_id: string };
-export type ReviewRow = { item_id: string; learning_day: string; grade: Grade };
+export type ReviewRow = { item_id: string; learning_day: string; grade: Grade; rules_version?: ReviewRules | null };
+/** A Decision Card or trade-off question row of review_events (#109). */
+export type CardRow = {
+  item_id: string;
+  item_kind: CardKind;
+  learning_day: string;
+  choice_correct: boolean;
+  reason_correct: boolean;
+};
+
+/** The review rows of creatures and moves, and the scored-card rows, of review_events. */
+export const REVIEW_KINDS = ["creature", "move"] as const;
+export const CARD_KINDS = ["decision", "trade-off"] as const satisfies CardKind[];
+
+/** A scored-card row as the rules read it: right means the right option and the right Reason. */
+export function cardRecord(row: CardRow): CardRecord {
+  return { cardId: row.item_id, kind: row.item_kind, learningDay: row.learning_day, right: row.choice_correct && row.reason_correct };
+}
 export type BattleTurnRow = { battle_id: string; move_id: string | null };
 export type BattleEndRow = { battle_id: string; result: "won" | "lost"; learning_day: string };
 export type BattleCheckRow = { battle_id: string; turn_number: number; best_move_id: string; ticked_points: number[]; learning_day: string };
@@ -19,6 +43,8 @@ export type LearningLog = {
   catches: CatchRow[];
   placements: PlacementRow[];
   reviews: ReviewRow[];
+  /** Optional: a log from before #109 has no scored cards. */
+  cards?: CardRow[];
   battleTurns?: BattleTurnRow[];
   battleEnds?: BattleEndRow[];
   battleChecks?: BattleCheckRow[];
@@ -49,10 +75,27 @@ async function loadLog(client: SupabaseClient, userId: string, itemIds?: string[
     return query.order("occurred_at").order("id").range(from, to).returns<CatchRow[]>();
   });
   const reviews = await selectAll((from, to) => {
-    let query = client.from("review_events").select("item_id, learning_day, grade").eq("user_id", userId);
+    let query = client
+      .from("review_events")
+      .select("item_id, learning_day, grade, rules_version")
+      .eq("user_id", userId)
+      .in("item_kind", REVIEW_KINDS);
     if (itemIds) query = query.in("item_id", itemIds);
     return query.order("occurred_at").order("id").range(from, to).returns<ReviewRow[]>();
   });
+  // A card id starts with its creature id. The cards are few, so the creature filter runs here.
+  const allCards = await selectAll((from, to) =>
+    client
+      .from("review_events")
+      .select("item_id, item_kind, learning_day, choice_correct, reason_correct")
+      .eq("user_id", userId)
+      .in("item_kind", CARD_KINDS)
+      .order("occurred_at")
+      .order("id")
+      .range(from, to)
+      .returns<CardRow[]>(),
+  );
+  const cards = itemIds ? allCards.filter((row) => itemIds.includes(cardCreatureId(row.item_id))) : allCards;
   // Only the battle rows that can bring back one of these items: its turns, and its self-checks.
   const battleTurns = await selectAll((from, to) => {
     let query = client.from("battle_turn_events").select("battle_id, move_id").eq("user_id", userId);
@@ -81,7 +124,7 @@ async function loadLog(client: SupabaseClient, userId: string, itemIds?: string[
     if (itemIds) query = query.in("best_move_id", itemIds);
     return query.order("id").range(from, to).returns<BattleCheckRow[]>();
   });
-  return { catches, placements, reviews, battleTurns, battleEnds, battleChecks };
+  return { catches, placements, reviews, cards, battleTurns, battleEnds, battleChecks };
 }
 
 /** The moves used in these battles. A lost battle brings them back, so their state must be refreshed. */
@@ -124,17 +167,21 @@ export function reviewStateRows(userId: string, log: LearningLog): StateRow[] {
       learningDay: row.learning_day,
     })),
   });
+  const cards = log.cards ?? [];
   const states = reviewStates(
     caughtBy.map(({ record }) => record),
-    log.reviews.map((row) => ({ itemId: row.item_id, learningDay: row.learning_day, grade: row.grade })),
+    log.reviews.map((row) => ({ itemId: row.item_id, learningDay: row.learning_day, grade: row.grade, rules: row.rules_version })),
     rechecks,
+    cards.map(cardRecord),
   );
-  // A recheck counts as an event too, so a result read before it can never overwrite the newer one.
+  // A recheck and a scored card count as events too, so a result read before them can never
+  // overwrite the newer one. A card counts for its creature.
   const eventCount = new Map<string, number>();
   for (const { itemId } of [
     ...log.catches.map((row) => ({ itemId: row.item_id })),
     ...log.placements.map((row) => ({ itemId: row.item_id })),
     ...log.reviews.map((row) => ({ itemId: row.item_id })),
+    ...cards.map((row) => ({ itemId: cardCreatureId(row.item_id) })),
     ...rechecks,
   ]) {
     eventCount.set(itemId, (eventCount.get(itemId) ?? 0) + 1);

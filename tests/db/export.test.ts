@@ -100,6 +100,57 @@ describe("GET /api/export", () => {
     ]);
   });
 
+  it("holds an old review and a Decision Card answer with the new review fields (#109)", async () => {
+    const at = new Date().toISOString();
+    const shared = { sessionId: crypto.randomUUID(), occurredAt: at, shownAt: at, gradedAt: at };
+    await writeEvents(a.client, [
+      {
+        type: "review",
+        clientEventId: crypto.randomUUID(),
+        ...shared,
+        itemId: "cache",
+        itemKind: "creature",
+        contentHash: "0123456789abcdef",
+        stepBefore: 1,
+        stepAfter: 3,
+        grade: "good",
+        plannedDueDay: at.slice(0, 10),
+        revealedAt: at,
+        typedAnswer: null,
+        confidence: null,
+      },
+      {
+        type: "review-card",
+        clientEventId: crypto.randomUUID(),
+        ...shared,
+        itemId: "cache.decision.logo",
+        itemKind: "decision",
+        contentHash: "fedcba9876543210",
+        choiceIndex: 0,
+        choiceCorrect: true,
+        reasonIndex: 2,
+        reasonCorrect: false,
+        skillIds: [3],
+        rulesVersion: "v1.5",
+      },
+    ]);
+    const file = await exportOf(a);
+    expect(file.events.review_events).toMatchObject([
+      { item_kind: "creature", grade: "good", choice_index: null, reason_index: null, skill_ids: null, rules_version: null },
+      {
+        item_kind: "decision",
+        item_id: "cache.decision.logo",
+        grade: null,
+        choice_index: 0,
+        choice_correct: true,
+        reason_index: 2,
+        reason_correct: false,
+        skill_ids: [3],
+        rules_version: "v1.5",
+      },
+    ]);
+  });
+
   it("holds only the signed-in user's rows", async () => {
     const file = await exportOf(b);
 

@@ -628,6 +628,25 @@ describe("checkContent for v1.5 content (#93)", () => {
     expect(checkV2(town)).toEqual([{ where: "t99.creatures.0.tradeOff.options", message: "There are exactly 3 options." }]);
   });
 
+  it("fails a creature of a v1.5 town with no trade-off question, or only a retired one (#109)", () => {
+    const missing = fixtureTownV2();
+    delete missing.creatures[1].tradeOff;
+    const message = "A creature of a v1.5 town needs a trade-off question that is not retired, for Stage 3. Edit it in place.";
+    const problems = checkV2(missing);
+    // The question's id stays in the ledger, so the ledger notices it is gone too.
+    expect(problems).toContainEqual({ where: "t99.cookie.tradeOff", message });
+
+    const retired = fixtureTownV2();
+    retired.creatures[1].tradeOff!.retired = true;
+    expect(checkV2(retired)).toEqual([{ where: "t99.cookie.tradeOff", message }]);
+
+    // A retired creature and a town from before v1.5 (no Skills) need none.
+    const retiredCreature = fixtureTownV2();
+    Object.assign(retiredCreature.creatures[1], { retired: true, tradeOff: { ...retiredCreature.creatures[1].tradeOff, retired: true } });
+    expect(checkV2(retiredCreature)).not.toContainEqual(expect.objectContaining({ where: "t99.cookie.tradeOff" }));
+    expect(check(fixtureTown())).toEqual([]);
+  });
+
   it("keeps the ids answer and verdict free for Meeting answers and review verdicts", () => {
     const town = fixtureTownV2();
     Object.assign(town.creatures[2], { id: "verdict" });

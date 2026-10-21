@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { CatchRecord } from "./catch.ts";
-import { backlogPaused, evolvesTo, reviewStates, type Grade, type ReviewRecord, type ReviewState } from "./review.ts";
+import {
+  asksTradeOff,
+  backlogPaused,
+  evolvesTo,
+  REVIEW_RULES,
+  reviewStates,
+  type CardRecord,
+  type Grade,
+  type ReviewRecord,
+  type ReviewState,
+} from "./review.ts";
 
 const caught = (itemId: string, learningDay: string): CatchRecord => ({ itemId, correct: true, learningDay });
 const reviewed = (itemId: string, learningDay: string, grade: Grade): ReviewRecord => ({ itemId, learningDay, grade });
@@ -67,8 +77,13 @@ describe("evolvesTo: the evolution moment after one grade", () => {
     expect(evolvesTo(onStep(3, 1), "easy", "2026-10-20")).toBe(2);
   });
 
-  it("says stage 3 when Good passes the 30-day step", () => {
-    expect(evolvesTo(onStep(30, 2), "good", "2026-10-20")).toBe(3);
+  it("says nothing when Good passes the 30-day step: Stage 3 waits for the trade-off answer (v1.5)", () => {
+    expect(evolvesTo(onStep(30, 2), "good", "2026-10-20")).toBeNull();
+  });
+
+  it("says stage 3 at the 30-day step when the creature has no trade-off question to show", () => {
+    expect(evolvesTo(onStep(30, 2), "good", "2026-10-20", false)).toBe(3);
+    expect(evolvesTo(onStep(14, 2), "good", "2026-10-20", false)).toBeNull();
   });
 
   it("says nothing on Hard or Again", () => {
@@ -90,6 +105,107 @@ describe("evolvesTo: the evolution moment after one grade", () => {
     const before = onTime("cache", "2026-10-01", ["good", "good"]);
     const after = onTime("cache", "2026-10-01", ["good", "good", "good"]);
     expect(evolvesTo(before, "good", before.dueDay!)).toBe(after.stage);
+  });
+});
+
+describe("Stage 3 with the trade-off question (v1.5, design 6.5)", () => {
+  const graded = (itemId: string, learningDay: string, grade: Grade): ReviewRecord => ({ itemId, learningDay, grade, rules: REVIEW_RULES });
+  const tradeOff = (learningDay: string, right: boolean): CardRecord => ({
+    cardId: "cache.trade-off.fresh-prices",
+    kind: "trade-off",
+    learningDay,
+    right,
+  });
+
+  /** v1.5 reviews on time with the given grades, starting the day after the catch. */
+  function v15OnTime(grades: Grade[], cards: CardRecord[] = []) {
+    const catches = [caught("cache", "2026-01-01")];
+    const reviews: ReviewRecord[] = [];
+    for (const grade of grades) {
+      const state = reviewStates(catches, reviews).get("cache")!;
+      reviews.push(graded("cache", state.dueDay!, grade));
+    }
+    return { catches, reviews, state: reviewStates(catches, reviews, [], cards).get("cache")! };
+  }
+  const TO_90 = ["good", "good", "good", "good", "good"] as Grade[];
+
+  it("keeps Stage 2 after passing the 30-day step with no trade-off answer", () => {
+    const { state } = v15OnTime(TO_90);
+    expect({ step: state.step, stage: state.stage }).toEqual({ step: 90, stage: 2 });
+  });
+
+  it("gives Stage 3 after a right trade-off answer at the 30-day step", () => {
+    const { reviews } = v15OnTime(TO_90);
+    const passDay = reviews.at(-1)!.learningDay;
+    expect(v15OnTime(TO_90, [tradeOff(passDay, true)]).state.stage).toBe(3);
+  });
+
+  it("keeps Stage 2 after a wrong answer, and a right answer at the next review gives Stage 3", () => {
+    const { reviews, catches } = v15OnTime(TO_90);
+    const passDay = reviews.at(-1)!.learningDay;
+    const wrong = [tradeOff(passDay, false)];
+    expect(reviewStates(catches, reviews, [], wrong).get("cache")!.stage).toBe(2);
+
+    const next = reviewStates(catches, reviews, [], wrong).get("cache")!;
+    const later = [...reviews, graded("cache", next.dueDay!, "good")];
+    expect(reviewStates(catches, later, [], wrong).get("cache")!.stage).toBe(2);
+    expect(reviewStates(catches, later, [], [...wrong, tradeOff(next.dueDay!, true)]).get("cache")!.stage).toBe(3);
+  });
+
+  it("gives Stage 3 at the 30-day step itself when the creature had no trade-off question (a review with no rules)", () => {
+    // A Stage 2 creature that waited on v1.5 rules, then its question was gone at the next review.
+    const { catches, reviews, state } = v15OnTime(TO_90);
+    const noQuestion: ReviewRecord = { itemId: "cache", learningDay: state.dueDay!, grade: "good", rules: null };
+    expect(reviewStates(catches, [...reviews, noQuestion]).get("cache")!.stage).toBe(3);
+  });
+
+  it("needs the 30-day step too: a right answer before it does not evolve", () => {
+    // 1 → 3 → 7 → 14: Stage 2, not past the 30-day step yet.
+    const { reviews } = v15OnTime(["good", "good", "good"]);
+    expect(v15OnTime(["good", "good", "good"], [tradeOff(reviews.at(-1)!.learningDay, true)]).state.stage).toBe(2);
+  });
+
+  it("keeps Stage 3 reached before v1.5 when the old events are replayed", () => {
+    // The old rows have no rules: passing the 30-day step gave Stage 3 by itself.
+    const catches = [caught("cache", "2026-01-01")];
+    const oldReviews: ReviewRecord[] = [];
+    for (const grade of TO_90) {
+      const state = reviewStates(catches, oldReviews).get("cache")!;
+      oldReviews.push(reviewed("cache", state.dueDay!, grade));
+    }
+    const old = reviewStates(catches, oldReviews).get("cache")!;
+    expect({ step: old.step, stage: old.stage }).toEqual({ step: 90, stage: 3 });
+    // A later v1.5 review never takes Stage 3 away, not even an Again.
+    const after = reviewStates(catches, [...oldReviews, graded("cache", old.dueDay!, "again")]).get("cache")!;
+    expect({ step: after.step, stage: after.stage }).toEqual({ step: 30, stage: 3 });
+  });
+
+  describe("asksTradeOff: the question after one grade", () => {
+    const onStep = (step: ReviewState["step"], stage: ReviewState["stage"]): ReviewState => ({
+      itemId: "cache",
+      step,
+      dueDay: "2026-10-20",
+      caughtDay: "2026-01-01",
+      stage,
+    });
+
+    it("asks when Good or Easy passes the 30-day step at Stage 2", () => {
+      expect(asksTradeOff(onStep(30, 2), "good", "2026-10-20")).toBe(true);
+      expect(asksTradeOff(onStep(14, 2), "easy", "2026-10-20")).toBe(true);
+    });
+
+    it("asks again at the next Good or Easy after a wrong answer, while past the 30-day step", () => {
+      expect(asksTradeOff(onStep(90, 2), "good", "2026-10-20")).toBe(true);
+      expect(asksTradeOff(onStep(90, 2), "easy", "2026-10-20")).toBe(true);
+    });
+
+    it("does not ask before the 30-day step, after Hard or Again, or at Stage 3", () => {
+      expect(asksTradeOff(onStep(14, 2), "good", "2026-10-20")).toBe(false);
+      expect(asksTradeOff(onStep(30, 2), "hard", "2026-10-20")).toBe(false);
+      expect(asksTradeOff(onStep(90, 2), "hard", "2026-10-20")).toBe(false);
+      expect(asksTradeOff(onStep(180, 2), "again", "2026-10-20")).toBe(false);
+      expect(asksTradeOff(onStep(30, 3), "good", "2026-10-20")).toBe(false);
+    });
   });
 });
 
