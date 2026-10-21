@@ -59,7 +59,7 @@ export function GymScreen({ townId, programStartDate }: { townId: string; progra
   if (!loaded.battles) {
     return (
       <p className="lead">
-        The Gym needs {GYM_BATTLES} battles you can win. Catch more creatures of {town.name} first.
+        The Gym needs {GYM_BATTLES} battles you can win. Catch more creatures first.
       </p>
     );
   }

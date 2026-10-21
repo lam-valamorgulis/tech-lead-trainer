@@ -31,27 +31,27 @@ const caught = (...itemIds: string[]): CatchRecord[] =>
 
 describe("nextBattle", () => {
   it("offers the scenario once the learner caught the creatures of its best moves", () => {
-    const offer = nextBattle({ town: town(), catches: caught("cache", "proxy"), battles: [], today: TODAY, committedMinutes: 15 });
+    const offer = nextBattle({ towns: [], town: town(), catches: caught("cache", "proxy"), battles: [], today: TODAY, committedMinutes: 15 });
     expect(offer?.scenario.id).toBe("t99-sale-day");
   });
 
   it("offers nothing while a best move belongs to a creature the learner has not caught", () => {
-    expect(nextBattle({ town: town(), catches: caught("cache", "cookie"), battles: [], today: TODAY, committedMinutes: 15 })).toBeNull();
+    expect(nextBattle({ towns: [], town: town(), catches: caught("cache", "cookie"), battles: [], today: TODAY, committedMinutes: 15 })).toBeNull();
   });
 
   it("offers nothing on a 3-minute day, which is reviews only", () => {
-    expect(nextBattle({ town: town(), catches: caught("cache", "proxy"), battles: [], today: TODAY, committedMinutes: 3 })).toBeNull();
+    expect(nextBattle({ towns: [], town: town(), catches: caught("cache", "proxy"), battles: [], today: TODAY, committedMinutes: 3 })).toBeNull();
   });
 
   it("offers one battle per day, even when the first was left unfinished", () => {
     const battles: BattleRecord[] = [{ battleId: "b1", scenarioId: "t99-sale-day", learningDay: TODAY }];
-    expect(nextBattle({ town: town(), catches: caught("cache", "proxy"), battles, today: TODAY, committedMinutes: 45 })).toBeNull();
+    expect(nextBattle({ towns: [], town: town(), catches: caught("cache", "proxy"), battles, today: TODAY, committedMinutes: 45 })).toBeNull();
   });
 
   it("offers the scenario played the fewest times, and file order breaks a tie", () => {
     // The fixture has 5 scenarios: t99-sale-day first, then t99-flash-sale, and three more.
     const offer = (battles: BattleRecord[]) =>
-      nextBattle({ town: town(), catches: caught("cache", "proxy"), battles, today: TODAY, committedMinutes: 15 })
+      nextBattle({ towns: [], town: town(), catches: caught("cache", "proxy"), battles, today: TODAY, committedMinutes: 15 })
         ?.scenario.id;
 
     expect(offer([])).toBe("t99-sale-day");
@@ -68,7 +68,7 @@ describe("nextBattle", () => {
     const content = fixtureTown();
     Object.assign(content.creatures[2], { retired: true });
     const retired = buildBundle([townSchema.parse(content)]).towns[0];
-    expect(nextBattle({ town: retired, catches: caught("cache", "proxy"), battles: [], today: TODAY, committedMinutes: 15 })).toBeNull();
+    expect(nextBattle({ towns: [], town: retired, catches: caught("cache", "proxy"), battles: [], today: TODAY, committedMinutes: 15 })).toBeNull();
   });
 
   it("offers only normal Battles until Meeting Battle and Agent Diff Battle ship (#93)", () => {
@@ -80,7 +80,7 @@ describe("nextBattle", () => {
     const battles: BattleRecord[] = v2.scenarios
       .filter((s) => s.kind === undefined)
       .map((s, i) => ({ battleId: `b${i}`, scenarioId: s.id, learningDay: "2026-10-19" }));
-    const offer = nextBattle({ town: v2, catches: caught("cache", "proxy"), battles, today: TODAY, committedMinutes: 15 });
+    const offer = nextBattle({ towns: [], town: v2, catches: caught("cache", "proxy"), battles, today: TODAY, committedMinutes: 15 });
     expect(offer).not.toBeNull();
     expect(offer?.scenario.kind).toBeUndefined();
   });
@@ -93,7 +93,7 @@ describe("nextBattle", () => {
     const battles: BattleRecord[] = v2.scenarios
       .filter((s) => s.kind === undefined && s.twinOf === undefined)
       .map((s, i) => ({ battleId: `b${i}`, scenarioId: s.id, learningDay: "2026-10-19" }));
-    const offer = nextBattle({ town: v2, catches: caught("cache", "proxy"), battles, today: TODAY, committedMinutes: 15 });
+    const offer = nextBattle({ towns: [], town: v2, catches: caught("cache", "proxy"), battles, today: TODAY, committedMinutes: 15 });
     expect(offer?.scenario.id).toBe("t99-sale-day");
   });
 
@@ -101,16 +101,17 @@ describe("nextBattle", () => {
     const content = fixtureTown();
     for (const scenario of content.scenarios) Object.assign(scenario, { retired: true });
     const retired = buildBundle([townSchema.parse(content)]).towns[0];
-    expect(nextBattle({ town: retired, catches: caught("cache", "proxy"), battles: [], today: TODAY, committedMinutes: 15 })).toBeNull();
+    expect(nextBattle({ towns: [], town: retired, catches: caught("cache", "proxy"), battles: [], today: TODAY, committedMinutes: 15 })).toBeNull();
   });
 });
 
 describe("the team", () => {
   it("is 3 caught creatures, or every caught creature when there are fewer", () => {
-    const two = nextBattle({ town: town(), catches: caught("cache", "proxy"), battles: [], today: TODAY, committedMinutes: 15 });
+    const two = nextBattle({ towns: [], town: town(), catches: caught("cache", "proxy"), battles: [], today: TODAY, committedMinutes: 15 });
     expect(two?.team).toEqual({ size: 2, choices: ["cache", "proxy"] });
     const three = nextBattle({
       town: town(),
+      towns: [],
       catches: caught("cache", "cookie", "proxy", "cache.ttl"),
       battles: [],
       today: TODAY,
@@ -120,7 +121,7 @@ describe("the team", () => {
   });
 
   it("must be the right size and only hold caught creatures", () => {
-    const offer = nextBattle({ town: town(), catches: caught("cache", "cookie", "proxy"), battles: [], today: TODAY, committedMinutes: 15 })!;
+    const offer = nextBattle({ towns: [], town: town(), catches: caught("cache", "cookie", "proxy"), battles: [], today: TODAY, committedMinutes: 15 })!;
     expect(() => startBattle(offer, ["cache", "proxy"])).toThrow("Pick 3 creatures.");
     expect(() => startBattle(offer, ["cache", "proxy", "dns"])).toThrow("dns is not a creature you caught.");
     expect(() => startBattle(offer, ["cache", "proxy", "proxy"])).toThrow("Pick 3 creatures.");
@@ -172,13 +173,13 @@ describe("a battle that needs a creature of an earlier town (design 7.5)", () =>
 
 describe("a turn", () => {
   const offer = () =>
-    nextBattle({ town: town(), catches: caught("cache", "cookie", "proxy"), battles: [], today: TODAY, committedMinutes: 15 })!;
+    nextBattle({ towns: [], town: town(), catches: caught("cache", "cookie", "proxy"), battles: [], today: TODAY, committedMinutes: 15 })!;
 
   it("offers only the moves of creatures in the team", () => {
     const battle = startBattle(offer(), ["cache", "cookie", "proxy"]);
     expect(usableMoves(battle)).toEqual(["cache.ttl", "proxy.cdn", "cookie.http-only"]);
     const withoutProxy = startBattle(
-      nextBattle({ town: town(), catches: caught("cache", "proxy"), battles: [], today: TODAY, committedMinutes: 15 })!,
+      nextBattle({ towns: [], town: town(), catches: caught("cache", "proxy"), battles: [], today: TODAY, committedMinutes: 15 })!,
       ["cache", "proxy"],
     );
     expect(usableMoves(withoutProxy)).toEqual(["cache.ttl", "proxy.cdn"]);
@@ -206,7 +207,7 @@ describe("a turn", () => {
 
 describe("the end of a battle", () => {
   const start = (team: string[], catches = caught("cache", "cookie", "proxy")) =>
-    startBattle(nextBattle({ town: town(), catches, battles: [], today: TODAY, committedMinutes: 15 })!, team);
+    startBattle(nextBattle({ towns: [], town: town(), catches, battles: [], today: TODAY, committedMinutes: 15 })!, team);
 
   it("is a win when HP reaches 0, so a strong start ends the battle after 2 turns", () => {
     const battle = playTurn(playTurn(start(["cache", "cookie", "proxy"]), "cache.ttl"), "cache.no-store");
@@ -227,6 +228,7 @@ describe("the end of a battle", () => {
     const bigTown = buildBundle([townSchema.parse(content)]).towns[0];
     const offer = nextBattle({
       town: bigTown,
+      towns: [],
       catches: caught("cache", "cookie", "proxy", "dns", "tls"),
       battles: [],
       today: TODAY,
@@ -266,7 +268,7 @@ describe("counterattackSentence", () => {
 
 describe("the self-check on a model answer", () => {
   const start = (catches: CatchRecord[], team: string[]) =>
-    startBattle(nextBattle({ town: town(), catches, battles: [], today: TODAY, committedMinutes: 15 })!, team);
+    startBattle(nextBattle({ towns: [], town: town(), catches, battles: [], today: TODAY, committedMinutes: 15 })!, team);
   // Damage 0, 0, 2: HP 2 is left, so the battle is lost.
   const lostBattle = () =>
     playTurn(playTurn(playTurn(start(caught("cache", "cookie", "proxy"), ["cache", "cookie", "proxy"]), "cookie.http-only"), "cache.ttl"), "proxy.cdn");
@@ -389,7 +391,7 @@ describe("the best-move rate", () => {
 
 describe("worked examples before a battle", () => {
   const offer = (catches: CatchRecord[], battles: BattleRecord[] = []) =>
-    nextBattle({ town: town(), catches, battles, today: TODAY, committedMinutes: 15 })!;
+    nextBattle({ towns: [], town: town(), catches, battles, today: TODAY, committedMinutes: 15 })!;
   const exampleIds = (catches: CatchRecord[], battles: BattleRecord[] = []) =>
     offer(catches, battles).workedExamples.map((example) => example.creatureId);
 

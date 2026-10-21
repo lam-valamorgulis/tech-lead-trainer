@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildBundle } from "@/content/bundle";
-import { fixtureTown } from "@/content/fixture-town";
+import { fixtureTown, fixtureTwistTown } from "@/content/fixture-town";
 import { townSchema } from "@/content/schema";
 import { nextBattle, type BattleRecord } from "./battle.ts";
 import type { CatchRecord } from "./catch.ts";
@@ -11,7 +11,7 @@ const town = () => buildBundle([townSchema.parse(fixtureTown())]).towns[0];
 const TODAY = "2026-10-20";
 const caught = (...itemIds: string[]): CatchRecord[] =>
   itemIds.map((itemId) => ({ itemId, correct: true, learningDay: "2026-10-18" }));
-const base = { catches: caught("cache", "cookie", "proxy"), battles: [] as BattleRecord[], readings: [] as ReadingRecord[], today: TODAY };
+const base = { towns: [], catches: caught("cache", "cookie", "proxy"), battles: [] as BattleRecord[], readings: [] as ReadingRecord[], today: TODAY };
 
 describe("extraTime", () => {
   it("comes only on a 45-minute day", () => {
@@ -58,5 +58,29 @@ describe("extraTime", () => {
 
   it("is not offered when it would have no task at all", () => {
     expect(extraTime({ ...base, catches: [], town: town(), committedMinutes: 45, hasBoss: false })).toBeNull();
+  });
+});
+
+describe("extra time in a town whose battles need a creature of an earlier town (design 7.5)", () => {
+  // Town 2 of the fixture with two copies of its battle. Turn 1's best move is proxy.cdn, a move of town 1.
+  const towns = () => {
+    const two = fixtureTwistTown();
+    const [scenario] = two.scenarios;
+    const [first] = scenario.turns;
+    first.moves = first.moves.map((row) => ({ ...row, damage: row.moveId === "proxy.cdn" ? 2 : row.damage === 2 ? 1 : row.damage })) as typeof first.moves;
+    two.scenarios = [scenario, { ...structuredClone(scenario), id: "t98-public-api-2" }];
+    return buildBundle([townSchema.parse(fixtureTown()), townSchema.parse(two)]).towns;
+  };
+  const extraFor = (itemIds: string[]) => {
+    const [one, two] = towns();
+    return extraTime({ ...base, catches: caught(...itemIds), town: two, towns: [one, two], committedMinutes: 45, hasBoss: false });
+  };
+
+  it("offers the second battle once the town 1 creature is caught too", () => {
+    expect(extraFor(["rate-limit", "api-key", "proxy"])?.extraBattle?.scenario.id).toBe("t98-public-api-2");
+  });
+
+  it("offers no extra battle while the town 1 creature is missing", () => {
+    expect(extraFor(["rate-limit", "api-key"])?.extraBattle ?? null).toBeNull();
   });
 });
