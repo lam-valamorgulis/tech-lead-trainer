@@ -242,6 +242,13 @@ describe("claimsDiffer", () => {
     expect(claimsDiffer(before, after)).toBe(false);
   });
 
+  it("is false for a System Map node on a creature or a town (#112)", () => {
+    const after = v1();
+    after.creatures[0].systemNode = "cache";
+    after.systemNode = "api";
+    expect(claimsDiffer(v1(), after)).toBe(false);
+  });
+
   it("is true for any other change, also a wrong answer choice the report does not list, and for a new town file", () => {
     const after = v1();
     after.creatures[0].card.text = "A cache keeps every copy forever.";

@@ -1124,3 +1124,125 @@ a[aria-current="page"] {
 .answer-wrong .answer-mark {
   color: var(--color-error);
 }
+
+/* System Map (design 6.2, ticket #112): the places of one web system, top to bottom, inside an
+   outer ring. A list in normal flow, so places and sprites never overlap and the page scrolls. */
+.system-map-link {
+  margin-bottom: var(--space);
+}
+
+.system-map {
+  width: min(100%, 420px);
+  margin: 0 auto var(--space);
+  padding: 8px;
+  border: 3px dashed var(--color-line);
+  border-radius: 8px;
+}
+
+.system-chain {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* The panel look of the approved prototype: a night-blue box with a dark edge. */
+.system-place,
+.system-ring {
+  padding: 10px 12px 12px;
+  background: #1d2546;
+  border: 3px solid #070a16;
+  border-radius: 6px;
+  box-shadow: inset 0 -4px 0 rgb(0 0 0 / 0.35);
+}
+
+.system-ring {
+  margin-top: 12px;
+}
+
+.system-place-name {
+  margin: 0;
+  font-size: 16px;
+}
+
+.system-place-hint {
+  margin: 2px 0 0;
+  color: var(--color-muted);
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+/* "???": a place with no caught creature yet, as in the Field Guide. A dashed line and muted words. */
+.system-place-hidden {
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--color-line);
+  box-shadow: none;
+}
+
+.system-place-hidden .system-place-name {
+  color: var(--color-muted);
+}
+
+/* The link between two places: a down arrow on the left, its creatures on the right. */
+.system-edge {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 4px;
+  min-height: 28px;
+}
+
+.system-arrow {
+  position: relative;
+  grid-column: 1;
+  justify-self: center;
+  width: 4px;
+  margin-bottom: 8px;
+  background: var(--color-muted);
+}
+
+.system-arrow::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  transform: translateX(-50%);
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 8px solid var(--color-muted);
+}
+
+.system-edge-body {
+  grid-column: 2;
+  padding: 8px 0;
+}
+
+.system-edge-label {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+/* 3 creatures per row: a 64 px sprite above its name. */
+.system-creatures {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.system-creature {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  text-align: center;
+}
+
+.system-creature-name {
+  font-size: 13px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}

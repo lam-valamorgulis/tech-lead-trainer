@@ -48,6 +48,7 @@
           "id": "cache",
           "name": "Cache",
           "sprite": 12,
+          "systemNode": "cache",
           "lesson": {
             "screens": [
               {
@@ -256,6 +257,7 @@
           "id": "cookie",
           "name": "Cookie",
           "sprite": 7,
+          "systemNode": "browser",
           "lesson": {
             "screens": [
               {
@@ -368,6 +370,7 @@
           "id": "proxy",
           "name": "Proxy",
           "sprite": 30,
+          "systemNode": "cdn",
           "catch": {
             "question": "What sits between the browser and the server and passes requests on?",
             "choices": [
@@ -1543,6 +1546,7 @@
       "twist": {
         "kind": "two-types"
       },
+      "systemNode": "api",
       "creatures": [
         {
           "id": "rate-limit",

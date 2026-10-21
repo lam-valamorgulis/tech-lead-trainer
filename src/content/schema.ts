@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { SKILLS } from "./skills.ts";
+import { SYSTEM_NODE_IDS } from "./system-nodes.ts";
 
 // The shape of content files (design section 8 and 12.3). IDs are short slugs that never change.
 // Display names can change. Removed items get `"retired": true` and stay in the file.
@@ -47,6 +48,9 @@ export const skillIdSchema = z
  * It is the one kind of text that may have line breaks.
  */
 export const diagramSchema = z.string().trim().min(1);
+
+/** A place on the System Map (design 6.2): one of the fixed node ids. Display only, like a sprite. */
+export const systemNodeSchema = z.enum(SYSTEM_NODE_IDS, { error: `A System Map node is one of: ${SYSTEM_NODE_IDS.join(", ")}.` });
 
 /** The creature art pack (#99) has this many species, numbered from 1. */
 export const SPECIES_COUNT = 56;
@@ -132,6 +136,8 @@ export const creatureSchema = z.object({
   retired: z.boolean().optional(),
   /** The species number in the creature art pack. Display only: it is not in the content hash. */
   sprite: z.int().min(1).max(SPECIES_COUNT, `The art pack has species 1 to ${SPECIES_COUNT}.`).optional(),
+  /** Where the creature sits on the System Map. Left out: the town's node. Display only, not in the content hash. */
+  systemNode: systemNodeSchema.optional(),
   lesson: lessonSchema.optional(),
   catch: catchQuestionSchema,
   card: cardSchema,
@@ -256,6 +262,8 @@ export const townSchema = z.object({
   skills: z.array(skillIdSchema).min(1).max(2).optional(),
   /** The town's battle twist. Town 1 has none, so its battles keep the rules of design 7. */
   twist: twistSchema.optional(),
+  /** The System Map node of every creature of the town that names none (design 6.2). Display only. */
+  systemNode: systemNodeSchema.optional(),
   creatures: z.array(creatureSchema),
   placement: z.array(placementQuestionSchema),
   /** Pairs of creature or move ids that are easy to mix up. They can come from different towns. */
