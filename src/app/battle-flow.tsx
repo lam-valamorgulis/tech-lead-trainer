@@ -58,7 +58,15 @@ export function BattleFlow({
 
   // A new step replaces the button that was tapped, so focus moves to the new heading.
   useEffect(() => {
-    heading.current?.focus();
+    const target = heading.current;
+    if (!target) return;
+    target.focus();
+    // The end screen was hidden under the scene a moment ago. On a slow device the first focus
+    // can come before the page shows again, so it tries once more on the next frame.
+    const frame = requestAnimationFrame(() => {
+      if (document.activeElement !== target) target.focus();
+    });
+    return () => cancelAnimationFrame(frame);
   }, [step, examplesRead, ticks]);
 
   const battleFields = (): BattleEventFields => ({
