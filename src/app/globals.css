@@ -853,6 +853,8 @@ a[aria-current="page"] {
 .choice-wrong {
   border-style: dashed;
   opacity: 0.8;
+}
+
 /* Ticket #99: creature art. Whole-number growth with no smoothing (design 9). */
 .creature-art {
   display: block;
