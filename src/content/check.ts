@@ -1,4 +1,5 @@
 import { bestRow, creatureOf, OPPONENT_HP } from "../core/battle.ts";
+import { OPPONENT_SPECIES } from "../core/sprite.ts";
 import {
   AGENT_VERDICTS,
   glossarySchema,
@@ -73,15 +74,22 @@ export function checkContent(input: ContentInput): Problem[] {
   return problems;
 }
 
-/** Each concept is its own species (design 9, rule 19), so no two creatures share a sprite, in any town. */
+/**
+ * Each concept is its own species (design 9, rule 19), so no two creatures share a sprite, in any
+ * town. The species of the Battle opponents (#103) are not creatures, so no creature takes them.
+ */
 function spriteProblems(towns: Town[]): Problem[] {
   const owner = new Map<number, string>();
+  const opponentOf = new Map(Object.entries(OPPONENT_SPECIES).map(([type, species]) => [species, type]));
   const problems: Problem[] = [];
   for (const town of towns) {
     for (const creature of town.creatures) {
       if (creature.sprite === undefined) continue;
       const first = owner.get(creature.sprite);
-      if (first) {
+      const opponent = opponentOf.get(creature.sprite);
+      if (opponent) {
+        problems.push({ where: itemLabel(town, creature), message: `Sprite ${creature.sprite} is the Battle opponent of type ${opponent}. Pick another species.` });
+      } else if (first) {
         problems.push({ where: itemLabel(town, creature), message: `Sprite ${creature.sprite} is already used by ${first}. Each creature has its own sprite.` });
       } else {
         owner.set(creature.sprite, creature.id);

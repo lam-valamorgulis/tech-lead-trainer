@@ -1,5 +1,42 @@
+import { expect, type Page } from "@playwright/test";
 import { local } from "./e2e";
 import { sql } from "./local-admin";
+
+/**
+ * The 3 Reasons of each turn of the fixture battle "Sale day" (#93), right one first. The best
+ * moves are TTL, then No store, then CDN.
+ */
+export const SALE_DAY_REASONS = [
+  { right: "A rarely changed file is safe to keep for long.", wrong: ["A long TTL makes prices fresh.", "Browsers never keep logos."] },
+  { right: "A price must never come from an old copy.", wrong: ["No store makes every page faster.", "A CDN always has the newest price."] },
+  { right: "A copy near the visitor cuts the travel time.", wrong: ["No store makes far pages faster.", "A cookie makes the page lighter."] },
+];
+
+/** The panel at the bottom of the Battle scene (#103): threat, Constraint, moves, Reasons, then the result. */
+export const battlePanel = (page: Page) => page.getByTestId("battle-panel");
+
+/**
+ * Plays one turn of the Battle scene: a move, then a Reason when the turn has Reasons. `note`
+ * fills the optional box for the learner's own words first.
+ */
+export async function playMove(page: Page, move: string, reason?: string, note?: string) {
+  // The panel slides up in steps. A tap while it moves can land next to the button, so wait until it is all in view.
+  await expect(battlePanel(page)).toBeInViewport({ ratio: 1 });
+  await battlePanel(page).getByRole("button", { name: move }).click();
+  if (reason === undefined) return;
+  if (note !== undefined) {
+    await page.getByRole("button", { name: "Add your own words (optional)" }).click();
+    await page.getByLabel("Your own words (optional)").fill(note);
+  }
+  await battlePanel(page).getByRole("button", { name: reason, exact: true }).click();
+}
+
+/** Waits for the result panel to slide up after the effects, then goes on. */
+export async function nextTurn(page: Page, last = false) {
+  const next = page.getByRole("button", { name: last ? "See how it ended" : "Next turn" });
+  await expect(battlePanel(page)).toBeInViewport({ ratio: 1 });
+  await next.click();
+}
 
 /**
  * Seeds a catch of each item for this email. With `daysAgo` 0 the items were caught today, so

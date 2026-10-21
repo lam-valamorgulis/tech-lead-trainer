@@ -477,6 +477,14 @@ describe("checkContent for v1.5 content (#93)", () => {
     expect(checkV2(town)).toEqual([{ where: "t99.proxy", message: "Sprite 12 is already used by cache. Each creature has its own sprite." }]);
   });
 
+  it("fails a creature that uses the sprite of a Battle opponent (#103)", () => {
+    const town = fixtureTownV2();
+    town.creatures[2].sprite = 11;
+    expect(checkV2(town)).toEqual([
+      { where: "t99.proxy", message: "Sprite 11 is the Battle opponent of type traffic. Pick another species." },
+    ]);
+  });
+
   it("fails when a turn has 2 right Reasons", () => {
     const town = fixtureTownV2();
     turn(town).reasons[1].right = true;

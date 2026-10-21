@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { EFFECTS, type EffectName, type SongName, type SoundName } from "@/core/effects";
 import type { Profile } from "@/lib/profile";
 import { playSound, requestMusic, setSoundOn, soundStarted, startSound } from "./sound";
@@ -38,10 +38,11 @@ export function useEffectSettings(profile: Profile | null): void {
 
 /**
  * Plays a music loop while the screen is open (UI rule 13). When it closes, the loop of the
- * screen underneath plays again, so the map loop comes back after a battle.
+ * screen underneath plays again, so the map loop comes back after a battle. Null gives the
+ * loop back while the screen stays open, as the Battle's end screen does.
  */
-export function useMusic(song: SongName): void {
-  useEffect(() => requestMusic(song), [song]);
+export function useMusic(song: SongName | null): void {
+  useEffect(() => (song === null ? undefined : requestMusic(song)), [song]);
 }
 
 /**
@@ -59,8 +60,16 @@ export function Fx({ effect, sound, children }: { effect?: EffectName; sound?: S
 
   if (!effect) return <>{children}</>;
   return (
-    <span className={`fx fx-${effect}`} style={{ animationDuration: `${EFFECTS[effect].durationMs}ms` }}>
+    <span className={`fx fx-${effect}`} style={fxStyle(effect)}>
       {children}
     </span>
   );
+}
+
+/**
+ * The inline style of an effect: its length from EFFECTS, the one source, and when it starts.
+ * The Battle scene (#103) plays its effects one after the other with these delays.
+ */
+export function fxStyle(effect: EffectName, delayMs = 0): CSSProperties {
+  return { animationDuration: `${EFFECTS[effect].durationMs}ms`, animationDelay: `${delayMs}ms` };
 }

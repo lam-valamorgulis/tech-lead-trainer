@@ -99,14 +99,29 @@ export function soundLength(notes: Note[]): number {
 /** A screen effect. `flashes` is how many times its keyframes flash in one play. */
 export type Effect = { durationMs: number; flashes: number };
 
-export type EffectName = "pop" | "flash";
+export type EffectName = "pop" | "flash" | "attack" | "rise" | "shake" | "faint" | "enter" | "slide";
 
-/** The CSS keyframes in globals.css play once, for this long. */
+/**
+ * The CSS keyframes in globals.css play once, for this long. The Battle screen (#103) plays its
+ * effects one after the other with CSS delays; `turnTimeline` in battle-screen.ts sets them.
+ */
 export const EFFECTS: Record<EffectName, Effect> = {
   // The text grows a little and comes back: movement, no flash.
   pop: { durationMs: 300, flashes: 0 },
-  // The opponent's HP lights up once when a move hits.
+  // A creature that is hit blinks once.
   flash: { durationMs: 400, flashes: 1 },
+  // A creature jumps at the other side and back.
+  attack: { durationMs: 360, flashes: 0 },
+  // The damage text rises over the creature that was hit, then fades. The result panel keeps the words.
+  rise: { durationMs: 500, flashes: 0 },
+  // The scene shakes a little when your creature is hit.
+  shake: { durationMs: 300, flashes: 0 },
+  // A creature at 0 HP sinks and fades out.
+  faint: { durationMs: 500, flashes: 0 },
+  // The next creature slides in from the left.
+  enter: { durationMs: 500, flashes: 0 },
+  // The Battle panel slides up from the bottom.
+  slide: { durationMs: 280, flashes: 0 },
 };
 
 /** The most flashes in any one second, with the flashes spread evenly over the effect. */

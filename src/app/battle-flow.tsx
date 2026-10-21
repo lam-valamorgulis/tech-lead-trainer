@@ -2,39 +2,33 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { reviewItem } from "@/content";
-import {
-  battleProgress,
-  checkTurn,
-  counterattackSentence,
-  creatureOf,
-  damageLabel,
-  MAX_TURNS,
-  OPPONENT_HP,
-  playTurn,
-  startBattle,
-  usableMoves,
-  type BattleOffer,
-  type BattleState,
-} from "@/core/battle";
-import { soundForDamage } from "@/core/effects";
-import { opponentTypes, scenarioTwist, threatTypeOf } from "@/core/twist";
+import { checkTurn, OPPONENT_HP, type BattleOffer } from "@/core/battle";
+import { endLine, toV1State, whysFor } from "@/core/battle-screen";
+import { playTurnV2, progressV2, startBattleV2, turnLog, type BattleV2 } from "@/core/battle-v2";
+import { OPPONENT_SPECIES } from "@/core/sprite";
+import { opponentTypes, scenarioTwist } from "@/core/twist";
 import type { OpponentType } from "@/content/schema";
 import { postEvents } from "@/lib/events/post-events";
 import type { BattleEventFields, LearningEvent } from "@/lib/events/write-events";
+import { BattleScene } from "./battle-scene";
+import { CreatureSprite } from "./creature-sprite";
 import { DiscussInClaude } from "./discuss-in-claude";
 import { Fx, useMusic } from "./effects";
-import { keepAboveKeyboard } from "./keyboard";
-import { OPPONENT_LOOK } from "./opponent-look";
 import { GlossaryText } from "./glossary-text";
+import { OPPONENT_LOOK } from "./opponent-look";
 import { playSound } from "./sound";
 
-type Step = "team" | "turn" | "result" | "check" | "end";
+type Step = "team" | "scene" | "end";
 
 /**
- * Battle (design 7): see the opponent and pick a team. Each turn shows the threat first, then
- * the moves. The "why" comes before the result. The damage comes from the move table.
- * After each result, the model answer: the learner ticks the key points they said.
- * At the end, "Discuss in Claude" and the teach-back (design 10).
+ * Battle (design 7, rules v2 of ADR 0001): worked examples for new concepts, then the opponent and
+ * the team pick. The fight itself is the full-screen scene (#103): each turn shows the threat and
+ * the Constraint, then the moves, then 3 Reasons, before the result. Each turn is saved at play
+ * time, with whether it was the best move and whether the Reason was right.
+ *
+ * Until the end-of-Battle screen (#104) ships, a plain won or lost screen closes the Battle. It
+ * keeps the self-check of each turn's key points, which feeds the review schedule, and
+ * "Discuss in Claude" with the teach-back.
  */
 export function BattleFlow({
   offer,
@@ -50,25 +44,22 @@ export function BattleFlow({
   battleId?: string;
 }) {
   const [battleId] = useState(() => givenBattleId ?? crypto.randomUUID());
-  const [battle, setBattle] = useState<BattleState | null>(null);
+  const [battle, setBattle] = useState<BattleV2 | null>(null);
   const [step, setStep] = useState<Step>("team");
   // Worked examples come first, one screen each, then they hide (design 7.1).
   const [examplesRead, setExamplesRead] = useState(0);
-  // Each turn and each self-check is saved once, even after a fast double tap.
-  const played = useRef(new Set<number>());
-  const checked = useRef(new Set<number>());
-  // The why of each turn, shown next to its model answer.
-  const [whys, setWhys] = useState<Record<number, string>>({});
-  useMusic("battle");
-  // The ticked key points of each turn, for the "Discuss in Claude" package.
-  const [ticks, setTicks] = useState<Record<number, number[]>>({});
+  // The learner's own words of each turn, when they typed some.
+  const [notes, setNotes] = useState<Record<number, string>>({});
+  // The key points ticked on each turn, for "Discuss in Claude", once the self-check is saved.
+  const [ticks, setTicks] = useState<Record<number, number[]> | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
-  const progress = battle ? battleProgress(battle) : null;
+  // Battle music while the Battle runs. The end screen gives it back, so the map loop returns.
+  useMusic(step === "end" ? null : "battle");
 
   // A new step replaces the button that was tapped, so focus moves to the new heading.
   useEffect(() => {
     heading.current?.focus();
-  }, [step, battle?.turns.length, examplesRead]);
+  }, [step, examplesRead, ticks]);
 
   const battleFields = (): BattleEventFields => ({
     sessionId,
@@ -78,27 +69,34 @@ export function BattleFlow({
     contentHash: offer.scenario.hash,
   });
 
-  function makeMove(moveId: string | null, whyText: string) {
+  /** Plays and saves one turn. The best move and whether the Reason was right are fixed here, at play time. */
+  function play(moveId: string | null, reasonIndex: number | null, note: string) {
     if (!battle) return;
-    const turnNumber = battle.turns.length + 1;
-    if (played.current.has(turnNumber)) return;
-    const next = playTurn(battle, moveId);
-    played.current.add(turnNumber);
-    setWhys((before) => ({ ...before, [turnNumber]: whyText }));
-    const turn = next.turns[next.turns.length - 1];
+    const turnNumber = battle.played.length + 1;
+    const next = playTurnV2(battle, moveId, reasonIndex);
+    const played = next.played[turnNumber - 1];
+    const log = turnLog(next, turnNumber);
+    const whyText = note.trim();
+    if (whyText) setNotes((before) => ({ ...before, [turnNumber]: whyText }));
     const events: LearningEvent[] = [
       {
         type: "battle-turn",
         clientEventId: crypto.randomUUID(),
         ...battleFields(),
         turnNumber,
-        moveId: turn.moveId,
-        damage: turn.damage,
-        bestMove: turn.bestMove,
-        whyText,
+        moveId: played.moveId,
+        damage: played.damage,
+        bestMove: played.bestMove,
+        battleKind: log.battleKind,
+        moveDamage: log.moveDamage,
+        hpLost: log.hpLost,
+        ...(whyText ? { whyText } : {}),
+        ...(log.reasonIndex !== null && log.reasonCorrect !== null ? { reasonIndex: log.reasonIndex, reasonCorrect: log.reasonCorrect } : {}),
+        ...(log.skillIds ? { skillIds: log.skillIds } : {}),
+        ...(log.constraintVariant ? { constraintVariant: log.constraintVariant } : {}),
       },
     ];
-    const outcome = battleProgress(next);
+    const outcome = progressV2(next);
     if (outcome.finished) {
       events.push({
         type: "battle",
@@ -106,25 +104,22 @@ export function BattleFlow({
         ...battleFields(),
         team: next.team,
         result: outcome.won ? "won" : "lost",
-        turnsUsed: next.turns.length,
+        turnsUsed: next.played.length,
+        battleKind: next.kind,
+        faints: outcome.faints,
       });
     }
     void postEvents(events);
     setBattle(next);
-    setStep("result");
   }
 
-  /** Saves the ticks of the last turn. They change only the review schedule, never the battle. */
-  function saveCheck(tickedPoints: number[]) {
-    if (!battle) return;
-    const { turnNumber } = battle.turns[battle.turns.length - 1];
-    if (!checked.current.has(turnNumber)) {
-      checked.current.add(turnNumber);
-      const check = checkTurn(battle, turnNumber, tickedPoints);
-      setTicks((before) => ({ ...before, [turnNumber]: check.tickedPoints }));
-      void postEvents([{ type: "battle-check", clientEventId: crypto.randomUUID(), ...battleFields(), ...check }]);
-    }
-    setStep(battleProgress(battle).finished ? "end" : "turn");
+  /** Saves the self-check of every turn. The ticks change only the review schedule, never the result. */
+  function saveChecks(ticked: Record<number, number[]>) {
+    if (!battle || ticks) return;
+    const v1 = toV1State(offer.scenario, battle);
+    const checks = battle.played.map(({ turnNumber }) => checkTurn(v1, turnNumber, ticked[turnNumber] ?? []));
+    setTicks(Object.fromEntries(checks.map((check) => [check.turnNumber, check.tickedPoints])));
+    void postEvents(checks.map((check) => ({ type: "battle-check", clientEventId: crypto.randomUUID(), ...battleFields(), ...check })));
   }
 
   const example = offer.workedExamples[examplesRead];
@@ -168,101 +163,39 @@ export function BattleFlow({
         <h2 id="battle-title" ref={heading} tabIndex={-1}>
           A battle begins: {offer.scenario.name}
         </h2>
-        <OpponentTypeList scenario={offer.scenario} />
+        <div className="battle-intro">
+          <CreatureSprite species={OPPONENT_SPECIES[offer.scenario.opponentType]} />
+          <OpponentTypeList scenario={offer.scenario} />
+        </div>
         <TwistNote scenario={offer.scenario} />
         <p>
           <GlossaryText text={offer.scenario.problem} />
         </p>
-        <HitPoints hp={OPPONENT_HP} />
+        <p>
+          Opponent HP {OPPONENT_HP} of {OPPONENT_HP}
+        </p>
         <TeamForm
           offer={offer}
           onStart={(team) => {
             playSound("select");
-            setBattle(startBattle(offer, team));
-            setStep("turn");
+            setBattle(startBattleV2(offer.scenario, team));
+            setStep("scene");
           }}
         />
       </section>
     );
   }
 
-  const last = battle.turns[battle.turns.length - 1];
-
-  if (step === "turn") {
-    const turn = battle.scenario.turns[battle.turns.length];
-    return (
-      <section className="stack" aria-labelledby="turn-title">
-        <h2 id="turn-title" ref={heading} tabIndex={-1}>
-          Turn {battle.turns.length + 1} of {MAX_TURNS}
-        </h2>
-        <HitPoints hp={progress!.hp} />
-        {last && (
-          <p className="lead">
-            Last turn: <GlossaryText text={resultSentence(last)} />
-          </p>
-        )}
-        {/* A two-type opponent shows the type that attacks, before the threat (#36). */}
-        {scenarioTwist(battle.scenario) && (
-          <TypeChip type={threatTypeOf(battle.scenario, battle.turns.length)} label="This turn attacks with:" />
-        )}
-        {/* UI rule 1: the threat comes before the moves. */}
-        <p className="notice">
-          <strong>Threat:</strong> <GlossaryText text={turn.threat} />
-        </p>
-        <MoveForm key={battle.turns.length} moves={usableMoves(battle)} onMove={makeMove} />
-      </section>
-    );
+  if (step === "scene") {
+    return <BattleScene scenario={offer.scenario} battle={battle} onPlay={play} onEnd={() => setStep("end")} />;
   }
 
-  if (step === "result") {
-    return (
-      <section className="stack" aria-labelledby="result-title">
-        <h2 id="result-title" ref={heading} tabIndex={-1}>
-          Turn {last.turnNumber} result
-        </h2>
-        {/* UI rule 10: the damage words are the twin of the hit sound. */}
-        <p className="damage">
-          <Fx effect="pop" sound={soundForDamage(last.damage)}>
-            {damageLabel(last.damage)}
-          </Fx>
-        </p>
-        <p>
-          <GlossaryText text={resultSentence(last)} />
-        </p>
-        <HitPoints hp={progress!.hp} flash={last.damage > 0} />
-        <button type="button" className="button-main" onClick={() => setStep("check")}>
-          See the model answer
-        </button>
-      </section>
-    );
-  }
-
-  if (step === "check") {
-    const turn = battle.scenario.turns[last.turnNumber - 1];
-    return (
-      <section className="stack" aria-labelledby="check-title">
-        <h2 id="check-title" ref={heading} tabIndex={-1}>
-          Model answer
-        </h2>
-        <p className="lead">Your why: {whys[last.turnNumber]}</p>
-        <p>
-          <GlossaryText text={turn.modelAnswer} />
-        </p>
-        <CheckForm
-          key={last.turnNumber}
-          keyPoints={turn.keyPoints}
-          nextLabel={progress!.finished ? "See how it ended" : "Next turn"}
-          onSave={saveCheck}
-        />
-      </section>
-    );
-  }
-
+  const won = progressV2(battle).won;
   return (
     <section className="stack" aria-labelledby="end-title">
-      <h2 id="end-title" ref={heading} tabIndex={-1}>
+      <h2 id="end-title" ref={ticks ? undefined : heading} tabIndex={-1}>
         {/* A loss gets a soft sound and no movement. */}
-        {progress!.won ? (
+        {won ? (
           <Fx effect="pop" sound="win">
             You won!
           </Fx>
@@ -270,30 +203,45 @@ export function BattleFlow({
           <Fx sound="lose">You lost this time</Fx>
         )}
       </h2>
-      <p>
-        {progress!.won
-          ? `The opponent's HP reached 0 in ${battle.turns.length} turns.`
-          : `The opponent still has HP ${progress!.hp}. A lost battle is practice too.`}
-      </p>
-      <DiscussInClaude battle={battle} whys={whys} ticks={ticks} eventFields={battleFields} onDone={() => onDone(progress!.won)} />
+      <p>{endLine(battle)}</p>
+      {ticks === null ? (
+        <SelfCheckForm offer={offer} battle={battle} onSave={saveChecks} />
+      ) : (
+        <>
+          <h3 ref={heading} tabIndex={-1}>
+            Keep learning
+          </h3>
+          <DiscussInClaude
+            battle={toV1State(offer.scenario, battle)}
+            whys={whysFor(battle, notes)}
+            ticks={ticks}
+            eventFields={battleFields}
+            onDone={() => onDone(won)}
+          />
+        </>
+      )}
     </section>
   );
 }
 
-/** The self-check (design 7.7): tick the key points you said. Any number of ticks is fine. */
-function CheckForm({
-  keyPoints,
-  nextLabel,
+/**
+ * The self-check (design 7.4): each turn's model answer, and its key points to tick. Any number
+ * of ticks is fine. A point not ticked brings the turn's best move back in tomorrow's reviews.
+ */
+function SelfCheckForm({
+  offer,
+  battle,
   onSave,
 }: {
-  keyPoints: string[];
-  nextLabel: string;
-  onSave: (tickedPoints: number[]) => void;
+  offer: BattleOffer;
+  battle: BattleV2;
+  onSave: (ticked: Record<number, number[]>) => void;
 }) {
-  const [ticked, setTicked] = useState<number[]>([]);
+  const [ticked, setTicked] = useState<Record<number, number[]>>({});
 
-  function toggle(point: number) {
-    setTicked(ticked.includes(point) ? ticked.filter((p) => p !== point) : [...ticked, point]);
+  function toggle(turnNumber: number, point: number) {
+    const now = ticked[turnNumber] ?? [];
+    setTicked({ ...ticked, [turnNumber]: now.includes(point) ? now.filter((p) => p !== point) : [...now, point] });
   }
 
   function submit(event: FormEvent) {
@@ -303,24 +251,38 @@ function CheckForm({
 
   return (
     <form className="stack" onSubmit={submit}>
-      <fieldset className="choices">
-        <legend>Tick the key points you said in your why.</legend>
-        {keyPoints.map((point, index) => (
-          <label key={index} className="choice">
-            <input type="checkbox" checked={ticked.includes(index + 1)} onChange={() => toggle(index + 1)} />
-            <span>{point}</span>
-          </label>
-        ))}
-      </fieldset>
-      <p className="lead">A point you did not say comes back in tomorrow&apos;s reviews. Your ticks never change the damage.</p>
+      <h3>Model answers</h3>
+      <p className="lead">Tick the key points you could say yourself. A point you did not tick comes back in tomorrow&apos;s reviews.</p>
+      {battle.played.map(({ turnNumber }) => {
+        const turn = offer.scenario.turns[turnNumber - 1];
+        return (
+          <fieldset key={turnNumber} className="choices card">
+            <legend>Turn {turnNumber}</legend>
+            <p>
+              <GlossaryText text={turn.modelAnswer} />
+            </p>
+            {turn.keyPoints.map((point, index) => (
+              <label key={index} className="choice">
+                <input
+                  type="checkbox"
+                  checked={(ticked[turnNumber] ?? []).includes(index + 1)}
+                  onChange={() => toggle(turnNumber, index + 1)}
+                />
+                <span>{point}</span>
+              </label>
+            ))}
+          </fieldset>
+        );
+      })}
+      <p className="lead">Your ticks never change the result.</p>
       <button type="submit" className="button-main">
-        {nextLabel}
+        Save my ticks
       </button>
     </form>
   );
 }
 
-/** UI rule 4: a colour, an icon and a word, so the type reads without colour too. */
+/** UI rule 7: a colour, an icon and a word, so the type reads without colour too. */
 function TypeChip({ type, label, as: Tag = "p" }: { type: OpponentType; label?: string; as?: "p" | "li" }) {
   const look = OPPONENT_LOOK[type];
   return (
@@ -361,16 +323,6 @@ function TwistNote({ scenario }: { scenario: BattleOffer["scenario"] }) {
   );
 }
 
-/** `flash` lights the hearts up once, right after a move hit (UI rule 9). */
-function HitPoints({ hp, flash = false }: { hp: number; flash?: boolean }) {
-  const hearts = <span aria-hidden="true">{"♥".repeat(hp) + "♡".repeat(OPPONENT_HP - hp)}</span>;
-  return (
-    <p>
-      Opponent HP {hp} of {OPPONENT_HP} {flash ? <Fx effect="flash">{hearts}</Fx> : hearts}
-    </p>
-  );
-}
-
 function TeamForm({ offer, onStart }: { offer: BattleOffer; onStart: (team: string[]) => void }) {
   const [picked, setPicked] = useState<string[]>([]);
   const ready = picked.length === offer.team.size;
@@ -388,7 +340,9 @@ function TeamForm({ offer, onStart }: { offer: BattleOffer; onStart: (team: stri
   return (
     <form className="stack" onSubmit={submit}>
       <fieldset className="choices">
-        <legend>Pick {offer.team.size} creatures for your team. You can use only their moves.</legend>
+        <legend>
+          Pick {offer.team.size} creatures for your team. You can use only their moves. The first one fights first.
+        </legend>
         {offer.team.choices.map((id) => (
           <label key={id} className="choice">
             <input
@@ -404,63 +358,6 @@ function TeamForm({ offer, onStart }: { offer: BattleOffer; onStart: (team: stri
       <button type="submit" className="button-main" disabled={!ready}>
         Start the battle
       </button>
-    </form>
-  );
-}
-
-/** UI rule 2: "You chose X. Y happens." */
-function resultSentence(turn: BattleState["turns"][number]): string {
-  return counterattackSentence(turn.moveId && moveLabel(turn.moveId).name, turn.counterattack);
-}
-
-/** The move and its creature, for example "TTL (Cache)". */
-function moveLabel(moveId: string): { name: string; label: string } {
-  const name = reviewItem(moveId)?.name ?? moveId;
-  return { name, label: `${name} (${reviewItem(creatureOf(moveId))?.name ?? creatureOf(moveId)})` };
-}
-
-const NO_MOVE = "none";
-
-function MoveForm({ moves, onMove }: { moves: string[]; onMove: (moveId: string | null, whyText: string) => void }) {
-  const [chosen, setChosen] = useState<string | null>(null);
-  const [why, setWhy] = useState("");
-  const form = useRef<HTMLDivElement>(null);
-  const ready = chosen !== null && why.trim().length > 0;
-
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    if (ready) onMove(chosen === NO_MOVE ? null : chosen, why.trim());
-  }
-
-  return (
-    <form className="stack" onSubmit={submit}>
-      <fieldset className="choices">
-        <legend>Your move</legend>
-        {moves.map((moveId) => (
-          <label key={moveId} className="choice">
-            <input type="radio" name="move" checked={chosen === moveId} onChange={() => setChosen(moveId)} />
-            <span>{moveLabel(moveId).label}</span>
-          </label>
-        ))}
-        {moves.length === 0 && (
-          <label className="choice">
-            <input type="radio" name="move" checked={chosen === NO_MOVE} onChange={() => setChosen(NO_MOVE)} />
-            <span>None of my moves fits this threat</span>
-          </label>
-        )}
-      </fieldset>
-      <div ref={form} className="stack why-form">
-        <label className="field">
-          <span className="field-label">Why this move?</span>
-          <span className="lead">1 or 2 sentences, before you see the result.</span>
-          <textarea rows={3} maxLength={1000} value={why} onFocus={() => keepAboveKeyboard(form.current)} onChange={(event) => setWhy(event.target.value)} />
-        </label>
-        <button type="submit" className="button-main" disabled={!ready}>
-          Make the move
-        </button>
-      </div>
-      {/* Room below the button, so the box can scroll to the top of a phone screen. */}
-      <div aria-hidden="true" className="keyboard-room" />
     </form>
   );
 }
