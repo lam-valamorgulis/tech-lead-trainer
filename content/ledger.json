@@ -204,6 +204,20 @@
     "breaking-change.trade-off.total-type",
     "breaking-change.decision.remove-field",
     "llm-api.trade-off.overloaded-retry",
-    "llm-api.decision.retry-400"
+    "llm-api.decision.retry-400",
+    "t01-account-errors-browser",
+    "t01-moved-shop-replacements",
+    "t01-office-network-http2",
+    "t01-public-wifi-old-subdomains",
+    "t01-new-front-end-form",
+    "t01-meeting-deleted-sites",
+    "t01-meeting-surprise",
+    "t01-meeting-cto-https",
+    "t01-meeting-scope",
+    "t01-meeting-incident-status",
+    "t01-diff-cors-origin",
+    "t01-diff-cached-account",
+    "t01-diff-retry-charge",
+    "t01-diff-open-redirect"
   ]
 }

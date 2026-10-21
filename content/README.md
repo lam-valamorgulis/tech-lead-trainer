@@ -108,6 +108,7 @@ A scenario becomes a **v1.5 scenario** when one of its turns has a `constraint`,
 | `source` | scenario | The real incident or situation the battle comes from (design 7.6) | Required in a v1.5 scenario |
 | `person` | scenario | Who asks in a Meeting Battle | Only in `meeting`, and required there: `client`, `manager` or `cto` |
 | `diff` | scenario | The short diff an AI agent wrote, with one planted problem | Only in `agent-diff`, and required there. May have line breaks |
+| `twinOf` | scenario | The id of the scenario this one is the Gym twin of (design 7.5) | See "Gym twins" below |
 | `constraint` | turn | The one-line situation that decides the best move (design 7.2) | Required on every turn. One short line: each sentence at most 20 words |
 | `reasons` | turn | The 3 Reasons the learner picks from before the result | Exactly 3, exactly 1 `right` |
 | `skills` | turn | The Skills the turn trains | 1 or more Skill ids |
@@ -122,6 +123,20 @@ Moves in each kind:
 So no creature may have the id `answer` or `verdict`.
 
 From Town 2 on, every v1.5 `battle` has at least one turn whose best move is a move of a creature from an earlier town (design 7.5).
+
+#### Gym twins
+
+The Gym meets an old situation again with the Constraint reversed (design 7.5). For example, `CDN cache` won last time, but now prices change every minute, so it loses. A twin is a full scenario with its own id and `"twinOf": "<scenario id>"`.
+
+- `twinOf` names another scenario of the same town, not the twin itself.
+- That scenario is a normal scenario: not another twin, and not retired. A chain or a cycle of twins would hide every battle in it.
+- The twin has the same `opponentType` and the same `kind` as that scenario.
+- At least one turn of the twin has the same `threat` as a turn of that scenario, word for word.
+- On at least one of those turns, the best move is a different move. The reversed Constraint is the reason.
+- A twin is a v1.5 scenario, so every turn has a Constraint, 3 Reasons and Skills, and the twin has a `source`.
+- The other turns may be copies of the old turns.
+- `twinOf` is not in the content hash, like `name`.
+- Until the Battle screen shows the Constraint (#103) and the Gym uses twins, the app does not offer a twin.
 
 A Reason is logged by its index in the file's `reasons` list (0, 1 or 2), next to the scenario's content hash. Moving a Reason changes the hash, so an old log still says which list its index points into. The app may show the Reasons in another order, but it logs the file index.
 

@@ -648,6 +648,110 @@ describe("checkContent for v1.5 content (#93)", () => {
     ]);
   });
 
+  describe("a Gym twin (#107)", () => {
+    /** The v2 fixture town with a twin of t99-sale-day. On turn 0, the Constraint is reversed: proxy.cdn now wins. */
+    function townWithTwin() {
+      const town = fixtureTownV2();
+      const twin = { ...structuredClone(town.scenarios[0]), id: "t99-sale-day-twin", name: "Sale day twin", twinOf: "t99-sale-day" };
+      Object.assign(twin.turns[0], { constraint: "The logo changes every hour during the sale." });
+      for (const row of twin.turns[0].moves) row.damage = row.moveId === "proxy.cdn" ? 2 : row.moveId === "cache.ttl" ? 1 : 0;
+      town.scenarios.push(twin);
+      return town;
+    }
+    const checkTwin = (town = townWithTwin()) => check(town, [...fixtureLedgerV2, "t99-sale-day-twin"]);
+    const twinOf = (town: ReturnType<typeof townWithTwin>) => town.scenarios.find((s) => s.id === "t99-sale-day-twin")!;
+
+    it("accepts a twin with the same threat, a reversed Constraint and another best move", () => {
+      expect(checkTwin()).toEqual([]);
+    });
+
+    it("fails a twin that points to no scenario of its town, or to itself", () => {
+      const missing = townWithTwin();
+      twinOf(missing).twinOf = "t99-no-such-battle";
+      expect(checkTwin(missing)).toEqual([
+        {
+          where: "t99.t99-sale-day-twin.twinOf",
+          message: "t99-no-such-battle is not a scenario of t99. A twin points to a scenario of its own town.",
+        },
+      ]);
+      const itself = townWithTwin();
+      twinOf(itself).twinOf = "t99-sale-day-twin";
+      expect(checkTwin(itself)).toEqual([{ where: "t99.t99-sale-day-twin.twinOf", message: "A twin points to another scenario, not to itself." }]);
+    });
+
+    it("fails a twin with another opponent type", () => {
+      const town = townWithTwin();
+      twinOf(town).opponentType = "speed";
+      expect(checkTwin(town)).toEqual([
+        { where: "t99.t99-sale-day-twin.twinOf", message: "A twin has the same opponent type as t99-sale-day: traffic." },
+      ]);
+    });
+
+    it("fails a twin of a twin, and a cycle of two twins, which would hide both battles", () => {
+      const chain = townWithTwin();
+      chain.scenarios.push({ ...structuredClone(twinOf(chain)), id: "t99-sale-day-twin-2", twinOf: "t99-sale-day-twin" });
+      expect(check(chain, [...fixtureLedgerV2, "t99-sale-day-twin", "t99-sale-day-twin-2"])).toEqual([
+        { where: "t99.t99-sale-day-twin-2.twinOf", message: "A twin points to a normal scenario, not to another twin." },
+      ]);
+
+      const cycle = townWithTwin();
+      Object.assign(cycle.scenarios[0], { twinOf: "t99-sale-day-twin" });
+      expect(checkTwin(cycle)).toEqual([
+        { where: "t99.t99-sale-day.twinOf", message: "A twin points to a normal scenario, not to another twin." },
+        { where: "t99.t99-sale-day-twin.twinOf", message: "A twin points to a normal scenario, not to another twin." },
+      ]);
+    });
+
+    it("fails a twin of a retired scenario", () => {
+      const town = townWithTwin();
+      Object.assign(town.scenarios[0], { retired: true });
+      expect(checkTwin(town)).toEqual([
+        { where: "t99.t99-sale-day-twin.twinOf", message: "t99-sale-day is retired. A twin points to a scenario the app still offers." },
+      ]);
+    });
+
+    it("fails a twin of another kind of battle", () => {
+      const town = townWithTwin();
+      const meeting = town.scenarios.find((s) => s.id === "t99-late-launch")!;
+      const twin = { ...structuredClone(meeting), id: "t99-late-launch-twin", twinOf: "t99-sale-day", opponentType: "traffic" as const };
+      town.scenarios.push(twin);
+      expect(check(town, [...fixtureLedgerV2, "t99-sale-day-twin", "t99-late-launch-twin"])).toEqual([
+        { where: "t99.t99-late-launch-twin.twinOf", message: "A twin is the same kind of battle as t99-sale-day: battle." },
+        { where: "t99.t99-late-launch-twin.twinOf", message: "A twin has at least one turn with the same threat as a turn of t99-sale-day." },
+      ]);
+    });
+
+    it("fails a twin that shares no threat with its scenario", () => {
+      const town = townWithTwin();
+      twinOf(town).turns.forEach((t, i) => (t.threat = `A new threat number ${i}.`));
+      expect(checkTwin(town)).toEqual([
+        { where: "t99.t99-sale-day-twin.twinOf", message: "A twin has at least one turn with the same threat as a turn of t99-sale-day." },
+      ]);
+    });
+
+    it("fails a twin whose best move is the same on every shared threat, so the Gym only replays the old answer", () => {
+      const town = townWithTwin();
+      twinOf(town).turns[0] = structuredClone(town.scenarios[0].turns[0]);
+      expect(checkTwin(town)).toEqual([
+        {
+          where: "t99.t99-sale-day-twin.twinOf",
+          message: "On a turn with the same threat as t99-sale-day, the twin needs another best move. Reverse the Constraint so the best move changes.",
+        },
+      ]);
+    });
+
+    it("makes a twin a v1.5 scenario, so it needs a Constraint on every turn", () => {
+      const town = fixtureTown();
+      const twin = { ...structuredClone(town.scenarios[0]), id: "t99-sale-day-twin", twinOf: "t99-sale-day" };
+      twin.turns[0].moves.forEach((row) => (row.damage = row.moveId === "proxy.cdn" ? 2 : row.moveId === "cache.ttl" ? 1 : 0));
+      town.scenarios.push(twin);
+      expect(check(town, [...fixtureLedger, "t99-sale-day-twin"])).toContainEqual({
+        where: "t99.t99-sale-day-twin.turns.0.constraint",
+        message: "Every turn of a v1.5 scenario has one Constraint.",
+      });
+    });
+  });
+
   it("fails a town with more than 2 Skills", () => {
     const town = fixtureTownV2();
     town.skills = [1, 2, 3];

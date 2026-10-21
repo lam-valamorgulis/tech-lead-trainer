@@ -217,6 +217,11 @@ export const scenarioSchema = z.object({
   diff: z.string().trim().min(1).optional(),
   /** v1.5: the real incident or situation this battle comes from (design 7.6). */
   source: sourceSchema.optional(),
+  /**
+   * v1.5: this scenario is the Gym twin of another scenario of the same town (design 7.5): the same
+   * threat with the Constraint reversed, so the best move changes. Not in the content hash.
+   */
+  twinOf: scenarioIdSchema.optional(),
   opponentType: z.enum(OPPONENT_TYPES),
   /** Only in a "two-types" town, where it is required: the opponent's second type (#36). */
   secondType: z.enum(OPPONENT_TYPES).optional(),
