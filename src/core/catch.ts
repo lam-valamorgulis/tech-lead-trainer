@@ -14,6 +14,8 @@ export type CatchItem = {
   hash: string;
   catch: BundledCreature["catch"];
   card: BundledCreature["card"];
+  /** Read before the question (design 6.3). Old content has none yet. */
+  lesson?: BundledCreature["lesson"];
 };
 
 /** What the rules need from a saved catch event, or from a right placement answer. */
@@ -36,7 +38,7 @@ export function catchQueue(town: BundledTown): CatchItem[] {
 }
 
 function toItem(item: BundledCreature | BundledMove, kind: ItemKind, creatureId: string): CatchItem {
-  return { id: item.id, kind, creatureId, name: item.name, hash: item.hash, catch: item.catch, card: item.card };
+  return { id: item.id, kind, creatureId, name: item.name, hash: item.hash, catch: item.catch, card: item.card, lesson: item.lesson };
 }
 
 export function caughtIds(records: CatchRecord[]): Set<string> {

@@ -10,6 +10,10 @@ A creature-catching learning game. A learner studies one town a month for 12 mon
 The short teaching a learner sees before the first question about a new concept. It cites one trusted primary source and has a picture or diagram when the idea needs one.
 _Avoid_: card, theory, background
 
+**Look-back**:
+The Lesson screen that holds the answer, shown again after a wrong first answer to a catch question. The learner then gets one more try.
+_Avoid_: hint, review, card
+
 **Town Intro**:
 The big-picture lesson at the start of a town, with one diagram that shows how the town's concepts fit together.
 _Avoid_: overview, chapter intro

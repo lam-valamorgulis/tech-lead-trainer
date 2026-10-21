@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { catchItems } from "../support/battle";
-import { local, signInNewUser } from "../support/e2e";
+import { local, readLesson, signInNewUser } from "../support/e2e";
 import { sql } from "../support/local-admin";
 
 // UI rules 9 and 10: short effects that respect reduced motion, and sounds that start in the
@@ -55,6 +55,7 @@ async function expectNoMovement(page: Page) {
 /** Commits 15 minutes and catches Cache with a right first answer. */
 async function catchCache(page: Page) {
   await page.getByRole("button", { name: "15 minutes" }).click();
+  await readLesson(page);
   await page.getByLabel("To load it faster next time").check();
   await page.getByLabel("Sure").check();
   await page.getByRole("button", { name: "Check" }).click();

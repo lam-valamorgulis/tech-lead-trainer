@@ -70,7 +70,7 @@
                 "text": "Shops use cache every day."
               },
               {
-                "text": "A cache keeps a copy, so the next visit loads faster."
+                "text": "A cache keeps a copy of a response, so the next visit loads faster."
               }
             ],
             "answerScreen": 2,
@@ -262,7 +262,7 @@
               "hash": "e45bf09b7dff7645"
             }
           ],
-          "hash": "e62e8281e909f7e0"
+          "hash": "3a6219ef8090c6f4"
         },
         {
           "id": "cookie",

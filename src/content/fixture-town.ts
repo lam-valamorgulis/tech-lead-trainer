@@ -440,7 +440,7 @@ export function fixtureTownV2(): Town {
       {
         ...cache,
         sprite: 12,
-        lesson: fixtureLesson("Cache", "A cache keeps a copy, so the next visit loads faster."),
+        lesson: fixtureLesson("Cache", "A cache keeps a copy of a response, so the next visit loads faster."),
         tradeOff: {
           id: "cache.trade-off.fresh-prices",
           situation: "Prices change every minute. The product page is slow.",

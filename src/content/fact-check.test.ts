@@ -41,7 +41,7 @@ describe("factCheckList", () => {
   it("adds the v1.5 texts: Lesson screens, the Constraint and the right Reason, and a scenario's own source", () => {
     const groups = factCheckList(v2());
     const all = groups.flatMap((g) => g.claims.map((c) => ({ ...c, url: g.url })));
-    expect(all.find((c) => c.where === "t99.cache.lesson.screens.2")?.text).toBe("A cache keeps a copy, so the next visit loads faster.");
+    expect(all.find((c) => c.where === "t99.cache.lesson.screens.2")?.text).toBe("A cache keeps a copy of a response, so the next visit loads faster.");
     const situation = all.find((c) => c.where === "t99.t99-sale-day.turns.0.situation");
     expect(situation?.text).toContain("Constraint: The logo changes once a year.");
     const turn = all.find((c) => c.where === "t99.t99-sale-day.turns.0");
