@@ -1,5 +1,5 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { ensureProfile, saveReminderTimes } from "@/lib/profile";
 import { removePushSubscription, savePushSubscription } from "@/lib/reminders/push-subscriptions";
 import { sendDueReminders, type PushResult, type PushSender } from "@/lib/reminders/send-reminders";
@@ -373,5 +373,66 @@ describe("sendDueReminders for an ADR outcome check", () => {
     const written = fakePushService();
     await sendDueReminders(adminClient(), new Date("2030-02-05T00:30:00Z"), written.send);
     expect(written.callsTo([phone.endpoint]).map((call) => (call.payload as { url: string }).url)).toEqual(["/"]);
+  });
+});
+
+describe("sendDueReminders as the number of learners grows", () => {
+  const users: User[] = [];
+  const phones: string[] = [];
+
+  /** An admin client that counts its read requests (GET), so a test can see how the reads grow. */
+  function countingAdmin() {
+    const counter = { reads: 0 };
+    const client = createClient(inject("supabaseUrl"), inject("supabaseSecretKey"), {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: {
+        fetch: (input, init) => {
+          if ((init?.method ?? "GET") === "GET") counter.reads += 1;
+          return fetch(input, init);
+        },
+      },
+    });
+    return { client, counter };
+  }
+
+  async function addLearner(label: string) {
+    const user = await signedInUser(label);
+    users.push(user);
+    await ensureProfile(user.client);
+    // A morning time no other test uses, so only these learners are due.
+    await saveReminderTimes(user.client, user.id, { morning: "04:05", evening: "22:55" });
+    const phone = subscriptionFor(label);
+    phones.push(phone.endpoint);
+    await savePushSubscription(user.client, phone, "iPhone");
+    await saveAdr(user.client, "t01-adr", {
+      sections: { title: "Queues", context: "", decision: "", consequences: "", prediction: "Fewer timeouts.", outcome: "" },
+      status: "accepted",
+      outcomeCheckDate: "2031-03-05",
+    });
+  }
+
+  beforeAll(async () => {
+    await addLearner("grow-1");
+  });
+
+  afterAll(async () => {
+    for (const user of users) await forgetEmail(user.email);
+  });
+
+  it("reads the same number of times for 3 due learners as for 1", async () => {
+    // 04:05 in Ho Chi Minh City is 21:05 UTC the day before.
+    const one = countingAdmin();
+    const push = fakePushService();
+    await sendDueReminders(one.client, new Date("2031-03-03T21:05:00Z"), push.send);
+    expect(push.callsTo(phones)).toHaveLength(1);
+
+    await addLearner("grow-2");
+    await addLearner("grow-3");
+    const three = countingAdmin();
+    // The ADR check day: each learner gets the daily reminder and the ADR reminder.
+    await sendDueReminders(three.client, new Date("2031-03-04T21:05:00Z"), push.send);
+    expect(push.callsTo(phones)).toHaveLength(1 + 3 * 2);
+
+    expect(three.counter.reads).toBe(one.counter.reads);
   });
 });
