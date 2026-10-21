@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getTown } from "@/content";
+import { getTown, towns } from "@/content";
 import type { BattleOffer } from "@/core/battle";
 import { GYM_BATTLES, GYM_WINS_NEEDED, gymBattles, gymIsOpen, gymOpensOn, gymProgress } from "@/core/gym";
 import { loadBattleHistory } from "@/lib/battle-log";
@@ -35,7 +35,7 @@ export function GymScreen({ townId, programStartDate }: { townId: string; progra
     currentLearningDay(client)
       .then(async (today) => {
         const [catches, history] = await Promise.all([loadCatchRecords(client, today), loadBattleHistory(client, today)]);
-        return { today, battles: gymBattles({ town, catches, battles: history.battles }) };
+        return { today, battles: gymBattles({ town, towns, catches, battles: history.battles }) };
       })
       .then((value) => !cancelled && setLoaded(value))
       .catch(() => !cancelled && setFailed(true));

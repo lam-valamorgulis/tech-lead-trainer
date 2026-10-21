@@ -2,7 +2,7 @@
 // After the reviews, the catch and the battle, a free day adds "extra time": an extra battle,
 // the boss, or a read-close-write task (read one primary source, close it, write 3 points).
 import type { BundledTown } from "@/content/bundle";
-import { nextBattle, readyOffers, type BattleOffer, type BattleRecord } from "./battle.ts";
+import { nextBattle, readyOffers, type BattleOffer, type OfferInput } from "./battle.ts";
 import { catchQueue, type CatchRecord } from "./catch.ts";
 import type { LearningDay } from "./day.ts";
 
@@ -23,26 +23,24 @@ export type ExtraTime = {
 /** Extra time for a 45-minute day, or null on a 3- or 15-minute day. */
 export function extraTime({
   town,
+  towns,
   catches,
   battles,
   readings,
   today,
   committedMinutes,
   hasBoss,
-}: {
-  town: BundledTown;
-  catches: CatchRecord[];
-  battles: BattleRecord[];
+}: OfferInput & {
   readings: ReadingRecord[];
   today: LearningDay;
   committedMinutes: 3 | 15 | 45;
   hasBoss: boolean;
 }): ExtraTime | null {
   if (committedMinutes !== 45) return null;
-  const main = nextBattle({ town, catches, battles, today, committedMinutes });
+  const main = nextBattle({ town, towns, catches, battles, today, committedMinutes });
   const playedToday = new Set(battles.filter((battle) => battle.learningDay === today).map((battle) => battle.scenarioId));
   const extraBattle =
-    readyOffers({ town, catches, battles }).find(
+    readyOffers({ town, towns, catches, battles }).find(
       (offer) => offer.scenario.id !== main?.scenario.id && !playedToday.has(offer.scenario.id),
     ) ?? null;
   const reading = readingFor(town, catches, readings);

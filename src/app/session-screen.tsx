@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { confusablePairs, currentTown, reviewItem, scenarioName, weekendBoss } from "@/content";
+import { confusablePairs, currentTown, reviewItem, scenarioName, towns, weekendBoss } from "@/content";
 import { battleRechecks, bestMoveRates, formatBestMoveRate, nextBattle, type BattleOffer, type BestMoveRate } from "@/core/battle";
 import { nextCatch, type CatchItem } from "@/core/catch";
 import { teachBackFor } from "@/core/discuss";
@@ -233,10 +233,10 @@ async function loadTodaysWork(committedMinutes: CommittedMinutes, programStartDa
   const town = currentTown(programStartDate, today);
   const paused = backlogPaused(catches, reviews, today, isReviewable, rechecks);
   const catchItem = town ? nextCatch({ town, records: catches, today, committedMinutes, paused }) : null;
-  // The battle uses the creatures caught before today's session.
-  const battle = town ? nextBattle({ town, catches, battles, today, committedMinutes }) : null;
+  // The battle uses the creatures caught before today's session, also in earlier towns (design 7.5).
+  const battle = town ? nextBattle({ town, towns, catches, battles, today, committedMinutes }) : null;
   const time = town
-    ? extraTime({ town, catches, battles, readings, today, committedMinutes, hasBoss: weekendBoss(town.id) !== undefined })
+    ? extraTime({ town, towns, catches, battles, readings, today, committedMinutes, hasBoss: weekendBoss(town.id) !== undefined })
     : null;
   return { today, reviews: due, catchItem, battle, extra: time && town ? { time, townId: town.id } : null, paused };
 }

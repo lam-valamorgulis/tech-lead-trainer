@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildBundle } from "@/content/bundle";
-import { fixtureTown, fixtureTownV2 } from "@/content/fixture-town";
+import { fixtureTown, fixtureTownV2, fixtureTwistTown } from "@/content/fixture-town";
 import { townSchema } from "@/content/schema";
 import {
   battleProgress,
@@ -124,6 +124,49 @@ describe("the team", () => {
     expect(() => startBattle(offer, ["cache", "proxy"])).toThrow("Pick 3 creatures.");
     expect(() => startBattle(offer, ["cache", "proxy", "dns"])).toThrow("dns is not a creature you caught.");
     expect(() => startBattle(offer, ["cache", "proxy", "proxy"])).toThrow("Pick 3 creatures.");
+  });
+});
+
+describe("a battle that needs a creature of an earlier town (design 7.5)", () => {
+  // Town 2 of the fixture, where turn 1's best move is proxy.cdn: a move of the town 1 creature proxy.
+  const towns = () => {
+    const two = fixtureTwistTown();
+    const [first] = two.scenarios[0].turns;
+    first.moves = first.moves.map((row) => ({ ...row, damage: row.moveId === "proxy.cdn" ? 2 : row.damage === 2 ? 1 : row.damage })) as typeof first.moves;
+    return buildBundle([townSchema.parse(fixtureTown()), townSchema.parse(two)]).towns;
+  };
+  const offerFor = (catches: CatchRecord[]) => {
+    const [one, two] = towns();
+    return nextBattle({ town: two, towns: [one, two], catches, battles: [], today: TODAY, committedMinutes: 15 });
+  };
+
+  it("is offered once the learner caught the creature of each best move, also from the earlier town", () => {
+    expect(offerFor(caught("rate-limit", "api-key", "proxy"))?.scenario.id).toBe("t98-public-api");
+  });
+
+  it("is not offered while the earlier town's creature is not caught", () => {
+    expect(offerFor(caught("rate-limit", "api-key"))).toBeNull();
+  });
+
+  it("lets the team hold the earlier town's creature, after the creatures of this town", () => {
+    const offer = offerFor(caught("rate-limit", "api-key", "proxy", "cookie"))!;
+    expect(offer.team).toEqual({ size: 3, choices: ["rate-limit", "api-key", "cookie", "proxy"] });
+    const battle = startBattle(offer, ["rate-limit", "api-key", "proxy"]);
+    expect(usableMoves(battle)).toEqual(["rate-limit.quota", "api-key.rotate", "proxy.cdn"]);
+    expect(playTurn(battle, "proxy.cdn").turns[0]).toMatchObject({ damage: 2, bestMove: true });
+  });
+
+  it("never lets a later town's creature join a town 1 battle", () => {
+    const [one, two] = towns();
+    const offer = nextBattle({
+      town: one,
+      towns: [one, two],
+      catches: caught("cache", "proxy", "rate-limit"),
+      battles: [],
+      today: TODAY,
+      committedMinutes: 15,
+    });
+    expect(offer?.team).toEqual({ size: 2, choices: ["cache", "proxy"] });
   });
 });
 

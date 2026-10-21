@@ -102,7 +102,8 @@ test("a two-type opponent shows both types, and each turn shows the type that at
   try {
     await moveToTown2(user.email);
     // Caught today, so today has no catch and no review: the battle comes first.
-    await catchItems(user.email, ["rate-limit", "api-key"]);
+    // Proxy is a town 1 creature: it can join a town 2 team (design 7.5).
+    await catchItems(user.email, ["rate-limit", "api-key", "proxy"]);
     await page.goto("/");
     await page.getByRole("button", { name: "Start Town 2" }).click();
     await page.getByRole("button", { name: "15 minutes" }).click();
@@ -123,6 +124,7 @@ test("a two-type opponent shows both types, and each turn shows the type that at
     expect(accessibility.violations).toEqual([]);
     await page.getByLabel("Rate limit").check();
     await page.getByLabel("API key").check();
+    await page.getByLabel("Proxy").check();
     await page.getByRole("button", { name: "Start the battle" }).click();
 
     await expect(page.getByRole("heading", { name: "Turn 1 of 3" })).toBeFocused();
