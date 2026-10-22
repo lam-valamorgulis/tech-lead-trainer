@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { BundledScenario } from "@/content/bundle";
 import { fixtureTownV2 } from "@/content/fixture-town";
+import { AGENT_DIFF_OPPONENT } from "./agent-diff.ts";
 import { battleRechecks, type CheckRecord } from "./battle.ts";
 import { endChecks, endView, moveName, resultLine, toggleTick, whyLost } from "./battle-end.ts";
 import { playTurnV2, progressV2, startBattleV2, type BattleV2 } from "./battle-v2.ts";
@@ -91,6 +92,21 @@ describe("the end view", () => {
       ["answer.facts-1", 0],
     ]);
     expect(resultLine(meeting)).toBe("The opponent's Doubt reached 0 in 2 turns.");
+  });
+
+  it("names the verdicts of an Agent Diff Battle, and the diff in the result line (#106)", () => {
+    // "Cache diff": Block is best (2), Ask for a test does 1, Approve does 0. Trust 3: Approve costs 2, the test 1.
+    const battle = play(startBattleV2(scenario("t99-cache-diff")), [
+      ["verdict.approve", 0],
+      ["verdict.ask-for-test", 0],
+    ]);
+    const view = endView(battle, nameOf, AGENT_DIFF_OPPONENT);
+    expect(view.turns.map((turn) => [turn.move, turn.bestMove])).toEqual([
+      ["Approve", "Block"],
+      ["Ask for a test", "Block"],
+    ]);
+    expect(view.line).toBe("Your Trust reached 0. The diff still has Risk 3 of 4.");
+    expect(view.ticksFeedReviews).toBe(false);
   });
 
   it("names the person of a Meeting Battle when the screen gives one (#105)", () => {

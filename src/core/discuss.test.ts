@@ -177,6 +177,23 @@ describe("discussPackage", () => {
     expect(text).not.toContain("# Concept cards");
   });
 
+  it("works for an Agent Diff Battle: the agent's diff, the verdict names, and no team (#106)", () => {
+    const cacheDiff = scenario("t99-cache-diff");
+    const battle = play(startBattleV2(cacheDiff), [
+      ["verdict.block", 0],
+      ["verdict.block", 0],
+    ]);
+    const text = discussPackage({ scenario: cacheDiff, battle, notes: {}, ticks: {}, itemOf });
+    expect(text).toContain("- Kind: Agent Diff Battle\n");
+    expect(text).not.toContain("- My team:");
+    // The coach needs the code to ask about it.
+    expect(text).toContain(`The agent's diff:\n\n\`\`\`diff\n${cacheDiff.diff}\n\`\`\`\n\n## Turn 1`);
+    expect(text).toContain("- My move: Block\n");
+    expect(text).toContain("- Counterattack: You chose Block. The release waits, but no old price reaches a shopper.");
+    expect(text).toContain("Best move: Block");
+    expect(text).not.toContain("verdict.");
+  });
+
   it("says so when the team had no move for a threat", () => {
     // Turn 2's moves are all Cache and Proxy moves, so a Cookie-only team has none.
     const battle = play(startBattleV2(saleDay, ["cookie"]), [

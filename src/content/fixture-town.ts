@@ -504,7 +504,15 @@ export function fixtureTownV2(): Town {
         opponentType: "data",
         source: { title: "MDN: Cache-Control", url: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control" },
         problem: "An agent added caching to the price endpoint.",
-        diff: '+ res.set("Cache-Control", "max-age=3600");\n  res.json(price);',
+        // A long second line: on an iPhone the code scrolls sideways (#106). One removed line, one added.
+        diff: [
+          ' router.get("/api/prices/:sku", async (req, res) => {',
+          "   const price = await prices.findBySku(req.params.sku, { includeSalePrice: true, currency: req.query.currency });",
+          '-  res.set("Cache-Control", "no-store");',
+          '+  res.set("Cache-Control", "max-age=3600");',
+          "   res.json(price);",
+          " });",
+        ].join("\n"),
         turns: [0, 1, 2].map(() => ({
           threat: "The price response is now cached for one hour.",
           constraint: "The release goes out tonight.",
