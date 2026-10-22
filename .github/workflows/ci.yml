@@ -13,6 +13,7 @@ permissions:
   contents: read
 
 jobs:
+  # Fast checks and seam B. Seam C runs in its own jobs below, at the same time.
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -35,6 +36,52 @@ jobs:
       - name: Setup wizards (shell tests)
         run: npm run test:shell
 
+      - name: Start local Supabase
+        run: npm run db:start
+      - name: Write local env
+        run: npm run env:local
+      - name: Seam B (local Supabase)
+        run: npm run test:db
+
+  # Seam C, one job per Playwright project, so the iPhone and Desktop Chrome runs happen side by side.
+  e2e:
+    runs-on: ubuntu-latest
+    # The browser download alone took from 39 s to 11 min on GitHub runners, so seam C gets more room.
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: iphone
+            browser: webkit
+          - project: desktop-chrome
+            browser: chromium
+    name: Seam C (${{ matrix.project }})
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      # The browsers are about 5 minutes to download, so they are cached per Playwright version.
+      - name: Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browsers
+        id: browser-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-${{ matrix.browser }}
+      - name: Install Playwright browser
+        if: steps.browser-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Install Playwright system packages
+        if: steps.browser-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps ${{ matrix.browser }}
+
       # The build bakes the public Supabase URL and key into the app, so local Supabase starts first.
       - name: Start local Supabase
         run: npm run db:start
@@ -45,17 +92,12 @@ jobs:
         env:
           # Seam C runs this build, so it uses the fixture town. Vercel builds the real content.
           NEXT_PUBLIC_CONTENT_SET: fixture
-      - name: Seam B (local Supabase)
-        run: npm run test:db
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps webkit chromium
-      - name: Seam C (iPhone and Desktop Chrome)
-        run: npm run test:e2e
+      - name: Seam C
+        run: npx playwright test --project=${{ matrix.project }}
       - uses: actions/upload-artifact@v5
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.project }}
           path: |
             playwright-report/
             test-results/

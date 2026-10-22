@@ -14,6 +14,12 @@ export const OPPONENT_LOOK: Record<OpponentType, { word: string; icon: string; c
 };
 
 /**
+ * How the AI agent of an Agent Diff Battle looks (#106, UI rule 7). The colour has 3.3:1 contrast
+ * on the cream HP box and 5.2:1 on --color-bg.
+ */
+export const AGENT_LOOK = { word: "AI agent", icon: "🤖", color: "#2f8fd6" };
+
+/**
  * How the person of a Meeting Battle looks (#105, UI rule 7): an icon and a colour next to the
  * person's word, as an opponent type has. Each colour has 3:1 contrast on the cream HP box and on --color-bg.
  */

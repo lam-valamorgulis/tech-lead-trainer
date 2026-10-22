@@ -120,7 +120,7 @@ A scenario becomes a **v1.5 scenario** when one of its turns has a `constraint`,
 
 | Field | On | What it holds | Rules |
 | --- | --- | --- | --- |
-| `kind` | scenario | `battle` (the default when left out), `meeting` or `agent-diff` (design 7.1) | The app offers a `meeting` on 1 or 2 Battle days a week (#105). Until the Agent Diff Battle screen ships, it never offers `agent-diff` |
+| `kind` | scenario | `battle` (the default when left out), `meeting` or `agent-diff` (design 7.1) | The app offers a `meeting` on 1 or 2 Battle days a week (#105), and an `agent-diff` on 1 Battle day a week: the second one (#106) |
 | `source` | scenario | The real incident or situation the battle comes from (design 7.6) | Required in a v1.5 scenario |
 | `person` | scenario | Who asks in a Meeting Battle | Only in `meeting`, and required there: `client`, `manager` or `cto` |
 | `diff` | scenario | The short diff an AI agent wrote, with one planted problem | Only in `agent-diff`, and required there. May have line breaks |

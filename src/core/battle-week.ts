@@ -1,6 +1,6 @@
 // The week rule for battle kinds (design 3, ticket #105). Pure functions: no clock, no database.
 // A 15- or 45-minute day has one Battle. On some days of the week, that Battle is a Meeting
-// Battle instead of a normal one. Nothing about the plan is saved: the kind of a day follows
+// Battle or an Agent Diff Battle (#106) instead of a normal one. Nothing about the plan is saved: the kind of a day follows
 // from the battle log, so a change to this rule changes only the days still to come.
 import type { ScenarioKind } from "../content/schema.ts";
 import type { BattleRecord } from "./battle.ts";
@@ -20,10 +20,17 @@ export type WeeklyKind = { kind: Exclude<ScenarioKind, "battle">; battleDays: nu
  * Meeting days: Monday and Thursday for a learner who battles every day, and still one Meeting
  * for a learner who battles once a week.
  *
- * Earlier kinds come first. A later kind (#106 adds Agent Diff Battle) goes after Meeting
- * Battle, so it only takes a day that is not a Meeting day, and no Meeting day moves.
+ * Design 3: 1 Agent Diff Battle a week, from Town 1 (#106). The second Battle day of the week
+ * is the Agent Diff day: Tuesday for a learner who battles every day.
+ *
+ * Earlier kinds come first. Agent Diff Battle goes after Meeting Battle, so it only takes a
+ * day that is not a Meeting day, and no Meeting day moves. The cost: a learner with only 1
+ * Battle day in a week gets the Meeting on it, and no Agent Diff Battle that week.
  */
-export const WEEKLY_KINDS: readonly WeeklyKind[] = [{ kind: "meeting", battleDays: [0, 3] }];
+export const WEEKLY_KINDS: readonly WeeklyKind[] = [
+  { kind: "meeting", battleDays: [0, 3] },
+  { kind: "agent-diff", battleDays: [1] },
+];
 
 /** What the rule needs from the battle log: one record per battle. No kind: a battle from before v2, a normal one. */
 export type KindRecord = Pick<BattleRecord, "battleId" | "learningDay" | "kind">;

@@ -9,6 +9,7 @@ import { opponentTypes, scenarioTwist } from "@/core/twist";
 import { kindOf, type OpponentType } from "@/content/schema";
 import { postEvents } from "@/lib/events/post-events";
 import type { BattleEventFields, LearningEvent } from "@/lib/events/write-events";
+import { AgentDiffIntro } from "./agent-diff-intro";
 import { BattleEnd } from "./battle-end";
 import { BattleScene, type PlayChoice } from "./battle-scene";
 import { CreatureSprite } from "./creature-sprite";
@@ -53,8 +54,9 @@ export function BattleFlow({
   // The learner's own words of each turn, when they typed some.
   const [notes, setNotes] = useState<Record<number, string>>({});
   const heading = useRef<HTMLHeadingElement>(null);
-  // A Meeting Battle (#105) has no team to pick: You play alone, in an office.
-  const meeting = kindOf(offer.scenario) === "meeting";
+  // A Meeting Battle (#105) and an Agent Diff Battle (#106) have no team to pick: You play alone.
+  const kind = kindOf(offer.scenario);
+  const meeting = kind === "meeting";
   // Battle or meeting music while it runs. The end screen gives it back, so the map loop returns.
   useMusic(step === "end" ? null : meeting ? "meeting" : "battle");
 
@@ -152,17 +154,16 @@ export function BattleFlow({
     );
   }
 
-  if ((!battle || step === "team") && meeting) {
-    return (
-      <MeetingIntro
-        offer={offer}
-        heading={heading}
-        onStart={() => {
-          playSound("select");
-          setBattle(startBattleV2(offer.scenario));
-          setStep("scene");
-        }}
-      />
+  if ((!battle || step === "team") && kind !== "battle") {
+    const start = () => {
+      playSound("select");
+      setBattle(startBattleV2(offer.scenario));
+      setStep("scene");
+    };
+    return meeting ? (
+      <MeetingIntro offer={offer} heading={heading} onStart={start} />
+    ) : (
+      <AgentDiffIntro offer={offer} heading={heading} onStart={start} />
     );
   }
 

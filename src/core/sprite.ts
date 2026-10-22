@@ -11,6 +11,13 @@ import type { Stage } from "./review.ts";
  */
 export const OPPONENT_SPECIES: Record<OpponentType, number> = { traffic: 11, speed: 14, security: 53, data: 45, outage: 15 };
 
+/**
+ * The species of the AI agent, the opponent of an Agent Diff Battle (#106): a small blue creature
+ * with antennae like network nodes. The approved prototype used species 33, which a Town 2
+ * creature now has. Like the opponents above, no creature may use it.
+ */
+export const AGENT_SPECIES = 3;
+
 /** The pack's sprites are 64 x 64 pixels. They grow by a whole number, with no smoothing. */
 export const SPRITE_PIXELS = 64;
 
