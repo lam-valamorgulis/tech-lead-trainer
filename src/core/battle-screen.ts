@@ -1,11 +1,25 @@
 // What the Battle screen v2 shows, and when (ticket #103, design 7.2 and section 9). Pure functions:
 // no browser, no clock. The rules themselves live in battle-v2.ts.
 import type { BundledScenario } from "../content/bundle.ts";
-import type { BattleTurn } from "../content/schema.ts";
+import type { BattleTurn, OpponentType } from "../content/schema.ts";
 import { counterattackSentence, creatureOf, damageLabel } from "./battle.ts";
 import { BAR_NAMES, progressV2, type BattleV2 } from "./battle-v2.ts";
 import { EFFECTS } from "./effects.ts";
 import { PERSON_WORDS } from "./portrait.ts";
+import { scenarioTwist, threatTypeOf } from "./twist.ts";
+
+/**
+ * The type that attacks on a turn, shown above the moves (#36): only in a normal Battle of a
+ * two-types town. A Meeting person does not attack with a type, even in a two-types town (#105).
+ */
+export function attackTypeShown(
+  battle: Pick<BattleV2, "kind">,
+  scenario: Pick<BundledScenario, "opponentType" | "secondType" | "turns">,
+  turnIndex: number,
+): OpponentType | null {
+  if (battle.kind !== "battle" || !scenarioTwist(scenario)) return null;
+  return threatTypeOf(scenario, turnIndex);
+}
 
 /**
  * When each effect of a played turn starts, in ms after the Reason tap. The screen sets these as

@@ -1402,6 +1402,24 @@ html:has(.battle-scene) {
   box-shadow: inset 0 -4px 0 rgb(0 0 0 / 35%);
 }
 
+/* More content below the fold of the panel (#105): a fade and a short line. iPhone shows no scroll bar. */
+.battle-more {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 32px 16px calc(8px + env(safe-area-inset-bottom));
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--battle-gold);
+  background: linear-gradient(transparent, var(--battle-panel) 60%);
+  /* Taps go through to the buttons under the fade. */
+  pointer-events: none;
+}
+
 /* The Meeting answer the learner picked, above its Reasons. */
 .battle-picked {
   padding: 6px 10px;

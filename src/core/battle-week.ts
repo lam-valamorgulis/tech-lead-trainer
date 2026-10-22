@@ -4,7 +4,7 @@
 // from the battle log, so a change to this rule changes only the days still to come.
 import type { ScenarioKind } from "../content/schema.ts";
 import type { BattleRecord } from "./battle.ts";
-import type { LearningDay } from "./day.ts";
+import { addDays, type LearningDay } from "./day.ts";
 import { weekStart } from "./week.ts";
 
 /**
@@ -28,9 +28,14 @@ export const WEEKLY_KINDS: readonly WeeklyKind[] = [{ kind: "meeting", battleDay
 /** What the rule needs from the battle log: one record per battle. No kind: a battle from before v2, a normal one. */
 export type KindRecord = Pick<BattleRecord, "battleId" | "learningDay" | "kind">;
 
+/** What the week rule reads: today, the battle log, and the weekly kinds in priority order. */
+export type WeekInput = { today: LearningDay; battles: KindRecord[]; weeklyKinds?: readonly WeeklyKind[] };
+
 /**
- * The kind of today's Battle. It reads only the battles of earlier days, so the answer for a
- * day stays the same after that day's Battle is played.
+ * The kinds due today in place of a normal Battle, in priority order. Empty: a normal Battle day.
+ * The caller plays the first kind with a ready scenario, so a kind with nothing ready never
+ * blocks a later kind (#106). It reads only the battles of other days, so the answer for a day
+ * stays the same after that day's Battle is played.
  *
  * - Before the learner's first normal Battle, every day is a normal Battle day: the learner
  *   meets the Battle rules (Constraint, Reason, HP) on a normal Battle first.
@@ -38,25 +43,25 @@ export type KindRecord = Pick<BattleRecord, "battleId" | "learningDay" | "kind">
  *   so far, today included. So a Meeting day that fell back to a normal Battle (no Meeting
  *   Battle was ready) moves to the next Battle day.
  */
-export function battleKindOn({
-  today,
-  battles,
-  weeklyKinds = WEEKLY_KINDS,
-}: {
-  today: LearningDay;
-  battles: KindRecord[];
-  weeklyKinds?: readonly WeeklyKind[];
-}): ScenarioKind {
-  const earlier = battles.filter((battle) => battle.learningDay < today);
-  if (!earlier.some((battle) => (battle.kind ?? "battle") === "battle")) return "battle";
+export function dueKinds({ today, battles, weeklyKinds = WEEKLY_KINDS }: WeekInput): WeeklyKind["kind"][] {
+  // Every day but today. A time zone change can move today earlier, so "before today" would miss days.
+  const otherDays = battles.filter((battle) => battle.learningDay !== today);
+  if (!otherDays.some((battle) => (battle.kind ?? "battle") === "battle")) return [];
   const monday = weekStart(today);
-  const thisWeek = earlier.filter((battle) => battle.learningDay >= monday);
+  const nextMonday = addDays(monday, 7);
+  const thisWeek = otherDays.filter((battle) => battle.learningDay >= monday && battle.learningDay < nextMonday);
   // Today's place among this week's Battle days: 0 when no Battle was played this week yet.
   const battleDay = new Set(thisWeek.map((battle) => battle.learningDay)).size;
-  for (const { kind, battleDays } of weeklyKinds) {
-    const due = battleDays.filter((index) => index <= battleDay).length;
-    const played = new Set(thisWeek.filter((battle) => battle.kind === kind).map((battle) => battle.battleId)).size;
-    if (played < due) return kind;
-  }
-  return "battle";
+  return weeklyKinds
+    .filter(({ kind, battleDays }) => {
+      const due = battleDays.filter((index) => index <= battleDay).length;
+      const played = new Set(thisWeek.filter((battle) => battle.kind === kind).map((battle) => battle.battleId)).size;
+      return played < due;
+    })
+    .map(({ kind }) => kind);
+}
+
+/** The kind of today's Battle when every due kind has a ready scenario: the first due kind, or a normal Battle. */
+export function battleKindOn(input: WeekInput): ScenarioKind {
+  return dueKinds(input)[0] ?? "battle";
 }

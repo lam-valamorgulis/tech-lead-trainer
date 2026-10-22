@@ -148,6 +148,16 @@ describe("nextBattle on a Meeting day (#105)", () => {
     ]);
   });
 
+  it("takes the first due kind with a ready scenario: a kind with nothing ready does not block a later one", () => {
+    // A kind listed first but with nothing ready (no Agent Diff Battle is offered yet) gives way to the Meeting.
+    const weeklyKinds = [
+      { kind: "agent-diff" as const, battleDays: [0, 1] },
+      { kind: "meeting" as const, battleDays: [0, 1] },
+    ];
+    const offer = nextBattle({ towns: [], town: v2Town(), catches: caught("cache", "proxy"), battles: mondayBattle, today: TODAY, committedMinutes: 15, weeklyKinds });
+    expect(offer?.scenario.id).toBe("t99-late-launch");
+  });
+
   it("never offers an Agent Diff Battle yet (#106), and normal offers (Gym, extra time) hold no Meeting Battle", () => {
     const input = { town: v2Town(), towns: [], catches: caught("cache", "proxy"), battles: [] };
     expect(readyOffers(input, "agent-diff")).toEqual([]);

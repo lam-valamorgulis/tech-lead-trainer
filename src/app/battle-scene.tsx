@@ -7,6 +7,7 @@ import type { OpponentType } from "@/content/schema";
 import { MAX_TURNS, OPPONENT_HP } from "@/core/battle";
 import {
   activeBefore,
+  attackTypeShown,
   battleAfter,
   hpLevel,
   moveWords,
@@ -353,6 +354,8 @@ function ChoicePanel({
   const turn = scenario.turns[turnNumber - 1];
   const moves = usableMovesV2(battle);
   const person = personOf(scenario, battle);
+  // A two-type opponent shows the type that attacks; a Meeting person does not (#105).
+  const attackType = attackTypeShown(battle, scenario, turnNumber - 1);
   const [picked, setPicked] = useState<string | null>(null);
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState("");
@@ -394,7 +397,7 @@ function ChoicePanel({
   if (picked !== null && turn.reasons) {
     // Its own key: a new panel starts at its top, even when the move list was scrolled.
     return (
-      <Panel key="reasons">
+      <Panel key="reasons" more="More Reasons below">
         <PanelHeading heading={heading} onLeave={onLeave}>
           {person ? "Why this answer?" : `Why ${nameOf(picked)}?`}
         </PanelHeading>
@@ -433,12 +436,12 @@ function ChoicePanel({
   }
 
   return (
-    <Panel key="moves" slide>
+    <Panel key="moves" slide more={person ? "More answers below" : "More moves below"}>
       <PanelHeading heading={heading} onLeave={onLeave}>
         Turn {turnNumber} of {MAX_TURNS}
       </PanelHeading>
       {/* A two-type opponent shows the type that attacks, before the threat (#36). */}
-      {scenarioTwist(scenario) && <AttackType type={threatTypeOf(scenario, turnNumber - 1)} />}
+      {attackType && <AttackType type={attackType} />}
       {/* UI rule 3: the threat and the Constraint come before the moves. */}
       <div className="battle-threat">
         <span className="battle-label">{person ? `${PERSON_WORDS[person].the} says` : "Threat"}</span>
@@ -573,15 +576,59 @@ function PanelHeading({
   );
 }
 
-/** The panel over the lower half of the scene: at most half the screen, never over the creatures. */
-function Panel({ slide = false, children }: { slide?: boolean; children: ReactNode }) {
+/**
+ * The panel over the lower half of the scene: at most half the screen, never over the creatures.
+ * When its content is taller, it scrolls. iPhone shows no scroll bar, so a fade and a short line
+ * ("More answers below") say that more is below, until the learner scrolls to the end (#105).
+ */
+function Panel({ slide = false, more = "More below", children }: { slide?: boolean; more?: string; children: ReactNode }) {
   const style: CSSProperties | undefined = slide ? fxStyle("slide") : undefined;
+  const box = useRef<HTMLDivElement>(null);
+  const moreBelow = useMoreBelow(box);
   // The slot slides and the panel inside it scrolls. One element doing both can paint in the wrong place.
   return (
     <div className={slide ? "battle-slot fx fx-slide" : "battle-slot"} style={style}>
-      <div className="battle-panel" data-testid="battle-panel">
+      <div className="battle-panel" data-testid="battle-panel" ref={box}>
         {children}
       </div>
+      {/* Only a picture of the scroll position: screen readers reach every button anyway. */}
+      {moreBelow && (
+        <p className="battle-more" aria-hidden="true" data-testid="battle-more">
+          {more} ↓
+        </p>
+      )}
     </div>
   );
+}
+
+/** True while the panel has content below its visible part. */
+function useMoreBelow(box: RefObject<HTMLDivElement | null>): boolean {
+  const [moreBelow, setMoreBelow] = useState(false);
+  useEffect(() => {
+    const panel = box.current;
+    if (!panel) return;
+    const update = () => setMoreBelow(hasMoreBelow(panel));
+    // The first check runs once the panel is painted.
+    const frame = requestAnimationFrame(update);
+    panel.addEventListener("scroll", update, { passive: true });
+    // Fonts load and buttons wrap after the first paint, which changes the height.
+    const resize = new ResizeObserver(update);
+    resize.observe(panel);
+    for (const child of panel.children) resize.observe(child);
+    // New content, for example the box for own words, changes the height too.
+    const changes = new MutationObserver(update);
+    changes.observe(panel, { childList: true, subtree: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      panel.removeEventListener("scroll", update);
+      resize.disconnect();
+      changes.disconnect();
+    };
+  }, [box]);
+  return moreBelow;
+}
+
+/** A few pixels of slack: a panel scrolled to its end can stop just short of it. */
+function hasMoreBelow(panel: HTMLElement): boolean {
+  return panel.scrollTop + panel.clientHeight < panel.scrollHeight - 4;
 }

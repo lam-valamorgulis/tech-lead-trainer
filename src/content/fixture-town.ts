@@ -528,9 +528,64 @@ export function fixtureTownV2(): Town {
 export const fixtureLedgerV2 = [...fixtureLedger, "cache.trade-off.fresh-prices", "cache.decision.logo", "t99-late-launch", "t99-cache-diff"];
 
 /**
+ * A Meeting Battle in the two-types town, with 4 answers as long as real ones (#105). On a small
+ * iPhone they do not all fit in the panel, so seam C checks the "More answers below" cue, and
+ * that a Meeting in a two-types town shows no attack type. Seam C only.
+ */
+export function fixturePartnerCall() {
+  return {
+    id: "t98-partner-call",
+    name: "Partner call",
+    kind: "meeting" as const,
+    person: "manager" as const,
+    opponentType: "traffic" as const,
+    secondType: "security" as const,
+    source: apiSource,
+    problem: "Your manager asks why the new partner API is slow.",
+    turns: [0, 1, 2].map((i) => ({
+      threatType: i === 1 ? ("security" as const) : ("traffic" as const),
+      threat: "Why are the partners angry about the new API?",
+      constraint: "The partners pay for the API, and their contract starts next week.",
+      moves: [
+        {
+          moveId: `answer.cause-${i}`,
+          label: "One partner sends far more requests than the others, so each partner gets a quota before next week.",
+          damage: 2 as const,
+          counterattack: "Your manager agrees to the quota plan.",
+        },
+        {
+          moveId: `answer.servers-${i}`,
+          label: "We can buy more servers this week, so every partner gets fast answers again, whatever they send.",
+          damage: 1 as const,
+          counterattack: "Your manager asks who pays for the servers.",
+        },
+        {
+          moveId: `answer.wait-${i}`,
+          label: "It is probably a short problem, so I would like to wait one more week and see what happens.",
+          damage: 0 as const,
+          counterattack: "Your manager now doubts your plan.",
+        },
+        {
+          moveId: `answer.blame-${i}`,
+          label: "The partners wrote code that retries too often, so this is their problem and not ours to fix.",
+          damage: 0 as const,
+          counterattack: "Your manager hears blame, not a plan.",
+        },
+      ],
+      reasons: reasons("A quota stops one partner from slowing all the others.", ["More servers fix every kind of load.", "Waiting shows the manager you stay calm."]),
+      skills: [21],
+      modelAnswer: "Name the cause, then the plan and its date. A quota for each partner fixes it before the contract starts.",
+      keyPoints: ["Name the cause.", "Give one plan.", "Say when it is done."],
+    })),
+  };
+}
+
+/**
  * The fixture towns of the seam C bundle. Town 1 has every v1.5 field except its Town Intro, so a
- * new learner in seam C starts on the commit buttons; Town 2 has the Town Intro (#98).
+ * new learner in seam C starts on the commit buttons; Town 2 has the Town Intro (#98) and a
+ * Meeting Battle with long answers (#105).
  */
 export function fixtureSeamCTowns() {
-  return [{ ...fixtureTownV2(), intro: undefined }, fixtureTwistTown()];
+  const town2 = fixtureTwistTown();
+  return [{ ...fixtureTownV2(), intro: undefined }, { ...town2, scenarios: [...town2.scenarios, fixturePartnerCall()] }];
 }

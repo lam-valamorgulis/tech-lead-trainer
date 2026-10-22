@@ -29,6 +29,54 @@ async function battledYesterday(email: string) {
   );
 }
 
+test("long answers on a small iPhone: a cue says more answers are below, and the last one is reachable; a two-type town shows no attack type", async ({ page }) => {
+  test.setTimeout(60_000);
+  // iPhone SE size: 4 real-length answers (2 or 3 lines each) do not fit in half the screen.
+  await page.setViewportSize({ width: 375, height: 667 });
+  const user = await signInNewUser(page, "meeting-long");
+  try {
+    // Day 1 was 40 days ago: the learner is in town 2, the two-types town, with "Partner call".
+    await sql(local, "update profiles set program_start_date = current_date - 40 where user_id = (select id from auth.users where email = $1)", [
+      user.email,
+    ]);
+    await catchItems(user.email, ["rate-limit", "api-key", "rate-limit.quota", "api-key.rotate"]);
+    await battledYesterday(user.email);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Start Town 2" }).click();
+    await page.getByRole("button", { name: "15 minutes" }).click();
+
+    await expect(page.getByRole("heading", { name: "A meeting begins: Partner call" })).toBeVisible();
+    await expect(page.getByText("With: Manager")).toBeVisible();
+    await page.getByRole("button", { name: "Start the meeting" }).click();
+
+    const panel = battlePanel(page);
+    await expect(panel.getByRole("heading", { name: "Turn 1 of 3" })).toBeFocused();
+    await panelSettled(page);
+    await expect(panel.getByText("Your manager says")).toBeVisible();
+    // A two-type opponent names the type that attacks. A manager in a meeting does not attack with a type.
+    await expect(page.getByText(/This turn attacks with/)).toHaveCount(0);
+
+    // The panel stays at most half the screen, so the answers scroll, and the cue says so.
+    const height = page.viewportSize()!.height;
+    expect((await panel.boundingBox())!.y).toBeGreaterThanOrEqual(height / 2 - 1);
+    const cue = page.getByTestId("battle-more");
+    await expect(cue).toHaveText("More answers below ↓");
+    const last = panel.getByRole("button", {
+      name: "The partners wrote code that retries too often, so this is their problem and not ours to fix.",
+    });
+    await expect(last).not.toBeInViewport();
+
+    // Scrolled to the end, the cue goes away and the last answer can be tapped.
+    await panel.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
+    await expect(cue).toHaveCount(0);
+    await expect(last).toBeInViewport({ ratio: 1 });
+    await last.click();
+    await expect(panel.getByRole("heading", { name: "Why this answer?" })).toBeFocused();
+  } finally {
+    await user.forget();
+  }
+});
+
 /** Design 9 rule 2: the panel takes at most half the screen and never covers a portrait or an HP box. */
 async function expectPanelBelowThePortraits(page: Page) {
   await panelSettled(page);

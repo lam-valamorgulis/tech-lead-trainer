@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ScenarioKind } from "../content/schema.ts";
-import { battleKindOn, WEEKLY_KINDS, type KindRecord } from "./battle-week.ts";
+import { battleKindOn, dueKinds, WEEKLY_KINDS, type KindRecord } from "./battle-week.ts";
 import { addDays } from "./day.ts";
 
 // Design 3: 1 or 2 Meeting Battles a week, in place of a normal Battle. 2026-10-19 is a Monday.
@@ -63,6 +63,19 @@ describe("the week rule for Meeting Battles (design 3)", () => {
     expect(battleKindOn({ today, battles: history })).toBe("meeting");
     expect(battleKindOn({ today, battles: [...history].reverse() })).toBe("meeting");
     expect(battleKindOn({ today, battles: [...history, record(today, "meeting")] })).toBe("meeting");
+  });
+
+  it("ignores a Battle dated after today, as after a time zone change, only in the week count", () => {
+    // Today moved back to Wednesday, but a Battle was already logged on Thursday. Thursday counts as
+    // a Battle day of this week; next Monday's Battle is in another week.
+    const history = [...knowsBattles, record(MONDAY, "meeting"), record(day(1)), record(day(3)), record(day(7))];
+    expect(battleKindOn({ today: day(2), battles: history })).toBe("meeting");
+  });
+
+  it("lists every due kind in priority order, so the caller can skip a kind with nothing ready", () => {
+    const kinds = [...WEEKLY_KINDS, { kind: "agent-diff" as const, battleDays: [0] }];
+    expect(dueKinds({ today: MONDAY, battles: knowsBattles, weeklyKinds: kinds })).toEqual(["meeting", "agent-diff"]);
+    expect(dueKinds({ today: MONDAY, battles: [] })).toEqual([]);
   });
 
   it("counts an old turn with no kind, from before v2, as a normal Battle", () => {

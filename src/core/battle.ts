@@ -1,7 +1,7 @@
 // Battle rules (design 7, ticket #16). Pure functions: no clock, no database.
 import type { BundledCreature, BundledScenario, BundledTown } from "@/content/bundle";
 import { KEY_POINTS, kindOf, type BattleTurn, type ScenarioKind } from "../content/schema.ts";
-import { battleKindOn } from "./battle-week.ts";
+import { dueKinds, type WeeklyKind } from "./battle-week.ts";
 import { caughtIds, type CatchRecord } from "./catch.ts";
 import type { LearningDay } from "./day.ts";
 import type { RecheckRecord } from "./review.ts";
@@ -69,15 +69,22 @@ export function nextBattle({
   battles,
   today,
   committedMinutes,
+  weeklyKinds,
 }: OfferInput & {
   today: LearningDay;
   committedMinutes: 3 | 15 | 45;
+  /** The week rule's kinds, in priority order. Tests can pass their own; the app uses the default. */
+  weeklyKinds?: readonly WeeklyKind[];
 }): BattleOffer | null {
   if (committedMinutes === 3) return null;
   if (battles.some((battle) => battle.learningDay === today)) return null;
-  const kind = battleKindOn({ today, battles });
   const input = { town, towns, catches, battles };
-  return (kind === "battle" ? null : readyOffers(input, kind)[0]) ?? readyOffers(input)[0] ?? null;
+  // The first due kind with a ready scenario. A kind with nothing ready does not block a later one.
+  for (const kind of dueKinds({ today, battles, weeklyKinds })) {
+    const offer = readyOffers(input, kind)[0];
+    if (offer) return offer;
+  }
+  return readyOffers(input)[0] ?? null;
 }
 
 /** What a battle offer needs. `towns` are all towns: the caught creatures of earlier towns can join the team (design 7.5). */

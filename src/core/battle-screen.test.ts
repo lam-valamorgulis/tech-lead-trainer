@@ -5,6 +5,7 @@ import { OPPONENT_TYPES } from "@/content/schema";
 import { playTurnV2, startBattleV2, type BattleV2 } from "./battle-v2.ts";
 import {
   activeBefore,
+  attackTypeShown,
   hpLevel,
   moveWords,
   turnResultText,
@@ -149,6 +150,14 @@ describe("a Meeting Battle on the screen (#105)", () => {
     ]);
     expect(text(battle, 1).hitBack).toBe("The client pushes back: −2 Trust.");
     expect(text(battle, 2).hitBack).toBe("The client pushes back: −1 Trust. Your Trust is gone!");
+  });
+
+  it("shows no attack type in a two-types town, where a normal Battle shows it (#36)", () => {
+    const twoTypes = { ...lateLaunch, opponentType: "outage" as const, secondType: "speed" as const };
+    twoTypes.turns = lateLaunch.turns.map((turn) => ({ ...turn, threatType: "speed" as const }));
+    expect(attackTypeShown({ kind: "meeting" }, twoTypes, 0)).toBeNull();
+    expect(attackTypeShown({ kind: "battle" }, twoTypes, 0)).toBe("speed");
+    expect(attackTypeShown({ kind: "battle" }, saleDay, 0)).toBeNull();
   });
 
   it("says the person has no doubt left on the winning turn", () => {
