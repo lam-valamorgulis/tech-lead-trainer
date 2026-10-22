@@ -120,7 +120,7 @@ A scenario becomes a **v1.5 scenario** when one of its turns has a `constraint`,
 
 | Field | On | What it holds | Rules |
 | --- | --- | --- | --- |
-| `kind` | scenario | `battle` (the default when left out), `meeting` or `agent-diff` (design 7.1) | Until the Meeting Battle and Agent Diff Battle screens ship, the app offers only `battle` |
+| `kind` | scenario | `battle` (the default when left out), `meeting` or `agent-diff` (design 7.1) | The app offers a `meeting` on 1 or 2 Battle days a week (#105). Until the Agent Diff Battle screen ships, it never offers `agent-diff` |
 | `source` | scenario | The real incident or situation the battle comes from (design 7.6) | Required in a v1.5 scenario |
 | `person` | scenario | Who asks in a Meeting Battle | Only in `meeting`, and required there: `client`, `manager` or `cto` |
 | `diff` | scenario | The short diff an AI agent wrote, with one planted problem | Only in `agent-diff`, and required there. May have line breaks |
@@ -152,7 +152,7 @@ The Gym meets an old situation again with the Constraint reversed (design 7.5). 
 - A twin is a v1.5 scenario, so every turn has a Constraint, 3 Reasons and Skills, and the twin has a `source`.
 - The other turns may be copies of the old turns.
 - `twinOf` is not in the content hash, like `name`.
-- Until the Battle screen shows the Constraint (#103) and the Gym uses twins, the app does not offer a twin.
+- The Battle screen shows the Constraint (#103). Until the Gym uses twins, the app does not offer a twin.
 
 A Reason is logged by its index in the file's `reasons` list (0, 1 or 2), next to the scenario's content hash. Moving a Reason changes the hash, so an old log still says which list its index points into. The app may show the Reasons in another order, but it logs the file index.
 

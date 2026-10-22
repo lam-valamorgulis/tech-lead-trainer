@@ -12,6 +12,7 @@ import {
   formatBestMoveRate,
   nextBattle,
   playTurn,
+  readyOffers,
   startBattle,
   usableMoves,
   type BattleEndRecord,
@@ -71,20 +72,6 @@ describe("nextBattle", () => {
     expect(nextBattle({ towns: [], town: retired, catches: caught("cache", "proxy"), battles: [], today: TODAY, committedMinutes: 15 })).toBeNull();
   });
 
-  it("offers only normal Battles until Meeting Battle and Agent Diff Battle ship (#93)", () => {
-    // Every normal Battle of the v2 fixture was played, so a Meeting or Agent Diff Battle would come first.
-    const content = fixtureTownV2();
-    const meetingFirst = { ...structuredClone(content.scenarios[0]), id: "t99-meeting-twin", kind: "meeting" as const };
-    content.scenarios.push(meetingFirst);
-    const v2 = buildBundle([content]).towns[0];
-    const battles: BattleRecord[] = v2.scenarios
-      .filter((s) => s.kind === undefined)
-      .map((s, i) => ({ battleId: `b${i}`, scenarioId: s.id, learningDay: "2026-10-19" }));
-    const offer = nextBattle({ towns: [], town: v2, catches: caught("cache", "proxy"), battles, today: TODAY, committedMinutes: 15 });
-    expect(offer).not.toBeNull();
-    expect(offer?.scenario.kind).toBeUndefined();
-  });
-
   it("does not offer a Gym twin yet, because the Battle screen does not show its reversed Constraint (#107)", () => {
     // The twin is never played, so it would come first if it could be offered.
     const content = fixtureTownV2();
@@ -93,6 +80,8 @@ describe("nextBattle", () => {
     const battles: BattleRecord[] = v2.scenarios
       .filter((s) => s.kind === undefined && s.twinOf === undefined)
       .map((s, i) => ({ battleId: `b${i}`, scenarioId: s.id, learningDay: "2026-10-19" }));
+    // This week's Meeting was played on Monday, so today is a normal Battle day.
+    battles.push({ battleId: "meeting", scenarioId: "t99-late-launch", learningDay: "2026-10-19", kind: "meeting" });
     const offer = nextBattle({ towns: [], town: v2, catches: caught("cache", "proxy"), battles, today: TODAY, committedMinutes: 15 });
     expect(offer?.scenario.id).toBe("t99-sale-day");
   });
@@ -102,6 +91,79 @@ describe("nextBattle", () => {
     for (const scenario of content.scenarios) Object.assign(scenario, { retired: true });
     const retired = buildBundle([townSchema.parse(content)]).towns[0];
     expect(nextBattle({ towns: [], town: retired, catches: caught("cache", "proxy"), battles: [], today: TODAY, committedMinutes: 15 })).toBeNull();
+  });
+});
+
+describe("nextBattle on a Meeting day (#105)", () => {
+  // TODAY is a Tuesday. One normal Battle on Monday makes Tuesday the week's second Battle day,
+  // and a Meeting day: the Monday Meeting fell back to that normal Battle (battle-week.ts).
+  const mondayBattle: BattleRecord[] = [{ battleId: "b0", scenarioId: "t99-sale-day", learningDay: "2026-10-19", kind: "battle" }];
+  const v2Town = () => buildBundle([fixtureTownV2()]).towns[0];
+  const offerFor = (v2: ReturnType<typeof v2Town>, battles: BattleRecord[], catches = caught("cache", "proxy")) =>
+    nextBattle({ towns: [], town: v2, catches, battles, today: TODAY, committedMinutes: 15 });
+
+  it("offers a ready Meeting Battle in place of the normal Battle: You alone, no team pick, no worked example", () => {
+    const offer = offerFor(v2Town(), mondayBattle);
+    expect(offer?.scenario.id).toBe("t99-late-launch");
+    expect(offer?.team).toEqual({ size: 0, choices: [] });
+    expect(offer?.workedExamples).toEqual([]);
+  });
+
+  it("needs no caught creature for a Meeting Battle", () => {
+    expect(offerFor(v2Town(), mondayBattle, [])?.scenario.id).toBe("t99-late-launch");
+  });
+
+  it("offers the normal Battle on a day that is not a Meeting day", () => {
+    const meetingMonday: BattleRecord[] = [
+      { battleId: "b0", scenarioId: "t99-sale-day", learningDay: "2026-10-16" },
+      { battleId: "b1", scenarioId: "t99-late-launch", learningDay: "2026-10-19", kind: "meeting" },
+    ];
+    expect(offerFor(v2Town(), meetingMonday)?.scenario.kind).toBeUndefined();
+  });
+
+  it("falls back to a normal Battle when no Meeting Battle is ready", () => {
+    const content = fixtureTownV2();
+    for (const scenario of content.scenarios) if (scenario.kind === "meeting") Object.assign(scenario, { retired: true });
+    // Sale day was played on Monday, so the least played normal Battle comes.
+    expect(offerFor(buildBundle([content]).towns[0], mondayBattle)?.scenario.id).toBe("t99-flash-sale");
+  });
+
+  it("offers the Meeting Battle played the fewest times, and never a retired one or a Gym twin", () => {
+    const content = fixtureTownV2();
+    const meeting = content.scenarios.find((scenario) => scenario.kind === "meeting")!;
+    content.scenarios.push(
+      { ...structuredClone(meeting), id: "t99-late-launch-twin", twinOf: "t99-late-launch" },
+      { ...structuredClone(meeting), id: "t99-old-meeting", retired: true },
+      { ...structuredClone(meeting), id: "t99-second-meeting" },
+    );
+    const v2 = buildBundle([content]).towns[0];
+    const playedOnce: BattleRecord[] = [
+      ...mondayBattle,
+      { battleId: "b1", scenarioId: "t99-late-launch", learningDay: "2026-10-12", kind: "meeting" },
+    ];
+    expect(offerFor(v2, playedOnce)?.scenario.id).toBe("t99-second-meeting");
+    expect(readyOffers({ town: v2, towns: [], catches: [], battles: [] }, "meeting").map((offer) => offer.scenario.id)).toEqual([
+      "t99-late-launch",
+      "t99-second-meeting",
+    ]);
+  });
+
+  it("takes the first due kind with a ready scenario: a kind with nothing ready does not block a later one", () => {
+    // A kind listed first but with nothing ready (no Agent Diff Battle is offered yet) gives way to the Meeting.
+    const weeklyKinds = [
+      { kind: "agent-diff" as const, battleDays: [0, 1] },
+      { kind: "meeting" as const, battleDays: [0, 1] },
+    ];
+    const offer = nextBattle({ towns: [], town: v2Town(), catches: caught("cache", "proxy"), battles: mondayBattle, today: TODAY, committedMinutes: 15, weeklyKinds });
+    expect(offer?.scenario.id).toBe("t99-late-launch");
+  });
+
+  it("never offers an Agent Diff Battle yet (#106), and normal offers (Gym, extra time) hold no Meeting Battle", () => {
+    const input = { town: v2Town(), towns: [], catches: caught("cache", "proxy"), battles: [] };
+    expect(readyOffers(input, "agent-diff")).toEqual([]);
+    const normal = readyOffers(input);
+    expect(normal.length).toBeGreaterThan(0);
+    expect(normal.filter((offer) => offer.scenario.kind !== undefined)).toEqual([]);
   });
 });
 

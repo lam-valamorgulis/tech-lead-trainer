@@ -1,8 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
+import { nextTurn, playMove, SALE_DAY_REASONS } from "../support/battle";
 import { local, signInNewUser } from "../support/e2e";
 import { sql } from "../support/local-admin";
 
 // Seam C uses the fixture town: 5 copies of "Sale day", won with TTL, then No store.
+
+// These tests are about the Gym, not the Battle effects (battle.spec.ts covers those). With
+// reduced motion each turn's result shows at once, so 5 battles fit in the test time.
+test.use({ reducedMotion: "reduce" });
 
 /** Day 1 was 25 days ago, so today is in the last week of town 1: its Gym is open. */
 async function setUpLastWeek(email: string) {
@@ -20,12 +25,10 @@ async function setUpLastWeek(email: string) {
   }
 }
 
-async function playTurn(page: Page, move: string, last: boolean) {
-  await page.getByLabel(move).check();
-  await page.getByLabel("Why this move?").fill("It fits this threat.");
-  await page.getByRole("button", { name: "Make the move" }).click();
-  await page.getByRole("button", { name: "See the model answer" }).click();
-  await page.getByRole("button", { name: last ? "See how it ended" : "Next turn" }).click();
+/** Plays turn `turn` (0, 1 or 2) with the right Reason. */
+async function playTurn(page: Page, move: string, turn: number, last: boolean) {
+  await playMove(page, move, SALE_DAY_REASONS[turn].right);
+  await nextTurn(page, last);
 }
 
 async function gymBattle(page: Page, battle: number, win: boolean) {
@@ -38,19 +41,22 @@ async function gymBattle(page: Page, battle: number, win: boolean) {
   for (const creature of ["Cache", "Cookie", "Proxy"]) await page.getByLabel(creature).check();
   await page.getByRole("button", { name: "Start the battle" }).click();
   if (win) {
-    await playTurn(page, "TTL (Cache)", false);
-    await playTurn(page, "No store (Cache)", true);
+    await playTurn(page, "TTL (Cache)", 0, false);
+    await playTurn(page, "No store (Cache)", 1, true);
     await expect(page.getByRole("heading", { name: "You won!" })).toBeVisible();
   } else {
-    await playTurn(page, "HttpOnly (Cookie)", false);
-    await playTurn(page, "TTL (Cache)", false);
-    await playTurn(page, "No store (Cache)", true);
+    await playTurn(page, "HttpOnly (Cookie)", 0, false);
+    await playTurn(page, "TTL (Cache)", 1, false);
+    await playTurn(page, "No store (Cache)", 2, true);
     await expect(page.getByRole("heading", { name: "You lost this time" })).toBeVisible();
   }
+  // Continue saves the ticks of the end screen (#104) and goes to the next Gym battle.
   await page.getByRole("button", { name: "Continue" }).click();
 }
 
 test("the Gym: 5 battles in a row, 4 wins give the badge, and the badge shows on the map", async ({ page }) => {
+  // Several full Battles with every effect: about 30 seconds on a busy machine, so it gets more time.
+  test.setTimeout(60_000);
   const user = await signInNewUser(page, "gym");
   try {
     await setUpLastWeek(user.email);
@@ -103,6 +109,8 @@ test("the Gym: 5 battles in a row, 4 wins give the badge, and the badge shows on
 });
 
 test("a Gym ends after 2 losses, gives no badge, and can be tried again", async ({ page }) => {
+  // Several full Battles with every effect: about 30 seconds on a busy machine, so it gets more time.
+  test.setTimeout(60_000);
   const user = await signInNewUser(page, "gym-lost");
   try {
     await setUpLastWeek(user.email);

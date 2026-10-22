@@ -82,9 +82,10 @@ test("battle text has tappable words too: the worked example and the threat", as
     for (const creature of ["Cache", "Cookie", "Proxy"]) await page.getByLabel(creature).check();
     await page.getByRole("button", { name: "Start the battle" }).click();
 
-    // The threat: "Every visitor downloads the same logo and styles again."
-    await page.getByRole("button", { name: "logo", exact: true }).click();
-    await expect(page.getByText("The small picture that shows the name of a shop.")).toBeVisible();
+    // The threat: "Every visitor downloads the same logo and styles again." The Constraint has "logo" too.
+    await page.getByTestId("battle-panel").getByRole("button", { name: "logo", exact: true }).first().click();
+    // Each "logo" has its own definition box; the one of the threat is first.
+    await expect(page.getByText("The small picture that shows the name of a shop.").first()).toBeVisible();
   } finally {
     await user.forget();
   }
