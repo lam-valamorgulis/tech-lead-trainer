@@ -4,9 +4,10 @@ import bundle from "./bundle.generated.json";
 
 // Ticket #112: the shipped towns put every creature on the System Map by a content node id.
 describe("System Map nodes in the shipped content (#112)", () => {
-  const shipped = bundle.towns.filter((town) => ["t01", "t02"].includes(town.id));
+  // Every shipped town, so a new town file fails here until its creatures have a place.
+  const shipped = bundle.towns;
 
-  it("gives every creature of Town 1 and Town 2 a node, from the creature or from its town", () => {
+  it("gives every creature of every shipped town a node, from the creature or from its town", () => {
     const withoutNode = shipped.flatMap((town) =>
       town.creatures.filter((creature) => !("systemNode" in creature) && !("systemNode" in town)).map((creature) => creature.id),
     );

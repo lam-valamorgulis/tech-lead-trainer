@@ -67,7 +67,7 @@ export function SystemMapScreen() {
                     {edge.creatures.length > 0 && (
                       <div className="system-edge-body">
                         <p className="pixel-label system-edge-label">{edge.label}</p>
-                        <CreatureRow creatures={edge.creatures} label={`Creatures ${edge.label.toLowerCase()}`} />
+                        <CreatureRow creatures={edge.creatures} label={`Creatures on the link: ${edge.label}`} />
                       </div>
                     )}
                   </li>
@@ -77,9 +77,9 @@ export function SystemMapScreen() {
           })}
         </ol>
         {/* The outer ring: towns that are not one part of the system, such as Testing and Security. */}
-        <section className={`system-ring${view.ring.creatures.length === 0 ? " system-place-hidden" : ""}`} data-node={view.ring.id}>
-          <h2 className="system-place-name">{view.ring.creatures.length === 0 ? HIDDEN_NAME : "Around the system"}</h2>
-          {view.ring.creatures.length > 0 && <p className="system-place-hint">Ideas that cover every place, such as tests and security.</p>}
+        <section className={`system-ring${view.ring.name === null ? " system-place-hidden" : ""}`} data-node={view.ring.id}>
+          <h2 className="system-place-name">{view.ring.name ?? HIDDEN_NAME}</h2>
+          {view.ring.hint && <p className="system-place-hint">{view.ring.hint}</p>}
           <CreatureRow creatures={view.ring.creatures} label="Creatures around the system" />
         </section>
       </div>

@@ -76,6 +76,7 @@ describe("systemMap", () => {
     expect(view.places.map((place) => place.name)).toEqual([null, null, null, null, null, null]);
     expect(view.places.every((place) => place.creatures.length === 0)).toBe(true);
     expect(view.edges.map((edge) => edge.label)).toContain("Between ??? and ???");
+    expect(view.ring.name).toBeNull();
   });
 
   it("puts each caught creature at its place and names that place", () => {
@@ -98,7 +99,6 @@ describe("systemMap", () => {
   it("gathers creatures of every town, in town order and then file order", () => {
     const view = systemMap(towns((one) => Object.assign(one.creatures[2], { systemNode: "api" })), [caught("rate-limit"), caught("proxy"), caught("api-key")], []);
     expect(ids(view, "api")).toEqual(["proxy", "rate-limit", "api-key"]);
-    expect(view.places.find((place) => place.id === "api")!.creatures.map((creature) => creature.townNumber)).toEqual([1, 2, 2]);
   });
 
   it("puts creatures on a link and on the outer ring", () => {
@@ -112,6 +112,7 @@ describe("systemMap", () => {
     );
     expect(ids(view, "browser-cdn")).toEqual(["cache"]);
     expect(ids(view, "ring")).toEqual(["cookie"]);
+    expect(view.ring.name).toBe("Around the system");
     // A creature on a link or on the ring does not name a place.
     expect(view.places.every((place) => place.name === null)).toBe(true);
   });
@@ -134,6 +135,6 @@ describe("systemMap", () => {
       reviews.push({ itemId: "cache", learningDay: state.dueDay!, grade: "good" });
     }
     const [creature] = systemMap(towns(), records, reviews).places.find((place) => place.id === "cache")!.creatures;
-    expect(creature).toEqual({ id: "cache", name: "Cache", sprite: 12, stage: 2, townNumber: 1 });
+    expect(creature).toEqual({ id: "cache", name: "Cache", sprite: 12, stage: 2 });
   });
 });

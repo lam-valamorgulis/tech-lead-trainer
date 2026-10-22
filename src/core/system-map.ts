@@ -22,6 +22,9 @@ export const PLACE_LOOK: Record<SystemPlaceId, { name: string; hint: string }> =
   queue: { name: "Queue", hint: "Work saved to do later." },
 };
 
+/** The outer ring's name and meaning, shown once the learner caught a creature there. */
+export const RING_LOOK = { name: "Around the system", hint: "Ideas that cover every place, such as tests and security." };
+
 /** What a place shows before the learner caught a creature there, as in the Field Guide. */
 export const HIDDEN_NAME = "???";
 
@@ -32,7 +35,6 @@ export type SystemMapCreature = {
   sprite?: number;
   /** 1 when caught, then 2 and 3 as reviews pass (design 5). Stages 2 and 3 use the second palette. */
   stage: Stage;
-  townNumber: number;
 };
 
 export type SystemMapPlace = {
@@ -58,7 +60,7 @@ export type SystemMapView = {
   /** edges[i] links places[i] and places[i + 1]. */
   edges: SystemMapEdge[];
   /** The outer ring, for creatures of towns that are not one part of the system. */
-  ring: { id: typeof SYSTEM_RING_ID; creatures: SystemMapCreature[] };
+  ring: { id: typeof SYSTEM_RING_ID; name: string | null; hint: string | null; creatures: SystemMapCreature[] };
   caughtCount: number;
 };
 
@@ -89,7 +91,6 @@ export function systemMap(towns: BundledTown[], records: CatchRecord[], reviews:
         name: creature.name,
         sprite: creature.sprite,
         stage: states.get(creature.id)?.stage ?? 1,
-        townNumber: town.number,
       });
       atNode.set(node, list);
     }
@@ -101,12 +102,19 @@ export function systemMap(towns: BundledTown[], records: CatchRecord[], reviews:
     const known = creatures.length > 0;
     return { id, name: known ? PLACE_LOOK[id].name : null, hint: known ? PLACE_LOOK[id].hint : null, creatures };
   });
-  const shown = (id: SystemPlaceId) => places.find((place) => place.id === id)!.name ?? HIDDEN_NAME;
+  const nameOrHidden = (i: number) => places[i].name ?? HIDDEN_NAME;
   const edges: SystemMapEdge[] = SYSTEM_EDGE_IDS.map((id, i) => {
     const [from, to] = [SYSTEM_PLACE_IDS[i], SYSTEM_PLACE_IDS[i + 1]];
-    return { id, from, to, label: `Between ${shown(from)} and ${shown(to)}`, creatures: creaturesAt(id) };
+    return { id, from, to, label: `Between ${nameOrHidden(i)} and ${nameOrHidden(i + 1)}`, creatures: creaturesAt(id) };
   });
-  const ring = { id: SYSTEM_RING_ID, creatures: creaturesAt(SYSTEM_RING_ID) };
+  const ringCreatures = creaturesAt(SYSTEM_RING_ID);
+  const ringKnown = ringCreatures.length > 0;
+  const ring = {
+    id: SYSTEM_RING_ID,
+    name: ringKnown ? RING_LOOK.name : null,
+    hint: ringKnown ? RING_LOOK.hint : null,
+    creatures: ringCreatures,
+  };
   const caughtCount = [...atNode.values()].reduce((sum, list) => sum + list.length, 0);
   return { places, edges, ring, caughtCount };
 }
