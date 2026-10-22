@@ -46,7 +46,8 @@ jobs:
   # Seam C, one job per Playwright project, so the iPhone and Desktop Chrome runs happen side by side.
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # The browser download alone took from 39 s to 11 min on GitHub runners, so seam C gets more room.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
