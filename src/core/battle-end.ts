@@ -61,8 +61,12 @@ export type EndView = {
   turns: EndTurn[];
 };
 
-/** Everything the end screen shows, for a finished battle. The turns' content is the one the battle was played with. */
-export function endView(battle: BattleV2, nameOf: NameOf): EndView {
+/**
+ * Everything the end screen shows, for a finished battle. The turns' content is the one the battle
+ * was played with. `opponent` names the other side in the result line, for example "The client"
+ * in a Meeting Battle (#105). By default it is "The opponent".
+ */
+export function endView(battle: BattleV2, nameOf: NameOf, opponent?: string): EndView {
   const summary = endSummary(battle);
   const turns = summary.turns.map((played): EndTurn => {
     const turn = battle.turns[played.turnNumber - 1];
@@ -90,7 +94,7 @@ export function endView(battle: BattleV2, nameOf: NameOf): EndView {
   const withReasons = turns.filter((turn) => turn.reasonCorrect !== null);
   return {
     result: summary.result,
-    line: resultLine(battle),
+    line: resultLine(battle, opponent),
     bestMoves: { count: turns.filter((turn) => turn.isBest).length, of: turns.length },
     rightReasons: { count: withReasons.filter((turn) => turn.reasonCorrect).length, of: withReasons.length },
     hpLost: turns.reduce((sum, turn) => sum + turn.hpLost, 0),
@@ -103,11 +107,11 @@ export function endView(battle: BattleV2, nameOf: NameOf): EndView {
  * The one line under the result. Only a lost Battle sends its moves back to tomorrow's review:
  * the answers of a Meeting Battle and the verdicts of an Agent Diff Battle are not review items.
  */
-export function resultLine(battle: BattleV2): string {
+export function resultLine(battle: BattleV2, opponent = "The opponent"): string {
   const summary = endSummary(battle);
   const bars = BAR_NAMES[battle.kind];
-  if (summary.result === "won") return `The opponent's ${bars.opponent} reached 0 in ${summary.turnsUsed} turns.`;
-  const left = `The opponent still has ${bars.opponent} ${summary.opponentHp} of ${OPPONENT_HP}.`;
+  if (summary.result === "won") return `${opponent}'s ${bars.opponent} reached 0 in ${summary.turnsUsed} turns.`;
+  const left = `${opponent} still has ${bars.opponent} ${summary.opponentHp} of ${OPPONENT_HP}.`;
   const why = whyLost(battle, "you");
   return battle.kind === "battle" ? `${why} ${left} The moves you used come back in tomorrow's review.` : `${why} ${left}`;
 }

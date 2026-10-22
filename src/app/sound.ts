@@ -108,11 +108,20 @@ function followSong(): void {
   if (!soundOn || !context || wanted === null) return stopMusic();
   if (playing?.song === wanted) return;
   playing = { song: wanted, step: 0, nextAt: context.currentTime + 0.05 };
+  markSong(wanted);
   timer ??= setInterval(planMusic, MUSIC_TICK_MS);
+}
+
+/** The loop that plays, as `data-music` on the page, so a test can tell the loops apart (#105). */
+function markSong(song: SongName | null): void {
+  if (typeof document === "undefined") return;
+  if (song) document.documentElement.dataset.music = song;
+  else delete document.documentElement.dataset.music;
 }
 
 function stopMusic(): void {
   playing = null;
+  markSong(null);
   if (timer) clearInterval(timer);
   timer = null;
 }

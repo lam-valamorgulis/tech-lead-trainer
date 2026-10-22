@@ -1,6 +1,7 @@
 // Battle rules (design 7, ticket #16). Pure functions: no clock, no database.
 import type { BundledCreature, BundledScenario, BundledTown } from "@/content/bundle";
-import { KEY_POINTS, kindOf, type BattleTurn } from "../content/schema.ts";
+import { KEY_POINTS, kindOf, type BattleTurn, type ScenarioKind } from "../content/schema.ts";
+import { battleKindOn } from "./battle-week.ts";
 import { caughtIds, type CatchRecord } from "./catch.ts";
 import type { LearningDay } from "./day.ts";
 import type { RecheckRecord } from "./review.ts";
@@ -10,8 +11,11 @@ export const OPPONENT_HP = 4;
 /** A battle lasts at most this many turns. */
 export const MAX_TURNS = 3;
 
-/** What the rules need from a battle the learner started: one per battle, from its turn events. */
-export type BattleRecord = { battleId: string; scenarioId: string; learningDay: LearningDay };
+/**
+ * What the rules need from a battle the learner started: one per battle, from its turn events.
+ * `kind` is the kind logged at play time. A battle from before v2 has none: it was a normal Battle.
+ */
+export type BattleRecord = { battleId: string; scenarioId: string; learningDay: LearningDay; kind?: ScenarioKind };
 
 export type WorkedExample = { creatureId: string; name: string; workedExample: BundledCreature["workedExample"] };
 
@@ -55,6 +59,8 @@ export function bestRow(turn: BattleTurn) {
  * Today's battle, or null. A 3-minute day is reviews only, and a day that already started a
  * battle gets no second one. A scenario is ready when the team can hold the creature of every
  * best move, so a well-chosen team can always win. The least-played ready scenario comes first.
+ * On a Meeting day (the week rule, battle-week.ts) a ready Meeting Battle comes in place of the
+ * normal Battle. With no ready Meeting Battle, the day falls back to a normal Battle.
  */
 export function nextBattle({
   town,
@@ -69,17 +75,32 @@ export function nextBattle({
 }): BattleOffer | null {
   if (committedMinutes === 3) return null;
   if (battles.some((battle) => battle.learningDay === today)) return null;
-  return readyOffers({ town, towns, catches, battles })[0] ?? null;
+  const kind = battleKindOn({ today, battles });
+  const input = { town, towns, catches, battles };
+  return (kind === "battle" ? null : readyOffers(input, kind)[0]) ?? readyOffers(input)[0] ?? null;
 }
 
 /** What a battle offer needs. `towns` are all towns: the caught creatures of earlier towns can join the team (design 7.5). */
 export type OfferInput = { town: BundledTown; towns: BundledTown[]; catches: CatchRecord[]; battles: BattleRecord[] };
 
 /**
- * Every scenario the learner can win today, as a battle offer, the least played first. A
- * scenario is ready when the team can hold the creature of every best move, from this town or an earlier one.
+ * Every scenario of one kind the learner can play today, as a battle offer, the least played
+ * first. A normal Battle is ready when the team can hold the creature of every best move, from
+ * this town or an earlier one. A Meeting Battle needs no creature: You play alone, so it has no
+ * team and no worked example.
  */
-export function readyOffers({ town, towns, catches, battles }: OfferInput): BattleOffer[] {
+export function readyOffers({ town, towns, catches, battles }: OfferInput, kind: ScenarioKind = "battle"): BattleOffer[] {
+  const plays = (scenario: BundledScenario) => battles.filter((battle) => battle.scenarioId === scenario.id).length;
+  // A stable sort keeps file order between scenarios played equally often.
+  const leastPlayed = (scenarios: BundledScenario[]) => [...scenarios].sort((a, b) => plays(a) - plays(b));
+  // A Gym twin (design 7.5) repeats a threat with the Constraint reversed. A twin belongs in the
+  // Gym, next to its old scenario, so twins wait for the Gym ticket.
+  const playable = town.scenarios.filter((scenario) => !scenario.retired && kindOf(scenario) === kind && scenario.twinOf === undefined);
+  // Agent Diff Battle comes with its own screen (#106).
+  if (kind === "agent-diff") return [];
+  if (kind === "meeting") {
+    return leastPlayed(playable).map((scenario) => ({ scenario, team: { size: 0, choices: [] }, workedExamples: [] }));
+  }
   const caught = caughtIds(catches);
   // This town's creatures first, then those of earlier towns. A retired creature cannot join a team, even when it was caught.
   const earlier = towns.filter((other) => other.number < town.number).sort((a, b) => a.number - b.number);
@@ -87,25 +108,12 @@ export function readyOffers({ town, towns, catches, battles }: OfferInput): Batt
     .flatMap((t) => t.creatures)
     .filter((creature) => !creature.retired && caught.has(creature.id))
     .map((c) => c.id);
-  // Only normal Battles for now: Meeting Battle and Agent Diff Battle come with their own screens (#105, #106).
-  // A Gym twin (design 7.5) repeats a threat with the Constraint reversed. The Battle screen shows the
-  // Constraint now (#103), but a twin belongs in the Gym, next to its old scenario, so twins wait for the Gym ticket.
-  const ready = town.scenarios.filter(
-    (scenario) =>
-      !scenario.retired &&
-      kindOf(scenario) === "battle" &&
-      scenario.twinOf === undefined &&
-      [...conceptsOf(scenario)].every((concept) => choices.includes(concept)),
-  );
-  const plays = (scenario: BundledScenario) => battles.filter((battle) => battle.scenarioId === scenario.id).length;
-  // A stable sort keeps file order between scenarios played equally often.
-  return [...ready]
-    .sort((a, b) => plays(a) - plays(b))
-    .map((scenario) => ({
-      scenario,
-      team: { size: Math.min(TEAM_SIZE, choices.length), choices },
-      workedExamples: workedExamplesFor(town, scenario, catches, battles),
-    }));
+  const ready = playable.filter((scenario) => [...conceptsOf(scenario)].every((concept) => choices.includes(concept)));
+  return leastPlayed(ready).map((scenario) => ({
+    scenario,
+    team: { size: Math.min(TEAM_SIZE, choices.length), choices },
+    workedExamples: workedExamplesFor(town, scenario, catches, battles),
+  }));
 }
 
 /** The concepts a scenario uses: the creatures of its best moves. */

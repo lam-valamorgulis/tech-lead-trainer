@@ -4,19 +4,36 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type R
 import { reviewItem } from "@/content";
 import type { BundledScenario } from "@/content/bundle";
 import type { OpponentType } from "@/content/schema";
-import { creatureOf, MAX_TURNS, OPPONENT_HP } from "@/core/battle";
-import { activeBefore, battleAfter, hpLevel, turnResultText, turnTimeline, type NameOf, type TurnTimeline } from "@/core/battle-screen";
-import { BAR_NAMES, CREATURE_HP, progressV2, teamHp, usableMovesV2, type BattleV2, type PlayedTurnV2 } from "@/core/battle-v2";
+import { MAX_TURNS, OPPONENT_HP } from "@/core/battle";
+import {
+  activeBefore,
+  battleAfter,
+  hpLevel,
+  moveWords,
+  turnResultText,
+  turnTimeline,
+  type NameOf,
+  type TurnTimeline,
+} from "@/core/battle-screen";
+import { BAR_NAMES, CREATURE_HP, progressV2, teamHp, usableMovesV2, YOU, type BattleV2, type PlayedTurnV2 } from "@/core/battle-v2";
 import { EFFECTS, soundForDamage, type EffectName } from "@/core/effects";
+import { PERSON_WORDS, type MeetingPerson } from "@/core/portrait";
 import { OPPONENT_SPECIES } from "@/core/sprite";
 import { scenarioTwist, threatTypeOf } from "@/core/twist";
 import { CreatureSprite } from "./creature-sprite";
 import { fxStyle } from "./effects";
 import { GlossaryText } from "./glossary-text";
-import { OPPONENT_LOOK } from "./opponent-look";
+import { OPPONENT_LOOK, PERSON_LOOK } from "./opponent-look";
+import { PersonPortrait } from "./person-portrait";
 import { playSound } from "./sound";
 
-const nameOf: NameOf = (id) => reviewItem(id)?.name ?? id;
+/** The name of a creature or a move, and "You" in a Meeting Battle, where You play alone. */
+const nameOf: NameOf = (id) => (id === YOU ? "You" : (reviewItem(id)?.name ?? id));
+
+/** The person on the other side of a Meeting Battle (#105), or undefined in a normal Battle. */
+function personOf(scenario: BundledScenario, battle: BattleV2): MeetingPerson | undefined {
+  return battle.kind === "meeting" ? scenario.person : undefined;
+}
 
 /** How long after the Reasons show a tap on them is ignored: the second tap of a fast double tap on a move. */
 export const REASON_TAP_GUARD_MS = 300;
@@ -75,11 +92,16 @@ export function BattleScene({
   const timeline = result === null ? null : turnTimeline(battle.played[result - 1]);
   useTurnSounds(result === null ? null : battle.played[result - 1], skipped);
   const panelOpen = useResultPanel(result, timeline, skipped);
+  // A Meeting Battle is in an office, with people in frames (#105, design 9 rule 18).
+  const meeting = personOf(scenario, battle) !== undefined;
 
   return (
-    <section className={skipped ? "battle-scene battle-skip" : "battle-scene"} aria-label={`Battle: ${scenario.name}`}>
+    <section
+      className={skipped ? "battle-scene battle-skip" : "battle-scene"}
+      aria-label={`${meeting ? "Meeting Battle" : "Battle"}: ${scenario.name}`}
+    >
       {/* A tap on the scene during the effects skips them. The panel below has its own buttons. */}
-      <div className="battle-stage" onClick={() => result !== null && setSkipped(true)}>
+      <div className={meeting ? "battle-stage battle-stage-office" : "battle-stage"} onClick={() => result !== null && setSkipped(true)}>
         <Stage scenario={scenario} battle={battle} turnNumber={showing} result={result} timeline={timeline} />
       </div>
       {result === null && (
@@ -139,7 +161,10 @@ function useTurnSounds(played: PlayedTurnV2 | null, skipped: boolean) {
 /** When the sounds play with no effects: one after the other, each one short. */
 const STILL_SOUNDS = { hitAt: 0, counterAt: 300, faintAt: 600 };
 
-/** The scene: both creatures on their pads, both HP boxes, and the effects of a played turn. */
+/**
+ * The scene: both creatures on their pads, both HP boxes, and the effects of a played turn. In a
+ * Meeting Battle both sides are framed portraits, with no pads: the person and You.
+ */
 function Stage({
   scenario,
   battle,
@@ -166,7 +191,9 @@ function Stage({
   const opponentHp = progressV2(after).opponentHp;
   const alive = teamHp(after).filter((hp) => hp > 0).length;
   const threatType: OpponentType = scenarioTwist(scenario) ? threatTypeOf(scenario, turnNumber - 1) : scenario.opponentType;
-  const look = OPPONENT_LOOK[scenario.opponentType];
+  const person = personOf(scenario, battle);
+  // UI rule 7: the type, or the person of a meeting, is a colour, an icon and a word.
+  const look = person ? { ...PERSON_LOOK[person], word: PERSON_WORDS[person].name } : OPPONENT_LOOK[scenario.opponentType];
   // A new creature comes in at the start of the battle and after a Faint (design 7.3).
   const entering = result === null && (turnNumber === 1 || activeBefore(battle, turnNumber - 1) !== mine);
   const t = timeline;
@@ -190,19 +217,23 @@ function Stage({
         </span>
       </div>
 
-      <div className="battle-pad battle-pad-opponent" aria-hidden="true" />
+      {!person && <div className="battle-pad battle-pad-opponent" aria-hidden="true" />}
       <div className="battle-opponent" data-testid="opponent">
-        {/* Design 7.2: the threat's icon above the opponent's head. */}
+        {/* Design 7.2: the threat's icon above the opponent's head. In a meeting, the person speaks. */}
         {result === null && (
           <span className="battle-threat-icon" aria-hidden="true">
-            {OPPONENT_LOOK[threatType].icon}
+            {person ? "💬" : OPPONENT_LOOK[threatType].icon}
           </span>
         )}
         <Effect name="faint" at={played && opponentHp === 0 && t ? t.resultAt : null} fainting>
           <Effect name="attack" at={t?.counterAt != null ? t.counterAt - EFFECTS.attack.durationMs : null} variant="down">
             <Effect name="flash" at={played && played.damage > 0 && t ? t.hitAt : null}>
               <div className="battle-idle">
-                <CreatureSprite species={OPPONENT_SPECIES[scenario.opponentType]} side="front" />
+                {person ? (
+                  <PersonPortrait person={person} />
+                ) : (
+                  <CreatureSprite species={OPPONENT_SPECIES[scenario.opponentType]} side="front" />
+                )}
               </div>
             </Effect>
           </Effect>
@@ -214,14 +245,14 @@ function Stage({
         )}
       </div>
 
-      <div className="battle-pad battle-pad-mine" aria-hidden="true" />
+      {mine !== YOU && <div className="battle-pad battle-pad-mine" aria-hidden="true" />}
       <div className="battle-mine" data-testid="my-creature">
         <Effect name="faint" at={played && played.fainted.includes(mine) && t?.faintAt != null ? t.faintAt : null} fainting>
           <Effect name="enter" at={entering ? 0 : null} key={`${mine}-${turnNumber}-${result}`}>
             <Effect name="attack" at={played?.moveId ? 0 : null} variant="up">
               <Effect name="flash" at={t?.counterAt ?? null}>
                 <div className="battle-idle">
-                  <CreatureSprite species={reviewItem(mine)?.sprite} side="back" />
+                  {mine === YOU ? <PersonPortrait person="you" scale={1.5} /> : <CreatureSprite species={reviewItem(mine)?.sprite} side="back" />}
                 </div>
               </Effect>
             </Effect>
@@ -234,7 +265,7 @@ function Stage({
         )}
         {played && t?.faintAt != null && played.fainted.length > 0 && (
           <Pop at={t.faintAt} className="battle-pop-faint">
-            {played.fainted.map(nameOf).join(", ")} fainted!
+            {played.fainted.includes(YOU) ? `${BAR_NAMES[kind].team} is gone!` : `${played.fainted.map(nameOf).join(", ")} fainted!`}
           </Pop>
         )}
       </div>
@@ -321,6 +352,7 @@ function ChoicePanel({
   const turnNumber = battle.played.length + 1;
   const turn = scenario.turns[turnNumber - 1];
   const moves = usableMovesV2(battle);
+  const person = personOf(scenario, battle);
   const [picked, setPicked] = useState<string | null>(null);
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState("");
@@ -364,8 +396,10 @@ function ChoicePanel({
     return (
       <Panel key="reasons">
         <PanelHeading heading={heading} onLeave={onLeave}>
-          Why {nameOf(picked)}?
+          {person ? "Why this answer?" : `Why ${nameOf(picked)}?`}
         </PanelHeading>
+        {/* A Meeting answer is a whole line: it stays in view while the learner picks the Reason. */}
+        {person && <p className="battle-picked">“{moveWords(turn.moves.find((row) => row.moveId === picked)!, nameOf).main}”</p>}
         <p className="battle-hint">Pick the Reason before you see the result. A wrong Reason makes the hit weaker.</p>
         {noteOpen ? (
           <label className="field">
@@ -407,7 +441,7 @@ function ChoicePanel({
       {scenarioTwist(scenario) && <AttackType type={threatTypeOf(scenario, turnNumber - 1)} />}
       {/* UI rule 3: the threat and the Constraint come before the moves. */}
       <div className="battle-threat">
-        <span className="battle-label">Threat</span>
+        <span className="battle-label">{person ? `${PERSON_WORDS[person].the} says` : "Threat"}</span>
         <p>
           <GlossaryText text={turn.threat} />
         </p>
@@ -421,11 +455,21 @@ function ChoicePanel({
         </div>
       )}
       <div className="battle-choices" role="group" aria-label="Your move">
-        {moves.map((moveId) => (
-          <button key={moveId} type="button" className="battle-choice" onClick={(event) => pickMove(moveId, event.timeStamp)}>
-            <span className="battle-choice-name">{nameOf(moveId)}</span> <small>({nameOf(creatureOf(moveId))})</small>
-          </button>
-        ))}
+        {moves.map((moveId) => {
+          // A Meeting answer shows its whole line, wrapped (#105). A move shows its name and its creature.
+          const words = moveWords(turn.moves.find((row) => row.moveId === moveId)!, nameOf);
+          return (
+            <button key={moveId} type="button" className="battle-choice" onClick={(event) => pickMove(moveId, event.timeStamp)}>
+              {words.owner === null ? (
+                words.main
+              ) : (
+                <>
+                  <span className="battle-choice-name">{words.main}</span> <small>({words.owner})</small>
+                </>
+              )}
+            </button>
+          );
+        })}
         {moves.length === 0 && (
           <button type="button" className="battle-choice" onClick={(event) => pickMove(null, event.timeStamp)}>
             None of my moves fits this threat

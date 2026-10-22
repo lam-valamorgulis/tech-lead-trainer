@@ -5,6 +5,7 @@ import { itemCard, reviewItem } from "@/content";
 import type { BundledScenario } from "@/content/bundle";
 import { endChecks, endView, toggleTick, type EndTurn, type Ticks } from "@/core/battle-end";
 import type { BattleV2 } from "@/core/battle-v2";
+import { PERSON_WORDS } from "@/core/portrait";
 import { discussPackage, teachBackItems } from "@/core/discuss";
 import { postEvents, postEventsOnLeave } from "@/lib/events/post-events";
 import type { BattleEventFields } from "@/lib/events/write-events";
@@ -42,7 +43,10 @@ export function BattleEnd({
   eventFields: () => BattleEventFields;
   onDone: (won: boolean) => void;
 }) {
-  const [view] = useState(() => endView(battle, nameOf));
+  // A Meeting Battle names its person in the result line, for example "The client" (#105).
+  const [view] = useState(() =>
+    endView(battle, nameOf, battle.kind === "meeting" && scenario.person ? PERSON_WORDS[scenario.person].the : undefined),
+  );
   const won = view.result === "won";
   const [ticks, setTicks] = useState<Ticks>({});
   const [saved, setSaved] = useState(false);

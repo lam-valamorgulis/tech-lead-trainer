@@ -6,6 +6,7 @@ import { playTurnV2, startBattleV2, type BattleV2 } from "./battle-v2.ts";
 import {
   activeBefore,
   hpLevel,
+  moveWords,
   turnResultText,
   turnTimeline,
 } from "./battle-screen.ts";
@@ -115,6 +116,47 @@ describe("the result text of a turn", () => {
     expect(text.reason).toBeNull();
     // A team of one had 1 HP left: it Faints, and nobody comes in next.
     expect(text.hitBack).toBe("The opponent hits back: −1 HP. Cookie fainted!");
+  });
+});
+
+describe("a Meeting Battle on the screen (#105)", () => {
+  // "Late launch": the client asks. On every turn the facts answer is best (2), the vague one
+  // does 1 and blame does 0. Reason 0 is right.
+  const lateLaunch = { ...town.scenarios.find((s) => s.kind === "meeting")!, hash: "0123456789abcdef" } as BundledScenario;
+  const meet = (answers: [string, number][]) =>
+    answers.reduce((state, [answer, reason], i) => playTurnV2(state, `answer.${answer}-${i}`, reason), startBattleV2(lateLaunch));
+  const text = (battle: BattleV2, turnNumber: number) => turnResultText({ battle, scenario: lateLaunch, turnNumber, nameOf });
+
+  it("puts the full answer line on the button, where a Battle shows the move and its creature", () => {
+    const [facts] = lateLaunch.turns[0].moves;
+    expect(moveWords(facts, nameOf)).toEqual({ main: "Give the cause, the new date and the risk.", owner: null });
+    expect(moveWords(saleDay.turns[0].moves[0], nameOf)).toEqual({ main: "TTL", owner: "Cache" });
+  });
+
+  it("says the answer you chose, then what happens, and that the best answer costs no Trust", () => {
+    expect(text(meet([["facts", 0]]), 1)).toEqual({
+      damage: "Strong hit · 2 ●●",
+      choice: "You chose “Give the cause, the new date and the risk.” The client trusts the new date.",
+      reason: null,
+      hitBack: "Best answer. No Trust lost.",
+    });
+  });
+
+  it("says the Trust you lost when the person pushes back, and when your Trust is gone", () => {
+    const battle = meet([
+      ["blame", 0],
+      ["blame", 0],
+    ]);
+    expect(text(battle, 1).hitBack).toBe("The client pushes back: −2 Trust.");
+    expect(text(battle, 2).hitBack).toBe("The client pushes back: −1 Trust. Your Trust is gone!");
+  });
+
+  it("says the person has no doubt left on the winning turn", () => {
+    const battle = meet([
+      ["facts", 0],
+      ["facts", 0],
+    ]);
+    expect(text(battle, 2).hitBack).toBe("The client has no doubt left!");
   });
 });
 
