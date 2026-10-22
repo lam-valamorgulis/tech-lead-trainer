@@ -77,7 +77,7 @@ describe("Trainer Card log", () => {
     expect(skillsMet(skillRates(await loadSkillPicks(user.client)))).toBe(0);
   });
 
-  it("rates the Skills of one Meeting Battle and the Decision Cards, from the saved rows", async () => {
+  it("rates the Skills of one Meeting Battle, the Decision Cards and the trade-off questions, from the saved rows", async () => {
     const battleId = crypto.randomUUID();
     await writeEvents(user.client, [
       meetingTurn(battleId, 1, true),
@@ -98,13 +98,14 @@ describe("Trainer Card log", () => {
       },
       decisionCard(true, true),
       decisionCard(true, false),
-      // A trade-off question is a review card too, but not a Decision Card (design 7.7).
+      // A trade-off question is a harder Decision Card (design 6.5): it counts with the same rule.
       decisionCard(true, true, "trade-off"),
+      decisionCard(false, true, "trade-off"),
     ]);
 
     const rates = skillRates(await loadSkillPicks(user.client));
     expect(rateOf(rates, 20)).toMatchObject({ right: 2, met: 3 });
-    expect(rateOf(rates, 3)).toMatchObject({ right: 1, met: 2 });
+    expect(rateOf(rates, 3)).toMatchObject({ right: 2, met: 4 });
     expect(skillsMet(rates)).toBe(2);
   });
 

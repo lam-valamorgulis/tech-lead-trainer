@@ -20,7 +20,7 @@ describe("turnPick", () => {
 });
 
 describe("cardPick", () => {
-  it("counts a Decision Card right only when the option and the Reason are both right, as #109 grades it", () => {
+  it("counts a Decision Card or trade-off question right only when the option and the Reason are both right, as #109 grades it", () => {
     expect(cardPick({ skillIds: [3], choiceCorrect: true, reasonCorrect: true })).toEqual({ skillIds: [3], right: true });
     expect(cardPick({ skillIds: [3], choiceCorrect: true, reasonCorrect: false }).right).toBe(false);
     expect(cardPick({ skillIds: [3], choiceCorrect: false, reasonCorrect: true }).right).toBe(false);
@@ -35,7 +35,7 @@ describe("skillRates", () => {
     expect(skillsMet(rates)).toBe(0);
   });
 
-  it("is right picks / times met per Skill, from battle turns of every kind and Decision Cards", () => {
+  it("is right picks / times met per Skill, from battle turns of every kind, Decision Cards and trade-off questions", () => {
     // One Meeting Battle: 3 turns that train Skill 20 (talking with clients), with 2 best moves.
     const meeting = [
       { battleKind: "meeting", skillIds: [20], bestMove: true, reasonCorrect: true },

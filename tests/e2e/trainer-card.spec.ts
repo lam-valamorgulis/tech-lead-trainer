@@ -67,6 +67,11 @@ test("the Trainer Card shows the 26 Skills, grey until met, and a rate for each 
     await expect(skills.filter({ hasText: "Not met yet" })).toHaveCount(23);
     await expect(skills.nth(0)).toHaveClass(/skill-not-met/);
     await expect(skills.nth(2)).not.toHaveClass(/skill-not-met/);
+    // The styles really apply: a Skill never met has a dashed edge, one met a solid edge, and the list has no markers.
+    await expect(skills.nth(0)).toHaveCSS("border-top-style", "dashed");
+    await expect(skills.nth(2)).toHaveCSS("border-top-style", "solid");
+    await expect(screen.getByRole("list", { name: "Skills" })).toHaveCSS("list-style-type", "none");
+    await expect(screen.locator(".portrait-frame")).toHaveCSS("border-top-style", "solid");
 
     // The learner's portrait: the 64 px picture drawn at 96 px, sharp, inside its frame.
     const portrait = screen.locator(".portrait-frame img");

@@ -40,7 +40,7 @@ export function TrainerCardScreen() {
       </div>
       <p className="lead">
         A rate is your right picks out of the times you met the Skill. In a Battle, the right pick is the best move. In a
-        Decision Card, it is the right option and the right Reason.
+        Decision Card or a trade-off question, it is the right option and the right Reason.
       </p>
       <ol className="skill-list" aria-label="Skills">
         {rates.map((rate) => (

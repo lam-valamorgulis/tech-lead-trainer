@@ -1,6 +1,6 @@
 // Trainer Card (ticket #110, design 2 and 7.7). Pure functions: no clock, no database.
 // A Skill's rate = right picks / times met. It is computed from the logs each time, so nothing
-// new is stored. Every Battle turn (any kind of battle) and every Decision Card logs the Skills it
+// new is stored. Every Battle turn (any kind of battle) and every Decision Card or trade-off question logs the Skills it
 // trains at play time (design 12.2). No XP and no level (design 2, guard rules in design 14).
 
 import { SKILLS, type SkillId } from "../content/skills.ts";
@@ -11,7 +11,7 @@ export type SkillPick = { skillIds: readonly number[]; right: boolean };
 /** What the Trainer Card needs from a battle turn row. The kind of battle does not matter. */
 export type SkillTurn = { skillIds: readonly number[] | null; bestMove: boolean };
 
-/** What the Trainer Card needs from a Decision Card row (#109). */
+/** What the Trainer Card needs from a Decision Card or trade-off question row (#109). */
 export type SkillCard = { skillIds: readonly number[]; choiceCorrect: boolean; reasonCorrect: boolean };
 
 /**
@@ -24,7 +24,10 @@ export function turnPick(turn: SkillTurn): SkillPick | null {
   return { skillIds: turn.skillIds, right: turn.bestMove };
 }
 
-/** A Decision Card is a right pick when the option and the Reason are both right, as review grades it (#109). */
+/**
+ * A Decision Card, or a trade-off question (a harder Decision Card, design 6.5), is a right pick when
+ * the option and the Reason are both right, as review grades it (#109).
+ */
 export function cardPick(card: SkillCard): SkillPick {
   return { skillIds: card.skillIds, right: card.choiceCorrect && card.reasonCorrect };
 }

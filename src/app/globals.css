@@ -1245,6 +1245,8 @@ a[aria-current="page"] {
   font-size: 13px;
   line-height: 1.2;
   overflow-wrap: anywhere;
+}
+
 /* Trainer Card (#110, design 9 rule 18): the learner's portrait in a cream pixel frame, as in the prototype. */
 .trainer-card-link {
   align-self: flex-start;
