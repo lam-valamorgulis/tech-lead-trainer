@@ -6,8 +6,9 @@ import type { BundledScenario } from "@/content/bundle";
 import { endChecks, endView, toggleTick, type EndTurn, type Ticks } from "@/core/battle-end";
 import type { BattleV2 } from "@/core/battle-v2";
 import { discussPackage, teachBackItems } from "@/core/discuss";
-import { postEvents } from "@/lib/events/post-events";
+import { postEvents, postEventsOnLeave } from "@/lib/events/post-events";
 import type { BattleEventFields } from "@/lib/events/write-events";
+import { browserClient } from "@/lib/supabase/browser";
 import { DiscussInClaude } from "./discuss-in-claude";
 import { Fx } from "./effects";
 import { GlossaryText } from "./glossary-text";
@@ -22,9 +23,9 @@ const nameOf = (id: string) => reviewItem(id)?.name ?? id;
  * so every kind of battle uses it.
  *
  * The ticks are saved once, one check per turn: on "Discuss in Claude", on Continue, or when the
- * learner leaves (the page hides, or the screen closes, as Finish does). A turn left unticked is
- * saved with no ticks, so its best move comes back in tomorrow's reviews. The ticks change only
- * the review schedule, never the result.
+ * learner leaves (the page closes, the screen closes as Finish does, or the page hides with at
+ * least one tick). A turn left unticked is saved with no ticks, so its best move comes back in
+ * tomorrow's reviews. The ticks change only the review schedule, never the result.
  */
 export function BattleEnd({
   scenario,
@@ -47,9 +48,12 @@ export function BattleEnd({
   const [saved, setSaved] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
 
+  const token = useSessionToken();
+
   // The ticks are saved once (one check per turn), so a ref stops a second save at once.
   const savedOnce = useRef(false);
-  function saveTicks(current: Ticks, keepalive = false) {
+  /** `leaving`: the page hides or closes, so the request must start now, inside the event. */
+  function saveTicks(current: Ticks, leaving = false) {
     if (savedOnce.current) return;
     savedOnce.current = true;
     setSaved(true);
@@ -59,7 +63,8 @@ export function BattleEnd({
       ...eventFields(),
       ...check,
     }));
-    void postEvents(events, keepalive ? { keepalive } : undefined);
+    if (leaving) postEventsOnLeave(events, token.current);
+    else void postEvents(events);
   }
   useSaveOnLeave(ticks, saveTicks);
 
@@ -133,7 +138,8 @@ export function BattleEnd({
           onToggle={(point) => setTicks((before) => toggleTick(before, turn.turnNumber, point))}
         />
       ))}
-      {saved && <p role="status">Your ticks are saved. They change only your review schedule.</p>}
+      {/* Always in the page, so a screen reader reads the words when they appear. */}
+      <p role="status">{saved && "Your ticks are saved. They change only your review schedule."}</p>
       <h3>Keep learning</h3>
       <DiscussInClaude pack={pack} teachBackItems={teachBackItems(battle)} eventFields={eventFields} onDone={done} />
     </section>
@@ -208,11 +214,32 @@ function TurnReview({
 }
 
 /**
- * Saves the ticks when the learner leaves without a tap: the page hides (iPhone Safari may close
- * a hidden tab and never say so), the page closes, or the screen closes, as Finish does. A save
- * while the page hides goes out with keepalive, so it reaches the server as the tab closes.
+ * The session token, read while the screen is open, so a save as the page closes needs no wait
+ * for it. It follows a token refresh.
  */
-function useSaveOnLeave(ticks: Ticks, save: (ticks: Ticks, keepalive?: boolean) => void) {
+function useSessionToken() {
+  const token = useRef<string | null>(null);
+  useEffect(() => {
+    const auth = browserClient().auth;
+    void auth.getSession().then(({ data }) => {
+      token.current ??= data.session?.access_token ?? null;
+    });
+    const { data } = auth.onAuthStateChange((_event, session) => {
+      token.current = session?.access_token ?? null;
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
+  return token;
+}
+
+/**
+ * Saves the ticks when the learner leaves without a tap:
+ * - the page closes ("pagehide"), or the screen closes, as Finish does: always;
+ * - the page hides, for example when the iPhone locks: only when at least one box is ticked.
+ *   iPhone Safari may close a hidden tab and never say so, so ticks the learner chose are saved
+ *   at once. With no tick, nothing is saved, so the boxes do not lock while the learner is away.
+ */
+function useSaveOnLeave(ticks: Ticks, save: (ticks: Ticks, leaving?: boolean) => void) {
   // The latest ticks and save function, so the listeners never go stale.
   const latest = useRef({ ticks, save });
   useEffect(() => {
@@ -223,7 +250,10 @@ function useSaveOnLeave(ticks: Ticks, save: (ticks: Ticks, keepalive?: boolean) 
   useEffect(() => {
     mounted.current = true;
     const onLeave = () => latest.current.save(latest.current.ticks, true);
-    const onHide = () => document.visibilityState === "hidden" && onLeave();
+    const onHide = () => {
+      const ticked = Object.values(latest.current.ticks).some((points) => points.length > 0);
+      if (document.visibilityState === "hidden" && ticked) onLeave();
+    };
     window.addEventListener("pagehide", onLeave);
     document.addEventListener("visibilitychange", onHide);
     return () => {

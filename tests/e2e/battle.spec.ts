@@ -323,24 +323,32 @@ test("leaving the end screen with Finish saves the ticks: one check per turn, no
   }
 });
 
-test("when the page hides on the end screen, the ticks are saved once and stay as they are", async ({ page }) => {
+/** Hides or shows the page, as the iPhone does when it locks or comes back. */
+async function setVisibility(page: Page, state: "hidden" | "visible") {
+  await page.evaluate((visibility) => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => visibility });
+    document.dispatchEvent(new Event("visibilitychange"));
+  }, state);
+}
+
+test("when the page hides on the end screen with a tick, the ticks are saved once and stay as they are", async ({ page }) => {
   const user = await signInNewUser(page, "battle-end-hide");
   try {
     await catchItems(user.email, ["cache", "cookie", "proxy"]);
     await winSaleDay(page);
+    const saved = page.getByText("Your ticks are saved. They change only your review schedule.");
+    // With no tick, a hidden page saves nothing, so the boxes stay open for the learner's return.
+    await setVisibility(page, "hidden");
+    await setVisibility(page, "visible");
+    await expect(page.getByLabel("A TTL lets browsers reuse their copy.")).toBeEnabled();
+    await expect(saved).toHaveCount(0);
     await page.getByLabel("The logo and styles rarely change.").check();
-    // iPhone Safari may close a hidden tab and never say so, so a hidden page saves at once.
-    await page.evaluate(() => {
-      Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" });
-      document.dispatchEvent(new Event("visibilitychange"));
-    });
-    await expect(page.getByText("Your ticks are saved. They change only your review schedule.")).toBeVisible();
+    // iPhone Safari may close a hidden tab and never say so, so ticks the learner chose save at once.
+    await setVisibility(page, "hidden");
+    await expect(saved).toBeVisible();
     await expect(page.getByLabel("A TTL lets browsers reuse their copy.")).toBeDisabled();
     // Back on the page: Continue does not save a second time.
-    await page.evaluate(() => {
-      Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
-      document.dispatchEvent(new Event("visibilitychange"));
-    });
+    await setVisibility(page, "visible");
     await page.getByRole("button", { name: "Continue" }).click();
     await expect(page.getByText("All done for today.")).toBeVisible();
     await expect
