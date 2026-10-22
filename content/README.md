@@ -69,6 +69,7 @@ All text is plain text, as above. Only a `diagram` and a `diff` may have line br
 | --- | --- | --- |
 | `intro` | The Town Intro, shown on the town's first day (design 6.1) | `title`, `screens` (1 or more texts), one `diagram`, one `source` |
 | `skills` | The tech lead Skills the town adds | 1 or 2 Skill ids |
+| `systemNode` | The System Map node of each creature of the town that names none | One node id, see "System Map" below |
 
 ### Creature and move
 
@@ -76,10 +77,25 @@ All text is plain text, as above. Only a `diagram` and a `diff` may have line br
 | --- | --- | --- | --- |
 | `lesson` | creature and move | What the learner reads before the catch question (design 6.3) | Exactly 3 `screens`. Each screen has a `text` of at most 50 words and an optional `diagram`. `answerScreen` (0, 1 or 2) is the screen that holds the catch answer. One `source` for the whole Lesson |
 | `sprite` | creature | The species number in the creature art pack | A whole number from 1. No two creatures share one, in any town. Display only: changing it does not change the content hash |
+| `systemNode` | creature | Where the creature sits on the System Map | One node id, see "System Map" below. Display only |
 | `tradeOff` | creature | The hard trade-off question for Stage 3 (design 6.5) | 3 `options`, see "Scored cards" below |
 | `decisionCards` | creature | Decision Cards for review (design 6.4) | Each has 2 `options`, see "Scored cards" below |
 
 The old `card` stays. Review and "Discuss in Claude" still use it. A Lesson is added next to it.
+
+### System Map
+
+The System Map (design 6.2) is one web system. Each caught creature sits at its node. The node ids are in `src/content/system-nodes.ts`, and an id never changes its meaning.
+
+| Node ids | What they are |
+| --- | --- |
+| `browser`, `cdn`, `api`, `cache`, `database`, `queue` | The 6 places, from the top down: the path of one request |
+| `browser-cdn`, `cdn-api`, `api-cache`, `cache-database`, `database-queue` | The link between two places next to each other |
+| `ring` | The outer ring: for towns that are not one part of the system, such as Testing, Security or Tech lead decisions |
+
+- The app uses the creature's `systemNode`, else the town's `systemNode`, else `ring`.
+- A node is display only, like a sprite. It is not in the content hash, and a change to it needs no fact check.
+- Place a creature where its idea lives in a real system. For example, a cookie lives in the browser, and TLS protects the link between the browser and the CDN.
 
 ### Scored cards: Decision Cards and trade-off questions
 
@@ -87,7 +103,7 @@ The app scores these by itself: the learner picks one option, then one Reason.
 
 | Field | Rules |
 | --- | --- |
-| `id` | Never changes, because review stores it. A Decision Card is `<creature>.decision.<name>`, for example `cache.decision.logo`. A trade-off question is `<creature>.trade-off.<name>`, for example `cache.trade-off.fresh-prices`. To replace one, retire it and add one with a new name |
+| `id` | Never changes, because review stores it. A Decision Card is `<creature>.decision.<name>`, for example `cache.decision.logo`. A trade-off question is `<creature>.trade-off.<name>`, for example `cache.trade-off.fresh-prices`. To replace a Decision Card, retire it and add one with a new name. A creature has one trade-off question only, so edit it in place: its id stays and its hash changes. Never retire it: in a town with Skills, the checker needs a trade-off question that is not retired on every creature, for Stage 3 |
 | `situation` | A short situation |
 | `options`, `rightOption` | 2 options for a Decision Card, 3 for a trade-off question. `rightOption` is the index of the right one |
 | `reasons` | Exactly 3 Reasons, each `{ "text": "…", "right": true or false }`. Exactly 1 is right |
@@ -133,10 +149,12 @@ The Gym meets an old situation again with the Constraint reversed (design 7.5). 
 - The twin has the same `opponentType` and the same `kind` as that scenario.
 - At least one turn of the twin has the same `threat` as a turn of that scenario, word for word.
 - On at least one of those turns, the best move is a different move. The reversed Constraint is the reason.
+- A turn with the same threat and a different best move has a different Constraint line too. Otherwise the app could not show or log the change.
 - A twin is a v1.5 scenario, so every turn has a Constraint, 3 Reasons and Skills, and the twin has a `source`.
 - The other turns may be copies of the old turns.
 - `twinOf` is not in the content hash, like `name`.
-- The Battle screen shows the Constraint (#103). Until the Gym uses twins, the app does not offer a twin.
+- The app never offers a twin as a daily Battle. The Gym plays it (#113), once the learner played the scenario it names: twins first, then normal Battles. A twin of a Meeting Battle waits, because the Gym holds normal Battles only.
+- A turn with a scenario's threat, word for word, under another Constraint line is a reversed turn. The Battle screen marks it "Constraint changed" and shows last time's Constraint. The log saves it with the Constraint variant `reversed`; every other turn with a Constraint saves `main`.
 
 A Reason is logged by its index in the file's `reasons` list (0, 1 or 2), next to the scenario's content hash. Moving a Reason changes the hash, so an old log still says which list its index points into. The app may show the Reasons in another order, but it logs the file index.
 

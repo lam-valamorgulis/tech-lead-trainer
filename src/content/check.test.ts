@@ -7,6 +7,7 @@ import {
   fixtureLedgerV2,
   fixturePartnerCall,
   fixtureSeamCTowns,
+  fixtureTwinLedger,
   fixtureTown,
   fixtureTownV2,
   fixtureTwistLedger,
@@ -450,9 +451,9 @@ describe("checkContent for v1.5 content (#93)", () => {
     expect(checkV2()).toEqual([]);
   });
 
-  it("accepts the seam C towns, with a two-types Meeting Battle and 4 long answers (#105)", () => {
+  it("accepts the seam C towns, with a two-types Meeting Battle and 4 long answers (#105), and a Gym twin (#113)", () => {
     const [town1, town2] = fixtureSeamCTowns();
-    const ledger = [...fixtureLedgerV2, ...fixtureTwistLedger, "t98-partner-call"];
+    const ledger = [...fixtureLedgerV2, ...fixtureTwinLedger, ...fixtureTwistLedger, "t98-partner-call"];
     expect(checkContent({ towns: [town1, town2], ledger, glossary: fixtureGlossary() })).toEqual([]);
     expect(fixturePartnerCall().turns[0].moves).toHaveLength(4);
   });
@@ -654,6 +655,25 @@ describe("checkContent for v1.5 content (#93)", () => {
     expect(checkV2(town)).toEqual([{ where: "t99.creatures.0.tradeOff.options", message: "There are exactly 3 options." }]);
   });
 
+  it("fails a creature of a v1.5 town with no trade-off question, or only a retired one (#109)", () => {
+    const missing = fixtureTownV2();
+    delete missing.creatures[1].tradeOff;
+    const message = "A creature of a v1.5 town needs a trade-off question that is not retired, for Stage 3. Edit it in place.";
+    const problems = checkV2(missing);
+    // The question's id stays in the ledger, so the ledger notices it is gone too.
+    expect(problems).toContainEqual({ where: "t99.cookie.tradeOff", message });
+
+    const retired = fixtureTownV2();
+    retired.creatures[1].tradeOff!.retired = true;
+    expect(checkV2(retired)).toEqual([{ where: "t99.cookie.tradeOff", message }]);
+
+    // A retired creature and a town from before v1.5 (no Skills) need none.
+    const retiredCreature = fixtureTownV2();
+    Object.assign(retiredCreature.creatures[1], { retired: true, tradeOff: { ...retiredCreature.creatures[1].tradeOff, retired: true } });
+    expect(checkV2(retiredCreature)).not.toContainEqual(expect.objectContaining({ where: "t99.cookie.tradeOff" }));
+    expect(check(fixtureTown())).toEqual([]);
+  });
+
   it("keeps the ids answer and verdict free for Meeting answers and review verdicts", () => {
     const town = fixtureTownV2();
     Object.assign(town.creatures[2], { id: "verdict" });
@@ -762,6 +782,17 @@ describe("checkContent for v1.5 content (#93)", () => {
         {
           where: "t99.t99-sale-day-twin.twinOf",
           message: "On a turn with the same threat as t99-sale-day, the twin needs another best move. Reverse the Constraint so the best move changes.",
+        },
+      ]);
+    });
+
+    it("fails a twin turn with a new best move but the old Constraint line, so the screen and the log show the change (#113)", () => {
+      const town = townWithTwin();
+      twinOf(town).turns[0].constraint = town.scenarios[0].turns[0].constraint;
+      expect(checkTwin(town)).toEqual([
+        {
+          where: "t99.t99-sale-day-twin.turns.0.constraint",
+          message: "The best move differs from t99-sale-day on the same threat, so the Constraint line must differ too.",
         },
       ]);
     });

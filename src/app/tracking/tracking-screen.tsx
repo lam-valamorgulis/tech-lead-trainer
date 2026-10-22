@@ -1,20 +1,24 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { creatureOf, towns } from "@/content";
+import { SKILLS } from "@/content/skills";
 import { formatBestMoveRate, type TurnRecord } from "@/core/battle";
 import type { CatchRecord } from "@/core/catch";
 import { thirtyDayRate, type SessionSnapshot } from "@/core/day";
 import { badges, type GymRecord } from "@/core/gym";
-import type { ReviewRecord } from "@/core/review";
+import type { CardRecord, ReviewRecord } from "@/core/review";
 import { bestMovesByTown, fieldGuideCounts, learningCalendar, weakestThisWeek } from "@/core/tracking";
+import { skillRates, skillsMet, type SkillPick } from "@/core/trainer-card";
 import { formatWeek, formatWeekMinutes, weekMinutes } from "@/core/week";
 import { loadBattleHistory } from "@/lib/battle-log";
 import { loadCatchRecords } from "@/lib/catch-log";
 import { loadGymRecords } from "@/lib/gym-log";
 import { formatRate, loadRecentSnapshots } from "@/lib/learning-log";
-import { loadReviewRecords } from "@/lib/review-log";
+import { loadCardRecords, loadReviewRecords } from "@/lib/review-log";
 import { browserClient } from "@/lib/supabase/browser";
+import { loadSkillPicks } from "@/lib/trainer-card-log";
 import { BadgeList } from "../badge-list";
 import { useWeeklySummary, WeeklySummaryNumbers } from "../weekly-summary";
 import { LaterList } from "./later-list";
@@ -26,8 +30,10 @@ type TrackingLog = {
   snapshots: SessionSnapshot[];
   catches: CatchRecord[];
   reviews: ReviewRecord[];
+  cards: CardRecord[];
   turns: TurnRecord[];
   gyms: GymRecord[];
+  skillPicks: SkillPick[];
 };
 
 /**
@@ -41,8 +47,8 @@ export function TrackingScreen() {
   if (log === "failed") return <p role="alert" className="error">We could not load your progress. Check your connection.</p>;
   if (!log) return <p className="lead">Loading…</p>;
 
-  const { today, snapshots, catches, reviews, turns, gyms } = log;
-  const counts = fieldGuideCounts(towns, catches, reviews);
+  const { today, snapshots, catches, reviews, cards, turns, gyms, skillPicks } = log;
+  const counts = fieldGuideCounts(towns, catches, reviews, cards);
   const earned = badges(gyms);
   const bestMoves = bestMovesByTown(turns, towns);
   const weakest = weakestThisWeek(reviews, today, creatureOf);
@@ -83,6 +89,16 @@ export function TrackingScreen() {
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="stack" aria-labelledby="trainer-card-title">
+        <h2 id="trainer-card-title">Trainer Card</h2>
+        <p>
+          Skills met: {skillsMet(skillRates(skillPicks))} of {SKILLS.length}
+        </p>
+        <Link href="/tracking/trainer-card" className="button button-quiet trainer-card-link">
+          Open your Trainer Card
+        </Link>
       </section>
 
       <section className="stack" aria-labelledby="weakest-title">
@@ -135,13 +151,15 @@ function useTrackingLog(): TrackingLog | "failed" | undefined {
     const client = browserClient();
     loadRecentSnapshots(client)
       .then(async ({ today, recent }) => {
-        const [catches, reviews, history, gyms] = await Promise.all([
+        const [catches, reviews, cards, history, gyms, skillPicks] = await Promise.all([
           loadCatchRecords(client, today),
           loadReviewRecords(client, today),
+          loadCardRecords(client, today),
           loadBattleHistory(client, today),
           loadGymRecords(client, today),
+          loadSkillPicks(client),
         ]);
-        return { today, snapshots: recent, catches, reviews, turns: history.turns, gyms };
+        return { today, snapshots: recent, catches, reviews, cards, turns: history.turns, gyms, skillPicks };
       })
       .then((value) => !cancelled && setLog(value))
       .catch(() => !cancelled && setLog("failed"));

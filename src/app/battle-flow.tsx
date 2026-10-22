@@ -80,7 +80,8 @@ export function BattleFlow({
     const turnNumber = battle.played.length + 1;
     const next = playTurnV2(battle, moveId, reasonIndex);
     const played = next.played[turnNumber - 1];
-    const log = turnLog(next, turnNumber);
+    // A Gym twin's turn with a reversed Constraint is logged as "reversed" (#113).
+    const log = turnLog(next, turnNumber, Boolean(offer.twin?.turns[turnNumber - 1]));
     const whyText = note.trim();
     if (whyText) setNotes((before) => ({ ...before, [turnNumber]: whyText }));
     const events: LearningEvent[] = [
@@ -177,6 +178,7 @@ export function BattleFlow({
           <OpponentTypeList scenario={offer.scenario} />
         </div>
         <TwistNote scenario={offer.scenario} />
+        <TwinNote offer={offer} />
         <p>
           <GlossaryText text={offer.scenario.problem} />
         </p>
@@ -196,10 +198,28 @@ export function BattleFlow({
   }
 
   if (step === "scene") {
-    return <BattleScene scenario={offer.scenario} battle={battle} onPlay={play} onEnd={() => setStep("end")} onLeave={onLeave} />;
+    return (
+      <BattleScene scenario={offer.scenario} battle={battle} twin={offer.twin} onPlay={play} onEnd={() => setStep("end")} onLeave={onLeave} />
+    );
   }
 
-  return <BattleEnd scenario={offer.scenario} battle={battle} notes={notes} eventFields={battleFields} onDone={onDone} />;
+  return <BattleEnd scenario={offer.scenario} battle={battle} twin={offer.twin} notes={notes} eventFields={battleFields} onDone={onDone} />;
+}
+
+/**
+ * A Gym twin (design 7.5, #113): the learner met this situation before. The threats are the same,
+ * but a Constraint changed, so last time's best move may lose now.
+ */
+function TwinNote({ offer }: { offer: BattleOffer }) {
+  if (!offer.twin) return null;
+  const changed = offer.twin.turns.filter((turn) => turn !== null).length;
+  const what = changed === 0 ? "The situation" : changed === 1 ? "One Constraint" : `${changed} Constraints`;
+  return (
+    <p className="notice">
+      <strong>A rematch: {offer.twin.originalName}.</strong> The threats are the same as last time. {what} changed, so last
+      time&apos;s best move may lose. Read each Constraint before you pick.
+    </p>
+  );
 }
 
 /** UI rule 7: a colour, an icon and a word, so the type reads without colour too. */

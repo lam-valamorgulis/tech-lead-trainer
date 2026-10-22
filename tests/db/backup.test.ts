@@ -115,6 +115,31 @@ const events: LearningEvent[] = [
       confidence: null,
     };
   }),
+  // A wrong Decision Card (#109) brings cache back tomorrow: the restore must replay it too.
+  {
+    type: "review-card",
+    ...base(daysAgo(1)),
+    itemId: "cache.decision.logo",
+    itemKind: "decision",
+    contentHash: "0123456789abcdef",
+    choiceIndex: 1,
+    choiceCorrect: false,
+    reasonIndex: 0,
+    reasonCorrect: true,
+    skillIds: [3],
+    shownAt: daysAgo(1),
+    gradedAt: daysAgo(1),
+    rulesVersion: "v1.5",
+  },
+  // The answer to the Sunday summary's work question (#114).
+  {
+    type: "work-question",
+    ...base(daysAgo(1)),
+    weekStart: "2026-10-12",
+    conceptId: "cache",
+    met: true,
+    note: "Our product page cache kept an old price.",
+  },
 ];
 
 type User = { id: string; email: string; client: SupabaseClient };
@@ -152,6 +177,29 @@ describe("weekly backup and restore", () => {
       weakest_creatures: [{ id: "cache", name: "Cache" }],
     });
     if (summary.error) throw summary.error;
+    // A v1.5 summary (#114) next to the old one: both come back as they were.
+    const summaryV2 = await adminClient().from("weekly_summaries").insert({
+      user_id: learner.id,
+      week_start: "2026-10-19",
+      summary_at: "2026-10-25T13:00:00Z",
+      days_learned: 2,
+      minutes: 30,
+      goal_minutes: 315,
+      best_moves: 1,
+      best_move_turns: 2,
+      weakest_creatures: [],
+      constraint_best_moves: 1,
+      constraint_turns: 2,
+      last_week_constraint_best_moves: 2,
+      last_week_constraint_turns: 3,
+      decision_cards_right: 0,
+      decision_cards: 1,
+      last_week_decision_cards_right: 0,
+      last_week_decision_cards: 0,
+      most_missed_concepts: [{ id: "cache", name: "Cache" }],
+      work_question_concept: { id: "cache", name: "Cache" },
+    });
+    if (summaryV2.error) throw summaryV2.error;
     await saveYearGoal(learner.client, "interview-tower", true);
     await addLaterGoal(learner.client, "Learn Rust");
     await removeLaterGoal(learner.client, (await addLaterGoal(learner.client, "Learn Go")).id);
@@ -175,7 +223,7 @@ describe("weekly backup and restore", () => {
     expect(backup.users).toEqual([expect.objectContaining({ id: learner.id, email: learner.email })]);
     expect(Object.keys(backup.tables)).toEqual([...BACKUP_TABLES]);
     expect(backup.tables.allowed_emails).toEqual([expect.objectContaining({ email: learner.email })]);
-    expect(backup.tables.review_events).toHaveLength(3);
+    expect(backup.tables.review_events).toHaveLength(4);
     expect(backup.tables.battle_turn_events).toEqual([expect.objectContaining({ best_move: true, damage: 2 })]);
     expect(backup.tables.battle_events).toEqual([expect.objectContaining({ result: "won", team: ["cache", "dns"] })]);
     expect(backup.tables.battle_check_events).toEqual([expect.objectContaining({ best_move_id: "cache", ticked_points: [1, 3] })]);
@@ -186,7 +234,16 @@ describe("weekly backup and restore", () => {
     expect(backup.tables.review_state.length).toBeGreaterThan(0);
     expect(backup.tables.content_reports).toEqual([expect.objectContaining({ message: "Typo" })]);
     expect(backup.tables.weekly_summaries).toEqual([
-      expect.objectContaining({ week_start: "2026-10-12", minutes: 50, weakest_creatures: [{ id: "cache", name: "Cache" }] }),
+      expect.objectContaining({
+        week_start: "2026-10-12",
+        minutes: 50,
+        weakest_creatures: [{ id: "cache", name: "Cache" }],
+        most_missed_concepts: null,
+      }),
+      expect.objectContaining({ week_start: "2026-10-19", constraint_turns: 2, work_question_concept: { id: "cache", name: "Cache" } }),
+    ]);
+    expect(backup.tables.work_question_events).toEqual([
+      expect.objectContaining({ week_start: "2026-10-12", concept_id: "cache", met: true, note: "Our product page cache kept an old price." }),
     ]);
     expect(backup.tables.year_goals).toEqual([expect.objectContaining({ goal: "interview-tower", checked: true })]);
     // A removed Later goal is in the backup too, with its removal time.
@@ -224,6 +281,15 @@ describe("weekly backup and restore", () => {
     expect((await restored.query(query, [learner.id])).rows).toEqual(before);
     const account = await restored.query("select email from auth.users where id = $1", [learner.id]);
     expect(account.rows).toEqual([{ email: learner.email }]);
+  });
+
+  it("brings back the weekly summaries and the work question answers exactly (#114)", async () => {
+    for (const table of ["weekly_summaries", "work_question_events"]) {
+      const query = `select * from public.${table} where user_id = $1 order by id`;
+      const before = await sql(query, [learner.id]);
+      expect(before.length, table).toBeGreaterThan(0);
+      expect((await restored.query(query, [learner.id])).rows, table).toEqual(before);
+    }
   });
 
   it("continues ids after the restored rows, so the next event does not clash", async () => {

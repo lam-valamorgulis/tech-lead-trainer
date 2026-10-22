@@ -1,9 +1,11 @@
 import type { ConfusablePair } from "@/core/review";
 import { currentTownNumber, townToPlay } from "@/core/roadmap";
-import type { Creature, CreatureOf } from "../core/week.ts";
+import { bestRow } from "../core/battle.ts";
+import type { ConceptOfTurn, Creature, CreatureOf } from "../core/week.ts";
 import type { BundledTown, ContentBundle } from "./bundle.ts";
 import type { Boss } from "./weekend.ts";
 import type { Card } from "./schema.ts";
+import { reviewCards, type ScoredCard } from "./scored-cards.ts";
 import generated from "./bundle.generated.json";
 import fixture from "./fixture.generated.json";
 
@@ -73,6 +75,23 @@ export function reviewItem(id: string): ReviewItem | undefined {
   return reviewItems.get(id);
 }
 
+export type { ScoredCard };
+
+const { decisionCards: scoredCards, tradeOffs } = reviewCards(bundle.towns);
+
+/** Every Decision Card that review can show: retired cards and the cards of retired creatures are left out. */
+export const decisionCardIds: string[] = [...scoredCards.keys()];
+
+/** A Decision Card by its id, or undefined when it cannot be shown. */
+export function decisionCard(id: string): ScoredCard | undefined {
+  return scoredCards.get(id);
+}
+
+/** The Stage 3 trade-off question of a creature, or undefined when it has none to show. */
+export function tradeOffQuestion(creatureId: string): ScoredCard | undefined {
+  return tradeOffs.get(creatureId);
+}
+
 /** The creature a reviewed item belongs to: the creature itself, or the creature of a move. */
 export const creatureOf: CreatureOf = (itemId) => creatures.get(itemId);
 
@@ -89,7 +108,18 @@ export function itemCard(id: string): { name: string; card: Card } | undefined {
   return cards.get(id);
 }
 
-const scenarioNames = new Map(bundle.towns.flatMap((town) => town.scenarios.map((scenario) => [scenario.id, scenario.name])));
+const scenarios = new Map(bundle.towns.flatMap((town) => town.scenarios.map((scenario) => [scenario.id, scenario])));
+
+/**
+ * The concept a battle turn tests: the creature of the turn's best move, in any town, retired or
+ * not. Undefined for a Meeting answer, a review verdict, or a turn the content does not have.
+ */
+export const turnConcept: ConceptOfTurn = (scenarioId, turnNumber) => {
+  const turn = scenarios.get(scenarioId)?.turns[turnNumber - 1];
+  return turn ? creatureOf(bestRow(turn).moveId) : undefined;
+};
+
+const scenarioNames = new Map([...scenarios].map(([id, scenario]) => [id, scenario.name]));
 
 /** The display name of a battle scenario in any town, retired or not. */
 export function scenarioName(id: string): string | undefined {

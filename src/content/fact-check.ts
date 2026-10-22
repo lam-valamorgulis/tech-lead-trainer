@@ -270,11 +270,11 @@ function lettersAndDigits(text: string): string {
 }
 
 /** Town fields that only change how the app draws content, never what it says. */
-const DISPLAY_ONLY_FIELDS = new Set(["sprite"]);
+const DISPLAY_ONLY_FIELDS = new Set(["sprite", "systemNode"]);
 
 /**
  * Whether a change to a town file needs a new fact check: any change except to display-only
- * fields, such as a sprite number. A new field is checked by default. `before` is null for a new file.
+ * fields, such as a sprite number or a System Map node. A new field is checked by default. `before` is null for a new file.
  */
 export function claimsDiffer(before: Town | null, after: Town): boolean {
   const said = (town: Town) => JSON.stringify(town, (key, value) => (DISPLAY_ONLY_FIELDS.has(key) ? undefined : value));

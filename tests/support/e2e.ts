@@ -5,6 +5,9 @@ import { codeFrom, waitForMail } from "./mail";
 
 export const local = readLocalSupabase();
 
+/** Words that blame the learner for a break. None may appear on the Rest Stop (design 5). */
+export const BLAME = /missed|streak|lost|behind|failed|lazy|should have|broke|gave up|too long/i;
+
 /**
  * Signs a new allowed email in through the real screens, with the code from local email.
  * A new user first sees the if-then plan screen. Unless `keepPlanScreen` is set, it taps "Later".

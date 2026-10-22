@@ -80,12 +80,20 @@ export function GymScreen({ townId, programStartDate }: { townId: string; progra
   }
 
   if (!started) {
+    const rematches = loaded.battles.filter((offer) => offer.twin !== undefined).length;
     return (
       <section className="stack" aria-labelledby="gym-title">
         <h2 id="gym-title">Gym of {town.name}</h2>
         <p>
           {GYM_BATTLES} battles in a row. Win {GYM_WINS_NEEDED} to earn the town badge.
         </p>
+        {/* Design 7.5 (#113): Gym twins come first. */}
+        {rematches > 0 && (
+          <p className="notice">
+            {rematches === 1 ? "1 battle is a rematch" : `${rematches} battles are rematches`}: a situation you met before,
+            with a changed Constraint. Last time&apos;s best move may lose now.
+          </p>
+        )}
         <p className="lead">A lost Gym never locks the next town. You can try again any time.</p>
         <button type="button" className="button-main" onClick={() => setStarted(true)}>
           Start the Gym

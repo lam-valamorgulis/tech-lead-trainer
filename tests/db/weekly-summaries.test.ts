@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { latestSummaryWeek } from "@/core/week";
-import { writeEvents, type LearningEvent } from "@/lib/events/write-events";
+import { writeEvents, type BattleTurnEvent, type LearningEvent } from "@/lib/events/write-events";
 import { ensureProfile } from "@/lib/profile";
 import { createDueWeeklySummaries, ensureWeeklySummary } from "@/lib/weekly-summary";
 import { adminClient, forgetEmail, signedInUser, sql } from "./helpers";
@@ -39,7 +39,7 @@ function review(itemId: string, grade: "again" | "hard" | "good" | "easy", occur
   };
 }
 
-function turn(bestMove: boolean, occurredAt: string): LearningEvent {
+function turn(bestMove: boolean, occurredAt: string): BattleTurnEvent {
   return {
     type: "battle-turn",
     ...base(occurredAt),
@@ -51,6 +51,30 @@ function turn(bestMove: boolean, occurredAt: string): LearningEvent {
     damage: 2,
     bestMove,
     whyText: "A GET must not change anything.",
+  };
+}
+
+/** A v2 turn that showed its Constraint. Turn 1 of t01-crawler-deletes tests HTTP method (best move http-method.safe). */
+function constraintTurn(bestMove: boolean, occurredAt: string, scenarioId = "t01-crawler-deletes"): LearningEvent {
+  return { ...turn(bestMove, occurredAt), scenarioId, constraintVariant: "main", reasonIndex: 0, reasonCorrect: true };
+}
+
+/** An answered Decision Card or trade-off question (#109). */
+function card(itemId: string, right: boolean, occurredAt: string): LearningEvent {
+  return {
+    type: "review-card",
+    ...base(occurredAt),
+    itemId,
+    itemKind: itemId.includes(".trade-off.") ? "trade-off" : "decision",
+    contentHash: "0123456789abcdef",
+    choiceIndex: right ? 0 : 1,
+    choiceCorrect: right,
+    reasonIndex: 0,
+    reasonCorrect: true,
+    skillIds: [1],
+    shownAt: occurredAt,
+    gradedAt: occurredAt,
+    rulesVersion: "v1.5",
   };
 }
 
@@ -76,6 +100,19 @@ async function learnTheWeek(client: SupabaseClient) {
     turn(true, "2026-10-06T02:10:00Z"),
     turn(false, "2026-10-06T02:11:00Z"),
     turn(true, "2026-10-11T14:05:00Z"),
+    // v1.5: 1 of 2 turns under a Constraint. The one after Sunday 20:00 does not count.
+    constraintTurn(true, "2026-10-08T02:00:00Z"),
+    constraintTurn(false, "2026-10-08T02:01:00Z"),
+    constraintTurn(false, "2026-10-11T14:06:00Z"),
+    // 1 of 2 Decision Cards. A trade-off question is not a Decision Card.
+    card("status-code.decision.retry", false, "2026-10-07T03:00:00Z"),
+    card("status-code.decision.cache", true, "2026-10-07T03:01:00Z"),
+    card("http-method.trade-off.verbs", true, "2026-10-07T03:02:00Z"),
+    // The week before (28 Sep to 4 Oct), counted up to its own Sunday 20:00 (4 Oct, 13:00 UTC).
+    constraintTurn(true, "2026-09-30T02:00:00Z", "t01-account-errors"),
+    constraintTurn(false, "2026-10-04T14:00:00Z", "t01-account-errors"),
+    card("status-code.decision.retry", true, "2026-10-01T02:00:00Z"),
+    card("status-code.decision.cache", false, "2026-10-04T14:00:00Z"),
   ]);
 }
 
@@ -86,12 +123,23 @@ const EXPECTED = {
   daysLearned: 2,
   minutes: 20,
   goalMinutes: 315,
-  bestMoves: { bestMoves: 1, turns: 2 },
+  bestMoves: { bestMoves: 2, turns: 4 },
   // Status code: 1 Again (on its move) and 1 Hard. HTTP method: 1 Again.
   weakest: [
     { id: "status-code", name: "Status code" },
     { id: "http-method", name: "HTTP method" },
   ],
+  picks: {
+    constraintBestMoves: { thisWeek: { right: 1, total: 2 }, lastWeek: { right: 1, total: 1 } },
+    decisionCards: { thisWeek: { right: 1, total: 2 }, lastWeek: { right: 1, total: 1 } },
+    // HTTP method: 1 turn without the best move. Status code: 1 wrong Decision Card. A tie goes by id.
+    // The v1 turn of "t01-test" is not in the content, so it names no concept.
+    mostMissed: [
+      { id: "http-method", name: "HTTP method" },
+      { id: "status-code", name: "Status code" },
+    ],
+    workConcept: { id: "http-method", name: "HTTP method" },
+  },
 };
 
 describe("weekly summaries", () => {
@@ -129,6 +177,8 @@ describe("weekly summaries", () => {
     it("refuses any change to a saved summary, even with the secret key", async () => {
       const { error } = await adminClient().from("weekly_summaries").update({ minutes: 999 }).eq("user_id", user.id);
       expect(error?.message).toMatch(/never changes/);
+      const v2 = await adminClient().from("weekly_summaries").update({ most_missed_concepts: [] }).eq("user_id", user.id);
+      expect(v2.error?.message).toMatch(/never changes/);
       const rows = await sql<{ minutes: number }>("select minutes from public.weekly_summaries where user_id = $1", [user.id]);
       expect(rows).toEqual([{ minutes: 20 }]);
     });
@@ -148,6 +198,51 @@ describe("weekly summaries", () => {
       const { data } = await other.client.from("weekly_summaries").select("id");
       expect(data).toEqual([]);
     });
+  });
+
+  it("keeps a summary saved before v1.5 as it was shown: its new numbers stay empty", async () => {
+    const user = await learner("week-summary-old");
+    await learnTheWeek(user.client);
+    const old = await adminClient().from("weekly_summaries").insert({
+      user_id: user.id,
+      week_start: "2026-10-05",
+      summary_at: SUMMARY_AT,
+      days_learned: 1,
+      minutes: 5,
+      goal_minutes: 315,
+      best_moves: 0,
+      best_move_turns: 0,
+      weakest_creatures: [],
+    });
+    expect(old.error).toBeNull();
+    expect(await ensureWeeklySummary(adminClient(), user.id, MONDAY_AFTER)).toEqual({
+      weekStart: "2026-10-05",
+      summaryAt: SUMMARY_AT,
+      daysLearned: 1,
+      minutes: 5,
+      goalMinutes: 315,
+      bestMoves: { bestMoves: 0, turns: 0 },
+      weakest: [],
+      picks: null,
+    });
+  });
+
+  it("refuses a summary with only some of the v1.5 numbers", async () => {
+    const user = await learner("week-summary-half");
+    const { error } = await adminClient().from("weekly_summaries").insert({
+      user_id: user.id,
+      week_start: "2026-10-05",
+      summary_at: SUMMARY_AT,
+      days_learned: 1,
+      minutes: 5,
+      goal_minutes: 315,
+      best_moves: 0,
+      best_move_turns: 0,
+      weakest_creatures: [],
+      constraint_best_moves: 1,
+      constraint_turns: 2,
+    });
+    expect(error?.message).toMatch(/weekly_summaries_v2_shape/);
   });
 
   it("saves one summary when two runs happen at the same moment", async () => {
@@ -238,6 +333,12 @@ describe("POST /api/weekly-summary", () => {
         goalMinutes: 315,
         bestMoves: { bestMoves: 0, turns: 0 },
         weakest: [],
+        picks: {
+          constraintBestMoves: { thisWeek: { right: 0, total: 0 }, lastWeek: { right: 0, total: 0 } },
+          decisionCards: { thisWeek: { right: 0, total: 0 }, lastWeek: { right: 0, total: 0 } },
+          mostMissed: [],
+          workConcept: null,
+        },
       },
     });
   });

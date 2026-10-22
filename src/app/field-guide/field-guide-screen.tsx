@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import { currentTown } from "@/content";
 import type { BundledTown } from "@/content/bundle";
 import { fieldGuideProgress, type CatchRecord, type CreatureStatus } from "@/core/catch";
-import type { ReviewRecord } from "@/core/review";
+import type { CardRecord, ReviewRecord } from "@/core/review";
 import { loadCatchRecords } from "@/lib/catch-log";
 import { currentLearningDay } from "@/lib/learning-log";
-import { loadReviewRecords } from "@/lib/review-log";
+import { loadCardRecords, loadReviewRecords } from "@/lib/review-log";
 import { browserClient } from "@/lib/supabase/browser";
 import { CreatureSprite } from "../creature-sprite";
 
@@ -17,7 +17,7 @@ const STATUS_LABEL: Record<CreatureStatus, string> = {
   "not-met": "Not met yet",
 };
 
-type FieldGuideData = { town: BundledTown | undefined; catches: CatchRecord[]; reviews: ReviewRecord[] };
+type FieldGuideData = { town: BundledTown | undefined; catches: CatchRecord[]; reviews: ReviewRecord[]; cards: CardRecord[] };
 
 export function FieldGuideScreen({ programStartDate }: { programStartDate: string }) {
   const [records, setRecords] = useState<FieldGuideData | null>(null);
@@ -28,8 +28,12 @@ export function FieldGuideScreen({ programStartDate }: { programStartDate: strin
     const client = browserClient();
     currentLearningDay(client)
       .then(async (today) => {
-        const [catches, reviews] = await Promise.all([loadCatchRecords(client, today), loadReviewRecords(client, today)]);
-        return { town: currentTown(programStartDate, today), catches, reviews };
+        const [catches, reviews, cards] = await Promise.all([
+          loadCatchRecords(client, today),
+          loadReviewRecords(client, today),
+          loadCardRecords(client, today),
+        ]);
+        return { town: currentTown(programStartDate, today), catches, reviews, cards };
       })
       .then((value) => !cancelled && setRecords(value))
       .catch(() => !cancelled && setFailed(true));
@@ -42,7 +46,7 @@ export function FieldGuideScreen({ programStartDate }: { programStartDate: strin
   if (!records) return <p className="lead">Loading…</p>;
   if (!records.town) return <p className="lead">No creatures here yet. The content for your town comes next.</p>;
 
-  const view = fieldGuideProgress(records.town, records.catches, records.reviews);
+  const view = fieldGuideProgress(records.town, records.catches, records.reviews, records.cards);
   return (
     <>
       <p className="lead">

@@ -6,7 +6,7 @@ import { kindOf, townSchema, type Creature, type Move } from "./schema.ts";
 const town = townSchema.parse(JSON.parse(readFileSync("content/towns/t01.json", "utf8")));
 const items: (Creature | Move)[] = town.creatures.flatMap((creature) => [creature, ...creature.moves]);
 const battles = town.scenarios.filter((scenario) => kindOf(scenario) === "battle");
-// The battles the app offers today: no Meeting Battle, no Agent Diff Battle and no Gym twin yet.
+// The battles the app offers each day: no Meeting Battle, no Agent Diff Battle and no Gym twin (the Gym has those).
 const offered = battles.filter((scenario) => scenario.twinOf === undefined);
 
 // The month 1 primary sources (research/roadmap-sources.md, month 1).

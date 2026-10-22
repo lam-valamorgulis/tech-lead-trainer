@@ -431,38 +431,85 @@ h2[tabindex="-1"]:focus {
   height: 50dvh;
 }
 
-/* Map. Design 9: pixel art grows by a whole number, with no smoothing. */
+/* Map (design 5, ticket #111): a drawn board of 12 towns on a winding road. The picture is an
+   SVG under the towns; each town is a link on its spot. Pixel art grows by whole numbers. */
 .pixel-art {
   image-rendering: pixelated;
 }
 
-.town-map {
+.town-board {
+  position: relative;
+  width: min(100%, 420px);
+  margin: 24px auto var(--space);
+  border: 4px solid #070a16;
+  border-radius: 4px;
+}
+
+.map-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.town-spots {
+  position: absolute;
+  inset: 0;
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  /* Columns never grow to fit a label, so a label that is too long shows as a test failure. */
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+}
+
+/* Each spot is centred on its cell, 12 px narrower than the cell, so the road shows between towns. */
+.town-spot {
+  position: absolute;
+  width: calc(100% / 3 - 12px);
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .town {
   width: 100%;
-  height: 100%;
   min-height: var(--tap-min);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 8px 4px;
-  font: inherit;
+  gap: 2px;
+  padding: 6px 4px;
   font-size: 13px;
   line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
   color: var(--color-text);
-  background: transparent;
-  border: 2px solid var(--color-muted);
+  background: var(--color-bg);
+  border: 2px solid var(--color-line);
   border-radius: 4px;
+  box-shadow: 0 3px 0 rgb(0 0 0 / 0.35);
   touch-action: manipulation;
+}
+
+.town:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* The state icon sits on the house's top corner, above the word that names the state. */
+.town-house {
+  position: relative;
+  display: block;
+}
+
+.town-house .state-icon {
+  position: absolute;
+  top: -2px;
+  right: -14px;
+  padding: 2px;
+  background: var(--color-bg);
+  border-radius: 2px;
+  box-sizing: content-box;
 }
 
 .town-number {
@@ -471,21 +518,109 @@ h2[tabindex="-1"]:focus {
   white-space: nowrap;
 }
 
+/* A long word wraps instead of leaving the town. */
 .town-state {
-  color: var(--color-muted);
+  overflow-wrap: anywhere;
 }
 
-.town-current {
-  border-color: var(--color-accent);
+/* Colour, icon and word together (UI rule 7). Each colour is at least 9:1 on --color-bg. */
+.town.town-past {
+  border-color: var(--color-success);
 }
 
-.town-current .town-state {
+.town-past .town-state,
+.town-state-line.town-past,
+.state-icon-past {
+  color: var(--color-success);
+}
+
+.town.town-current {
+  border: 3px solid var(--color-accent);
+}
+
+.town-current .town-state,
+.town-state-line.town-current,
+.state-icon-current {
   color: var(--color-accent);
 }
 
-.town[aria-pressed="true"] {
-  outline: 2px solid var(--color-text);
-  outline-offset: 2px;
+.town-locked .town-state,
+.town-state-line.town-locked,
+.state-icon-locked {
+  color: var(--color-muted);
+}
+
+.state-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.medal-icon {
+  color: var(--color-accent);
+}
+
+/* "You are here": a gold arrow over the current town. It bobs, unless motion is reduced (UI rule 12). */
+.town-pin {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  width: 21px;
+  height: 15px;
+  margin-bottom: 2px;
+  color: var(--color-accent);
+  transform: translateX(-50%);
+  filter: drop-shadow(0 2px 0 #070a16);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-effects="reduced"]) .town-pin {
+    animation: town-pin-bob 1s steps(2) infinite;
+  }
+}
+
+@keyframes town-pin-bob {
+  50% {
+    transform: translate(-50%, -4px);
+  }
+}
+
+/* A town's page. */
+.town-name {
+  font-size: 16px;
+  margin: 0 0 var(--space);
+}
+
+.town-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space);
+  margin-bottom: var(--space);
+}
+
+.town-banner .stack > p {
+  margin: 0;
+}
+
+.town-state-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.town-links {
+  list-style: none;
+  margin: 0 0 var(--space);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.town-links .button {
+  width: 100%;
+  min-height: var(--tap-main);
 }
 
 /* The steps of a worked example. */
@@ -902,6 +1037,279 @@ a[aria-current="page"] {
   position: sticky;
   bottom: calc(env(safe-area-inset-bottom) + 8px);
 }
+
+/* Ticket #109: Decision Cards and the trade-off question. Big option and Reason buttons (UI rules 6 and 9). */
+.scored-creature {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.scored-creature .pixel-label {
+  margin: 0;
+}
+
+.pick {
+  width: 100%;
+  min-height: var(--tap-main);
+  padding: 12px;
+  text-align: left;
+  color: var(--color-text);
+  background: transparent;
+  border: 2px solid var(--color-muted);
+  border-radius: 4px;
+}
+
+/* The picked option: a thicker accent border and a mark in words, never colour alone. */
+.pick[aria-pressed="true"] {
+  border: 4px solid var(--color-accent);
+  padding: 10px;
+}
+
+.pick[aria-pressed="true"]::before {
+  /* Empty alt text: the button already says it is pressed. */
+  content: "✓ " / "";
+  color: var(--color-accent);
+}
+
+.pick-reason {
+  border-color: var(--color-accent);
+}
+
+.answer-group {
+  gap: 8px;
+}
+
+.answer-group .pixel-label {
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.answer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.answer-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  border: 2px solid var(--color-line);
+  border-radius: 4px;
+}
+
+.answer-list .answer-right {
+  border: 3px solid var(--color-success);
+}
+
+.answer-list .answer-wrong {
+  border: 3px dashed var(--color-error);
+}
+
+.answer-mark {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.answer-right .answer-mark {
+  color: var(--color-success);
+}
+
+.answer-wrong .answer-mark {
+  color: var(--color-error);
+}
+
+/* System Map (design 6.2, ticket #112): the places of one web system, top to bottom, inside an
+   outer ring. A list in normal flow, so places and sprites never overlap and the page scrolls. */
+.system-map-link {
+  margin-bottom: var(--space);
+}
+
+.system-map {
+  width: min(100%, 420px);
+  margin: 0 auto var(--space);
+  padding: 8px;
+  border: 3px dashed var(--color-line);
+  border-radius: 8px;
+}
+
+.system-chain {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* The panel look of the approved prototype: a night-blue box with a dark edge. */
+.system-place,
+.system-ring {
+  padding: 10px 12px 12px;
+  background: #1d2546;
+  border: 3px solid #070a16;
+  border-radius: 6px;
+  box-shadow: inset 0 -4px 0 rgb(0 0 0 / 0.35);
+}
+
+.system-ring {
+  margin-top: 12px;
+}
+
+.system-place-name {
+  margin: 0;
+  font-size: 16px;
+}
+
+.system-place-hint {
+  margin: 2px 0 0;
+  color: var(--color-muted);
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+/* "???": a place with no caught creature yet, as in the Field Guide. A dashed line and muted words. */
+.system-place-hidden {
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--color-line);
+  box-shadow: none;
+}
+
+.system-place-hidden .system-place-name {
+  color: var(--color-muted);
+}
+
+/* The link between two places: a down arrow on the left, its creatures on the right. */
+.system-edge {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 4px;
+  min-height: 28px;
+}
+
+.system-arrow {
+  position: relative;
+  grid-column: 1;
+  justify-self: center;
+  width: 4px;
+  margin-bottom: 8px;
+  background: var(--color-muted);
+}
+
+.system-arrow::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  transform: translateX(-50%);
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 8px solid var(--color-muted);
+}
+
+.system-edge-body {
+  grid-column: 2;
+  padding: 8px 0;
+}
+
+.system-edge-label {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+/* 3 creatures per row: a 64 px sprite above its name. */
+.system-creatures {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.system-creature {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  text-align: center;
+}
+
+.system-creature-name {
+  font-size: 13px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+/* Trainer Card (#110, design 9 rule 18): the learner's portrait in a cream pixel frame, as in the prototype. */
+.trainer-card-link {
+  align-self: flex-start;
+  padding: 0 var(--space);
+}
+
+.trainer-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space);
+}
+
+.portrait-frame {
+  flex: none;
+  background: #fbf7e9;
+  border: 4px solid #070a16;
+  border-radius: 4px;
+  padding: 4px;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.3);
+}
+
+.portrait-art {
+  display: block;
+  image-rendering: pixelated;
+}
+
+.trainer-card-name,
+.trainer-card-met {
+  margin: 0 0 4px;
+}
+
+/* The 26 Skills. A Skill met has a solid edge; one never met is grey with a dashed edge and says "Not met yet". */
+.skill-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.skill {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border: 2px solid var(--color-success);
+  border-radius: 4px;
+}
+
+.skill-rate {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.skill-not-met {
+  color: var(--color-muted);
+  border-style: dashed;
+  border-color: var(--color-line);
+}
+
+.skill-not-met .skill-rate {
+  font-weight: 400;
+}
+
 
 /* The end-of-Battle screen (#104): the review screen of the approved prototype. Three numbers,
    then one night-blue card per turn with the model answer on cream, as in the Battle panel. */
@@ -1456,6 +1864,27 @@ html:has(.battle-scene) {
 
 .battle-constraint .battle-label {
   color: var(--battle-gold);
+}
+
+/* A Gym twin's reversed Constraint (#113): another border colour and the words "Constraint changed". */
+.battle-constraint-reversed {
+  border-color: #ff8a94;
+}
+
+.battle-constraint-reversed .battle-label {
+  color: #ffb3b9;
+}
+
+/* Two classes, so the gap wins over `.battle-panel p { margin: 0 }`. A full sentence: 16 px (UI rule 10). */
+.battle-constraint .battle-constraint-old {
+  margin-top: 4px;
+  font-size: 16px;
+  color: #e8dcc0;
+}
+
+.battle-end-old {
+  font-size: 16px;
+  color: var(--color-muted);
 }
 
 .battle-threat .glossary-term,

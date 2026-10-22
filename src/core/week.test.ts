@@ -1,17 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { learningDay, type SessionSnapshot } from "./day.ts";
-import type { TurnRecord } from "./battle.ts";
-import type { ReviewRecord } from "./review.ts";
+import type { CardRecord, ReviewRecord } from "./review.ts";
 import {
+  compareWithLastWeek,
   formatWeek,
   formatWeekMinutes,
+  formatWeekRate,
   latestSummaryWeek,
+  mostMissedConcepts,
+  summaryMoment,
   weakestCreatures,
   weeklySummary,
   weekMinutes,
   weekStart,
+  workQuestionConcept,
   WEEKLY_GOAL_MINUTES,
+  type ConceptOfTurn,
   type Creature,
+  type SummaryTurn,
 } from "./week.ts";
 
 const HCM = "Asia/Ho_Chi_Minh";
@@ -72,6 +78,20 @@ describe("formatWeek", () => {
   it("names the week by its Monday and its Sunday", () => {
     expect(formatWeek("2026-10-12")).toBe("12 Oct – 18 Oct");
     expect(formatWeek("2026-09-28")).toBe("28 Sep – 4 Oct");
+  });
+});
+
+describe("summaryMoment", () => {
+  it("is Sunday 20:00 home time of the week, the moment its summary counts up to", () => {
+    expect(summaryMoment("2026-10-12", HCM)).toEqual(new Date("2026-10-18T13:00:00Z"));
+    // London: summer time (UTC+1) on 18 Oct, winter time (UTC+0) on 25 Oct 2026.
+    expect(summaryMoment("2026-10-12", "Europe/London")).toEqual(new Date("2026-10-18T19:00:00Z"));
+    expect(summaryMoment("2026-10-19", "Europe/London")).toEqual(new Date("2026-10-25T20:00:00Z"));
+  });
+
+  it("gives the same moment as the latest summary week", () => {
+    const week = latestSummaryWeek(new Date("2026-11-02T12:00:00Z"), "America/New_York");
+    expect(summaryMoment(week.weekStart, "America/New_York")).toEqual(week.summaryAt);
   });
 });
 
@@ -160,9 +180,100 @@ describe("weakestCreatures", () => {
   });
 });
 
-function turn(bestMove: boolean, learningDay = "2026-10-20"): TurnRecord {
-  return { battleId: "b", scenarioId: "t01-x", turnNumber: 1, moveId: "cache.ttl", bestMove, learningDay };
+// A turn of scenario "t01-<concept>" tests that concept: its best move belongs to it.
+const conceptOfTurn: ConceptOfTurn = (scenarioId) => CREATURES[scenarioId.slice(4)];
+
+function turn(bestMove: boolean, learningDay = "2026-10-20", scenarioId = "t01-cache", constraintVariant: string | null = "main"): SummaryTurn {
+  return { scenarioId, turnNumber: 1, bestMove, learningDay, constraintVariant };
 }
+
+function card(cardId: string, right: boolean, learningDay = "2026-10-20"): CardRecord {
+  return { cardId, kind: cardId.includes(".trade-off.") ? "trade-off" : "decision", right, learningDay };
+}
+
+const rate = (right: number, total: number) => ({ right, total });
+
+describe("compareWithLastWeek", () => {
+  it("compares the two whole percentages, so the words always match the numbers shown", () => {
+    expect(compareWithLastWeek({ thisWeek: rate(2, 3), lastWeek: rate(1, 2) })).toEqual({
+      kind: "up",
+      percent: 67,
+      lastPercent: 50,
+      points: 17,
+    });
+    expect(compareWithLastWeek({ thisWeek: rate(1, 4), lastWeek: rate(3, 4) })).toEqual({
+      kind: "down",
+      percent: 25,
+      lastPercent: 75,
+      points: -50,
+    });
+    // 2 of 3 and 667 of 1000 both round to 67%.
+    expect(compareWithLastWeek({ thisWeek: rate(2, 3), lastWeek: rate(667, 1000) })).toEqual({
+      kind: "same",
+      percent: 67,
+      lastPercent: 67,
+      points: 0,
+    });
+  });
+
+  it("has nothing to compare when a week has no picks", () => {
+    expect(compareWithLastWeek({ thisWeek: rate(3, 4), lastWeek: rate(0, 0) })).toEqual({ kind: "no-last-week", percent: 75 });
+    expect(compareWithLastWeek({ thisWeek: rate(0, 0), lastWeek: rate(1, 2) })).toEqual({ kind: "none", lastPercent: 50 });
+    expect(compareWithLastWeek({ thisWeek: rate(0, 0), lastWeek: rate(0, 0) })).toEqual({ kind: "none", lastPercent: null });
+  });
+});
+
+describe("formatWeekRate", () => {
+  it("says the rate, the count and the change from last week in words", () => {
+    expect(formatWeekRate({ thisWeek: rate(2, 3), lastWeek: rate(1, 2) }, "turn")).toBe(
+      "67% (2 of 3 turns), up 17 points from 50% last week",
+    );
+    expect(formatWeekRate({ thisWeek: rate(1, 1), lastWeek: rate(2, 2) }, "card")).toBe(
+      "100% (1 of 1 card), the same as last week",
+    );
+    expect(formatWeekRate({ thisWeek: rate(1, 2), lastWeek: rate(51, 100) }, "card")).toBe(
+      "50% (1 of 2 cards), down 1 point from 51% last week",
+    );
+  });
+
+  it("says when a week had none", () => {
+    expect(formatWeekRate({ thisWeek: rate(3, 4), lastWeek: rate(0, 0) }, "turn")).toBe("75% (3 of 4 turns), none last week");
+    expect(formatWeekRate({ thisWeek: rate(0, 0), lastWeek: rate(1, 2) }, "turn")).toBe("no turns this week (50% last week)");
+    expect(formatWeekRate({ thisWeek: rate(0, 0), lastWeek: rate(0, 0) }, "card")).toBe("no cards this week");
+  });
+});
+
+describe("mostMissedConcepts", () => {
+  it("ranks concepts by wrong picks in battle turns and scored cards, and keeps at most 3", () => {
+    const turns = [turn(false, "2026-10-20", "t01-dns"), turn(false, "2026-10-20", "t01-dns"), turn(false, "2026-10-21", "t01-tls"), turn(true)];
+    const cards = [card("cache.decision.logo", false), card("cache.trade-off.cdn", false), card("http.decision.verbs", false), card("dns.decision.ttl", true)];
+    // Cache: 2 wrong cards. DNS: 2 wrong turns. HTTP: 1 wrong card. TLS: 1 wrong turn.
+    expect(mostMissedConcepts(turns, cards, conceptOfTurn, creatureOf)).toEqual([CREATURES.cache, CREATURES.dns, CREATURES.http]);
+  });
+
+  it("never names a concept the learner got right every time", () => {
+    expect(mostMissedConcepts([turn(true)], [card("dns.decision.ttl", true)], conceptOfTurn, creatureOf)).toEqual([]);
+  });
+
+  it("skips a turn whose best move is not a concept, and items the content no longer has", () => {
+    // A Meeting Battle answer has no creature, and "gone" is not in the content.
+    const turns = [turn(false, "2026-10-20", "t01-meeting")];
+    expect(mostMissedConcepts(turns, [card("gone.decision.x", false)], conceptOfTurn, creatureOf)).toEqual([]);
+  });
+
+  it("breaks a tie by the concept id, so the order never changes between two runs", () => {
+    const turns = [turn(false, "2026-10-20", "t01-tls"), turn(false, "2026-10-20", "t01-dns")];
+    expect(mostMissedConcepts(turns, [], conceptOfTurn, creatureOf)).toEqual([CREATURES.dns, CREATURES.tls]);
+  });
+});
+
+describe("workQuestionConcept", () => {
+  it("asks about the most-missed concept, then the weakest creature, else nothing", () => {
+    expect(workQuestionConcept([CREATURES.dns, CREATURES.tls], [CREATURES.cache])).toEqual(CREATURES.dns);
+    expect(workQuestionConcept([], [CREATURES.cache])).toEqual(CREATURES.cache);
+    expect(workQuestionConcept([], [])).toBeNull();
+  });
+});
 
 describe("weeklySummary", () => {
   it("holds days learned, minutes against 315, the best-move rate and the 3 weakest creatures of one week", () => {
@@ -177,9 +288,11 @@ describe("weeklySummary", () => {
       ],
       turns: [turn(true), turn(false), turn(true, "2026-10-24"), turn(false, "2026-10-18")],
       reviews: [review("dns", "again"), review("cache", "again", "2026-10-26"), review("http", "hard", "2026-10-18")],
+      cards: [],
       creatureOf,
+      conceptOfTurn,
     });
-    expect(summary).toEqual({
+    expect(summary).toMatchObject({
       weekStart: "2026-10-19",
       // Monday (15 min) and Saturday (45 min) count. Tuesday has only 2 minutes.
       daysLearned: 2,
@@ -190,14 +303,57 @@ describe("weeklySummary", () => {
     });
   });
 
+  it("adds the v1.5 picks: rates against last week, the most-missed concepts and the work question", () => {
+    const summary = weeklySummary({
+      weekStart: "2026-10-19",
+      snapshots: [snapshot("mon", "2026-10-19", 900)],
+      turns: [
+        // This week: 3 turns with a Constraint, 2 best. A turn with no Constraint is left out of the rate.
+        turn(true),
+        turn(true, "2026-10-21", "t01-dns"),
+        turn(false, "2026-10-22", "t01-tls"),
+        turn(false, "2026-10-22", "t01-dns", null),
+        // Last week: 1 of 2. Two weeks ago and next week do not count.
+        turn(true, "2026-10-12"),
+        turn(false, "2026-10-18"),
+        turn(true, "2026-10-11"),
+        turn(true, "2026-10-26"),
+      ],
+      cards: [
+        card("cache.decision.logo", true),
+        card("cache.decision.price", false),
+        // A trade-off question is not a Decision Card, but a wrong one is a miss.
+        card("http.trade-off.verbs", false),
+        card("dns.decision.ttl", true, "2026-10-13"),
+        card("dns.decision.ttl", true, "2026-10-26"),
+      ],
+      reviews: [review("cache", "again")],
+      creatureOf,
+      conceptOfTurn,
+    });
+    expect(summary.picks).toEqual({
+      constraintBestMoves: { thisWeek: rate(2, 3), lastWeek: rate(1, 2) },
+      decisionCards: { thisWeek: rate(1, 2), lastWeek: rate(1, 1) },
+      // DNS: 1 wrong turn (no Constraint still counts). TLS: 1 wrong turn. Cache: 1 wrong card. HTTP: 1 wrong trade-off.
+      mostMissed: [CREATURES.cache, CREATURES.dns, CREATURES.http],
+      workConcept: CREATURES.cache,
+    });
+  });
+
   it("is all zeros for a week with nothing in it", () => {
-    expect(weeklySummary({ weekStart: "2026-10-19", snapshots: [], turns: [], reviews: [], creatureOf })).toEqual({
+    expect(weeklySummary({ weekStart: "2026-10-19", snapshots: [], turns: [], reviews: [], cards: [], creatureOf, conceptOfTurn })).toEqual({
       weekStart: "2026-10-19",
       daysLearned: 0,
       minutes: 0,
       goalMinutes: 315,
       bestMoves: { bestMoves: 0, turns: 0 },
       weakest: [],
+      picks: {
+        constraintBestMoves: { thisWeek: rate(0, 0), lastWeek: rate(0, 0) },
+        decisionCards: { thisWeek: rate(0, 0), lastWeek: rate(0, 0) },
+        mostMissed: [],
+        workConcept: null,
+      },
     });
   });
 });

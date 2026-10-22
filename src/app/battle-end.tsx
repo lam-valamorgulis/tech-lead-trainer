@@ -6,6 +6,7 @@ import type { BundledScenario } from "@/content/bundle";
 import { endChecks, endView, toggleTick, type EndTurn, type Ticks } from "@/core/battle-end";
 import type { BattleV2 } from "@/core/battle-v2";
 import { AGENT_DIFF_OPPONENT } from "@/core/agent-diff";
+import type { GymTwin, ReversedTurn } from "@/core/gym";
 import { PERSON_WORDS } from "@/core/portrait";
 import { discussPackage, teachBackItems } from "@/core/discuss";
 import { postEvents, postEventsOnLeave } from "@/lib/events/post-events";
@@ -35,10 +36,13 @@ export function BattleEnd({
   notes,
   eventFields,
   onDone,
+  twin,
 }: {
   scenario: BundledScenario;
   /** A finished battle. */
   battle: BattleV2;
+  /** A Gym twin (#113): a turn with a reversed Constraint names last time's Constraint and best move. */
+  twin?: GymTwin;
   /** The learner's own words on each turn, when they typed some. */
   notes: Record<number, string>;
   eventFields: () => BattleEventFields;
@@ -147,6 +151,7 @@ export function BattleEnd({
         <TurnReview
           key={turn.turnNumber}
           turn={turn}
+          reversed={twin?.turns[turn.turnNumber - 1] ?? null}
           ticked={ticks[turn.turnNumber] ?? []}
           locked={saved}
           onToggle={(point) => setTicks((before) => toggleTick(before, turn.turnNumber, point))}
@@ -163,11 +168,13 @@ export function BattleEnd({
 /** One turn of the review: what happened, the model answer, and its key points to tick. */
 function TurnReview({
   turn,
+  reversed,
   ticked,
   locked,
   onToggle,
 }: {
   turn: EndTurn;
+  reversed: ReversedTurn;
   ticked: number[];
   locked: boolean;
   onToggle: (point: number) => void;
@@ -181,7 +188,14 @@ function TurnReview({
       </p>
       {turn.constraint && (
         <p>
-          <span className="pixel-label battle-end-tag">Constraint</span> <GlossaryText text={turn.constraint} />
+          <span className="pixel-label battle-end-tag">{reversed ? "Constraint changed" : "Constraint"}</span> <GlossaryText text={turn.constraint} />
+        </p>
+      )}
+      {/* Design 7.5: the old best move loses under the reversed Constraint. */}
+      {reversed && (
+        <p className="battle-end-old">
+          Last time: {reversed.oldConstraint === null ? "no Constraint" : <GlossaryText text={reversed.oldConstraint} />} The best
+          move was <b>{nameOf(reversed.oldBestMoveId)}</b>.
         </p>
       )}
       {/* UI rule 7: each chip has its words, never a colour alone. */}

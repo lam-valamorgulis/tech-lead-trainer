@@ -11,8 +11,31 @@ export const DAILY_REVIEW_LIMIT = 8;
 
 export type Grade = "again" | "hard" | "good" | "easy";
 
+/**
+ * The review rules a review was graded under. v1.5 (design 6.5): passing the 30-day step gives
+ * Stage 3 only with one right trade-off answer. A review with none passes the 30-day step to
+ * Stage 3 by itself, also when the log is replayed. Such a review is one from before v1.5, or one of
+ * a creature that had no trade-off question to show, so the learner never gets stuck at Stage 2.
+ */
+export const REVIEW_RULES = "v1.5";
+export type ReviewRules = typeof REVIEW_RULES;
+
 /** What the rules need from a saved review event. */
-export type ReviewRecord = { itemId: string; learningDay: LearningDay; grade: Grade };
+export type ReviewRecord = { itemId: string; learningDay: LearningDay; grade: Grade; rules?: ReviewRules | null };
+
+/** A scored card in review: a Decision Card (design 6.4) or the Stage 3 trade-off question (design 6.5). */
+export type CardKind = "decision" | "trade-off";
+
+/**
+ * One answered Decision Card or trade-off question. `right` means the right option and the right
+ * Reason. The card id starts with its creature id, for example cache.decision.logo.
+ */
+export type CardRecord = { cardId: string; kind: CardKind; learningDay: LearningDay; right: boolean };
+
+/** The creature a Decision Card or trade-off question belongs to: the first part of its id. */
+export function cardCreatureId(cardId: string): string {
+  return cardId.slice(0, cardId.indexOf("."));
+}
 
 export type ReviewState = {
   itemId: string;
@@ -26,30 +49,50 @@ export type ReviewState = {
 
 export type Stage = 1 | 2 | 3;
 
-/** A Good or Easy that moves past one of these steps evolves the creature (design 5). */
-const EVOLVE_AFTER: [step: ReviewStep, stage: Stage][] = [
-  [7, 2],
-  [30, 3],
-];
+/** Stage 2 comes after the 7-day step, Stage 3 after the 30-day step (design 6.5). */
+const STAGE_2_STEP = 7;
+const STAGE_3_STEP = 30;
 
-/** The stage after a review. Stages never go back, even after a later Again. */
-function stageAfter(stage: Stage, grade: Grade, next: { step: ReviewStep; dueDay: LearningDay | null }): Stage {
-  if (grade !== "good" && grade !== "easy") return stage;
+type Graded = { step: ReviewStep; dueDay: LearningDay | null };
+
+/** A Good or Easy that moves past the step, or ends the reviews. An early review keeps its step. */
+function passes(step: ReviewStep, grade: Grade, next: Graded): boolean {
+  return (grade === "good" || grade === "easy") && (next.dueDay === null || next.step > step);
+}
+
+/**
+ * The stage after a review. Stages never go back, even after a later Again.
+ * `needsTradeOff`: passing the 30-day step is not enough for Stage 3 (v1.5, no right trade-off answer yet).
+ */
+function stageAfter(stage: Stage, grade: Grade, next: Graded, needsTradeOff: boolean): Stage {
   let result = stage;
-  for (const [step, evolved] of EVOLVE_AFTER) {
-    if ((next.dueDay === null || next.step > step) && evolved > result) result = evolved;
-  }
+  if (passes(STAGE_2_STEP, grade, next) && result < 2) result = 2;
+  if (passes(STAGE_3_STEP, grade, next) && !needsTradeOff && result < 3) result = 3;
   return result;
 }
 
 /**
  * The new stage when this grade evolves the creature, for the evolution moment on screen.
- * null when the stage stays the same. Uses the same rule as the Field Guide.
+ * null when the stage stays the same. Uses the same rule as the Field Guide: with a trade-off
+ * question to show, Stage 3 comes from a right answer, see `asksTradeOff`. Without one, from the
+ * 30-day step itself, and the review is logged with no rules (`REVIEW_RULES`).
  */
-export function evolvesTo(state: ReviewState, grade: Grade, gradedDay: LearningDay): Stage | null {
+export function evolvesTo(state: ReviewState, grade: Grade, gradedDay: LearningDay, hasTradeOff = true): Stage | null {
   const graded = gradeReview({ step: state.step, gradedDay, grade, dueDay: state.dueDay });
-  const stage = stageAfter(state.stage, grade, graded);
+  const stage = stageAfter(state.stage, grade, graded, hasTradeOff);
   return stage > state.stage ? stage : null;
+}
+
+/**
+ * Whether the trade-off question follows this review of a creature (design 6.5): the learner knew it
+ * (Good or Easy), and after this grade the creature is at Stage 2 and past the 30-day step. A wrong
+ * answer keeps Stage 2, so the question comes again after the next such review.
+ */
+export function asksTradeOff(state: ReviewState, grade: Grade, gradedDay: LearningDay): boolean {
+  if (grade !== "good" && grade !== "easy") return false;
+  const graded = gradeReview({ step: state.step, gradedDay, grade, dueDay: state.dueDay });
+  const stage = stageAfter(state.stage, grade, graded, true);
+  return stage === 2 && (graded.dueDay === null || graded.step > STAGE_3_STEP);
 }
 
 const MOVE: Record<Grade, number> = { again: -1, hard: 0, good: 1, easy: 2 };
@@ -103,12 +146,15 @@ function applyRecheck(states: Map<string, ReviewState>, recheck: RecheckRecord) 
 /**
  * The review state of every caught item, replayed from the event log. Records must be in time order.
  * Rechecks count in day order with the reviews, after the reviews of the same day: a day's
- * battle comes after its reviews.
+ * battle comes after its reviews. Scored cards count the same way, after the day's reviews:
+ * - a wrong Decision Card is a recheck of its creature. A Decision Card never moves a step;
+ * - a right trade-off answer gives Stage 3 to a creature past the 30-day step (design 6.5).
  */
 export function reviewStates(
   catches: CatchRecord[],
   reviews: ReviewRecord[],
   rechecks: RecheckRecord[] = [],
+  cards: CardRecord[] = [],
 ): Map<string, ReviewState> {
   const states = new Map<string, ReviewState>();
   for (const record of catches) {
@@ -122,23 +168,43 @@ export function reviewStates(
       stage: 1,
     });
   }
-  // A stable sort keeps the order of the rechecks inside one day.
-  const waiting = [...rechecks].sort((a, b) => a.learningDay.localeCompare(b.learningDay));
+  // v1.5 Stage 3 (design 6.5): the creatures past the 30-day step, and those with a right trade-off answer.
+  const pastThirty = new Set<string>();
+  const tradeOffRight = new Set<string>();
+  const applyCard = (card: CardRecord) => {
+    const creatureId = cardCreatureId(card.cardId);
+    if (card.kind === "decision") {
+      if (!card.right) applyRecheck(states, { itemId: creatureId, learningDay: card.learningDay });
+      return;
+    }
+    if (!card.right) return;
+    tradeOffRight.add(creatureId);
+    const state = states.get(creatureId);
+    if (state && pastThirty.has(creatureId)) state.stage = 3;
+  };
+  // Rechecks and cards count after the reviews of their day. A stable sort keeps their order inside one day.
+  const waiting = [
+    ...rechecks.map((recheck) => ({ learningDay: recheck.learningDay, apply: () => applyRecheck(states, recheck) })),
+    ...cards.map((card) => ({ learningDay: card.learningDay, apply: () => applyCard(card) })),
+  ].sort((a, b) => a.learningDay.localeCompare(b.learningDay));
   let next = 0;
-  const recheckBefore = (day: LearningDay) => {
-    while (next < waiting.length && waiting[next].learningDay < day) applyRecheck(states, waiting[next++]);
+  const applyBefore = (day: LearningDay) => {
+    while (next < waiting.length && waiting[next].learningDay < day) waiting[next++].apply();
   };
   for (const review of reviews) {
-    recheckBefore(review.learningDay);
+    applyBefore(review.learningDay);
     const state = states.get(review.itemId);
     if (!state) continue;
     const graded = gradeReview({ step: state.step, gradedDay: review.learningDay, grade: review.grade, dueDay: state.dueDay });
-    state.stage = stageAfter(state.stage, review.grade, graded);
+    // A review from before v1.5 keeps its rule: passing the 30-day step gave Stage 3 by itself.
+    const v15 = review.rules === REVIEW_RULES;
+    if (v15 && passes(STAGE_3_STEP, review.grade, graded)) pastThirty.add(review.itemId);
+    state.stage = stageAfter(state.stage, review.grade, graded, v15 && !tradeOffRight.has(review.itemId));
     state.step = graded.step;
     state.dueDay = graded.dueDay;
   }
-  // The rechecks after the last review.
-  while (next < waiting.length) applyRecheck(states, waiting[next++]);
+  // The rechecks and cards after the last review.
+  while (next < waiting.length) waiting[next++].apply();
   return states;
 }
 
@@ -180,6 +246,7 @@ export function dueReviews({
   today,
   isReviewable = () => true,
   pairs = [],
+  placesTaken = 0,
 }: {
   states: Map<string, ReviewState>;
   reviews: ReviewRecord[];
@@ -187,10 +254,12 @@ export function dueReviews({
   isReviewable?: (itemId: string) => boolean;
   /** Confusable pairs from the content of every town. */
   pairs?: ConfusablePair[];
+  /** Today's places already taken by other reviews: the Decision Cards answered today. */
+  placesTaken?: number;
 }): TodayReview[] {
   const todays = reviews.filter((review) => review.learningDay === today);
   const reviewedToday = new Set(todays.map((review) => review.itemId));
-  const places = Math.max(0, DAILY_REVIEW_LIMIT - todays.length);
+  const places = Math.max(0, DAILY_REVIEW_LIMIT - todays.length - placesTaken);
   const due = allDue(states, today)
     .filter((state) => isReviewable(state.itemId))
     .slice(0, places);
@@ -223,6 +292,89 @@ export function dueReviews({
   return result;
 }
 
+/** About 1 review in 4 is a Decision Card (design 6.4): every 4th place of the day. */
+export const DECISION_CARD_EVERY = 4;
+
+/** One place in today's reviews: a normal review card, or a Decision Card of a caught creature. */
+export type TodayPlace = { kind: "review"; review: TodayReview } | { kind: "decision"; cardId: string };
+
+/**
+ * Today's reviews with the Decision Cards mixed in (design 6.4). The places of the day count from 1,
+ * across all of today's sessions, up to 8. Every 4th place is a Decision Card while a normal review
+ * still waits, so a short queue gets none: 4 due reviews give 3 reviews, 1 Decision Card, 1 review.
+ * A Decision Card takes a place, so on a full day 2 due reviews wait until tomorrow.
+ *
+ * The Decision Card places are counted first, from the due reviews only. So a confusable partner
+ * that is not due still fills only a place left over, and never pushes out a due review. A Decision
+ * Card never comes between a confusable pair: it moves to the place after the pair.
+ *
+ * The Decision Card is one of a caught creature. A card answered today does not come back today.
+ * The card answered longest ago comes first, and a card never answered before all others.
+ */
+export function todaysReviews({
+  states,
+  reviews,
+  cards = [],
+  decisionCardIds = [],
+  today,
+  isReviewable,
+  pairs,
+}: {
+  states: Map<string, ReviewState>;
+  reviews: ReviewRecord[];
+  /** The scored cards answered so far. */
+  cards?: CardRecord[];
+  /** Every Decision Card in the content that can be shown, retired ones left out. */
+  decisionCardIds?: string[];
+  today: LearningDay;
+  isReviewable?: (itemId: string) => boolean;
+  pairs?: ConfusablePair[];
+}): TodayPlace[] {
+  const decisions = cards.filter((card) => card.kind === "decision");
+  const decisionsToday = decisions.filter((card) => card.learningDay === today);
+  const lastAnswered = new Map<string, LearningDay>();
+  for (const card of decisions) {
+    const last = lastAnswered.get(card.cardId);
+    if (!last || card.learningDay > last) lastAnswered.set(card.cardId, card.learningDay);
+  }
+  const waiting = decisionCardIds
+    .filter((id) => states.has(cardCreatureId(id)) && lastAnswered.get(id) !== today)
+    .sort((a, b) => (lastAnswered.get(a) ?? "").localeCompare(lastAnswered.get(b) ?? "") || a.localeCompare(b));
+
+  const used = reviews.filter((review) => review.learningDay === today).length + decisionsToday.length;
+  // How many Decision Cards today: every 4th place while a due review still waits.
+  const dueCount = allDue(states, today).filter((state) => isReviewable?.(state.itemId) ?? true).length;
+  let decisionPlaces = 0;
+  for (let place = used + 1, shown = 0; place <= DAILY_REVIEW_LIMIT && shown < dueCount; place += 1) {
+    if (place % DECISION_CARD_EVERY === 0 && decisionPlaces < waiting.length) decisionPlaces += 1;
+    else shown += 1;
+  }
+  const due = dueReviews({ states, reviews, today, isReviewable, pairs, placesTaken: decisionsToday.length + decisionPlaces });
+
+  const confusable = (a: TodayReview, b: TodayReview) =>
+    b.mixedWith === a.itemId || (pairs ?? []).some(([x, y]) => (x === a.itemId && y === b.itemId) || (x === b.itemId && y === a.itemId));
+  const places: TodayPlace[] = [];
+  const takeDecision = () => places.push({ kind: "decision", cardId: waiting.shift()! });
+  let left = decisionPlaces;
+  // A Decision Card owed at a 4th place, but held back until the confusable pair is together.
+  let owed = false;
+  let place = used;
+  for (let next = 0; next < due.length; ) {
+    place += 1;
+    if (place % DECISION_CARD_EVERY === 0 && left > 0) owed = true;
+    if (owed && !(next > 0 && confusable(due[next - 1], due[next]))) {
+      takeDecision();
+      owed = false;
+      left -= 1;
+    } else {
+      places.push({ kind: "review", review: due[next++] });
+    }
+  }
+  // A Decision Card held back after the last pair still has its place.
+  for (; left > 0; left -= 1) takeDecision();
+  return places;
+}
+
 /** The backlog guard looks at this many days in a row. */
 export const BACKLOG_DAYS = 3;
 
@@ -237,6 +389,7 @@ export function backlogPaused(
   today: LearningDay,
   isReviewable: (itemId: string) => boolean = () => true,
   rechecks: RecheckRecord[] = [],
+  cards: CardRecord[] = [],
 ): boolean {
   for (let back = 0; back < BACKLOG_DAYS; back += 1) {
     const day = addDays(today, -back);
@@ -244,6 +397,7 @@ export function backlogPaused(
       catches.filter((c) => c.learningDay < day),
       reviews.filter((r) => r.learningDay < day),
       rechecks.filter((r) => r.learningDay < day),
+      cards.filter((c) => c.learningDay < day),
     );
     const due = allDue(states, day).filter((state) => isReviewable(state.itemId));
     if (due.length <= DAILY_REVIEW_LIMIT) return false;

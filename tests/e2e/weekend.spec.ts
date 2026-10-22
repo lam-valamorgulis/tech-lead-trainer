@@ -73,6 +73,7 @@ test("on a phone, the map opens the weekend boss, and the preview sits under the
     // Home keeps its commit buttons on screen: no Weekend button on a phone.
     await expect(page.getByRole("link", { name: "Weekend" })).toBeHidden();
     await page.getByRole("link", { name: "Map" }).click();
+    await page.getByRole("link", { name: "Town 1 You are here" }).click();
     await page.getByRole("link", { name: "Weekend boss" }).click();
     await expect(page.getByRole("heading", { name: "Weekend 1 boss: the slow sale page" })).toBeVisible();
 

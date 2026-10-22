@@ -23,6 +23,7 @@
   "twist": {
     "kind": "two-types"
   },
+  "systemNode": "api",
   "creatures": [
     {
       "id": "resource-design",
@@ -2518,6 +2519,7 @@
       "id": "long-running",
       "name": "Long-running operation",
       "sprite": 42,
+      "systemNode": "queue",
       "lesson": {
         "screens": [
           {

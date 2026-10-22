@@ -48,6 +48,7 @@
           "id": "cache",
           "name": "Cache",
           "sprite": 12,
+          "systemNode": "cache",
           "lesson": {
             "screens": [
               {
@@ -256,6 +257,7 @@
           "id": "cookie",
           "name": "Cookie",
           "sprite": 7,
+          "systemNode": "browser",
           "lesson": {
             "screens": [
               {
@@ -304,6 +306,35 @@
             ],
             "answer": "The cookie brings the cart id back with each request."
           },
+          "tradeOff": {
+            "id": "cookie.trade-off.sign-in",
+            "situation": "The sign-in cookie must survive a page script bug.",
+            "options": [
+              "Mark it HttpOnly",
+              "Store it in a page variable",
+              "Send it in the address"
+            ],
+            "rightOption": 0,
+            "reasons": [
+              {
+                "text": "A page script cannot read an HttpOnly cookie.",
+                "right": true
+              },
+              {
+                "text": "Page variables are private.",
+                "right": false
+              },
+              {
+                "text": "Addresses are never logged.",
+                "right": false
+              }
+            ],
+            "explanation": "HttpOnly hides the cookie from page scripts.",
+            "skills": [
+              3
+            ],
+            "hash": "adedbe122da74531"
+          },
           "moves": [
             {
               "id": "cookie.http-only",
@@ -339,6 +370,7 @@
           "id": "proxy",
           "name": "Proxy",
           "sprite": 30,
+          "systemNode": "cdn",
           "catch": {
             "question": "What sits between the browser and the server and passes requests on?",
             "choices": [
@@ -368,6 +400,35 @@
               "Let it keep copies of the pages."
             ],
             "answer": "The proxy answers from a nearby copy."
+          },
+          "tradeOff": {
+            "id": "proxy.trade-off.near-visitors",
+            "situation": "Visitors on another continent wait for every image.",
+            "options": [
+              "Put a proxy close to them",
+              "Make the images bigger",
+              "Turn off the cache"
+            ],
+            "rightOption": 0,
+            "reasons": [
+              {
+                "text": "A copy near the visitor cuts the travel time.",
+                "right": true
+              },
+              {
+                "text": "Bigger images load faster.",
+                "right": false
+              },
+              {
+                "text": "A cache always slows pages.",
+                "right": false
+              }
+            ],
+            "explanation": "A proxy near the visitor serves saved copies quickly.",
+            "skills": [
+              2
+            ],
+            "hash": "78682dc99af012a9"
           },
           "moves": [
             {
@@ -1463,6 +1524,153 @@
             }
           ],
           "hash": "cd2af6bd477e0f2c"
+        },
+        {
+          "id": "t99-sale-day-new-logo",
+          "name": "Sale day, new logo",
+          "source": {
+            "title": "Cloudflare: What is a CDN?",
+            "url": "https://www.cloudflare.com/learning/cdn/what-is-a-cdn/"
+          },
+          "twinOf": "t99-sale-day",
+          "opponentType": "traffic",
+          "problem": "A sale starts at noon. Ten times more people open the shop.",
+          "turns": [
+            {
+              "threat": "Every visitor downloads the same logo and styles again.",
+              "constraint": "The logo changes every hour during the sale.",
+              "reasons": [
+                {
+                  "text": "A long TTL shows a new logo at once.",
+                  "right": false
+                },
+                {
+                  "text": "The shop can clear a CDN copy, but not the copy in each browser.",
+                  "right": true
+                },
+                {
+                  "text": "A cookie makes the logo smaller.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                3
+              ],
+              "moves": [
+                {
+                  "moveId": "cache.ttl",
+                  "damage": 0,
+                  "counterattack": "Browsers keep the old logo for hours after it changes."
+                },
+                {
+                  "moveId": "proxy.cdn",
+                  "damage": 2,
+                  "counterattack": "The logo loads near each visitor, and the shop clears the CDN copy when it changes."
+                },
+                {
+                  "moveId": "cookie.http-only",
+                  "damage": 0,
+                  "counterattack": "Scripts cannot read the cookie, but the page is still slow."
+                }
+              ],
+              "modelAnswer": "Serve the logo from a CDN and clear its copy when the logo changes. Browsers keep no long copy.",
+              "keyPoints": [
+                "The logo changes every hour.",
+                "A browser would keep an old copy.",
+                "The shop can clear a CDN copy."
+              ]
+            },
+            {
+              "threat": "The new sale price does not show. Visitors see the old price.",
+              "constraint": "The price changes every minute during the sale.",
+              "reasons": [
+                {
+                  "text": "No store makes every page faster.",
+                  "right": false
+                },
+                {
+                  "text": "A price must never come from an old copy.",
+                  "right": true
+                },
+                {
+                  "text": "A CDN always has the newest price.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                3,
+                10
+              ],
+              "moves": [
+                {
+                  "moveId": "cache.no-store",
+                  "damage": 2,
+                  "counterattack": "Prices are fresh, but each price check now reaches the server."
+                },
+                {
+                  "moveId": "proxy.cdn",
+                  "damage": 1,
+                  "counterattack": "Near copies update sooner, but some visitors still see the old price."
+                },
+                {
+                  "moveId": "cache.ttl",
+                  "damage": 0,
+                  "counterattack": "The old price stays until its copy is too old."
+                }
+              ],
+              "modelAnswer": "Mark the price response no-store. Every visitor then gets the current price from the server.",
+              "keyPoints": [
+                "A price must never come from an old copy.",
+                "No store stops every cache from keeping it.",
+                "Each price check now costs a server request."
+              ]
+            },
+            {
+              "threat": "Visitors far away wait three seconds for each page.",
+              "constraint": "Half the visitors live on another continent.",
+              "reasons": [
+                {
+                  "text": "No store makes far pages faster.",
+                  "right": false
+                },
+                {
+                  "text": "A cookie makes the page lighter.",
+                  "right": false
+                },
+                {
+                  "text": "A copy near the visitor cuts the travel time.",
+                  "right": true
+                }
+              ],
+              "skills": [
+                2
+              ],
+              "moves": [
+                {
+                  "moveId": "proxy.cdn",
+                  "damage": 2,
+                  "counterattack": "Pages now load near each visitor, but the network costs more."
+                },
+                {
+                  "moveId": "cache.no-store",
+                  "damage": 0,
+                  "counterattack": "Every page is fetched again, so far visitors wait longer."
+                },
+                {
+                  "moveId": "cookie.http-only",
+                  "damage": 0,
+                  "counterattack": "The cookie is safer, but far visitors still wait."
+                }
+              ],
+              "modelAnswer": "Put a CDN in front of the shop. Its servers near each visitor answer instead of the far origin.",
+              "keyPoints": [
+                "Distance makes each request slow.",
+                "A CDN keeps copies near the visitor.",
+                "The CDN costs money for the network."
+              ]
+            }
+          ],
+          "hash": "f2261c34f38274b7"
         }
       ]
     },
@@ -1485,6 +1693,7 @@
       "twist": {
         "kind": "two-types"
       },
+      "systemNode": "api",
       "creatures": [
         {
           "id": "rate-limit",

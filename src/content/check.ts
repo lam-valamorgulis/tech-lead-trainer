@@ -206,6 +206,13 @@ function townProblems(town: Town, allTowns: Town[]): Problem[] {
       }
     }
     for (const card of scoredCards(creature)) problems.push(...scoredCardProblems(town, creature, card));
+    // A town with Skills is a v1.5 town. Its creatures reach Stage 3 with a trade-off answer (design 6.5).
+    if (town.skills && !creature.retired && (!creature.tradeOff || creature.tradeOff.retired)) {
+      problems.push({
+        where: `${itemLabel(town, creature)}.tradeOff`,
+        message: "A creature of a v1.5 town needs a trade-off question that is not retired, for Stage 3. Edit it in place.",
+      });
+    }
   }
 
   if (town.intro) {
@@ -449,6 +456,19 @@ function twinProblems(town: Town, scenario: Scenario): Problem[] {
       message: `On a turn with the same threat as ${original.id}, the twin needs another best move. Reverse the Constraint so the best move changes.`,
     });
   }
+  // A new best move needs a new Constraint line (#113): the app shows "Constraint changed" and logs
+  // "reversed" only when the line differs, so the screen and the log always match the change.
+  scenario.turns.forEach((turn, i) => {
+    const sameLine = original.turns.find(
+      (old) => old.threat === turn.threat && bestRow(old).moveId !== bestRow(turn).moveId && old.constraint === turn.constraint,
+    );
+    if (sameLine) {
+      problems.push({
+        where: `${town.id}.${scenario.id}.turns.${i}.constraint`,
+        message: `The best move differs from ${original.id} on the same threat, so the Constraint line must differ too.`,
+      });
+    }
+  });
   return problems;
 }
 

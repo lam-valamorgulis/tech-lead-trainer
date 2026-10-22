@@ -315,6 +315,8 @@ export function fixtureTwistTown() {
     number: 2,
     name: "Fixture Town Two",
     twist: { kind: "two-types" },
+    // Its creatures name no System Map node, so they sit at the town's node (#112).
+    systemNode: "api",
     // Seam C shows the Town Intro (#98) here: on the first day of a new town, as in real use.
     intro: {
       title: "How an API keeps partners safe",
@@ -447,6 +449,7 @@ export function fixtureTownV2(): Town {
       {
         ...cache,
         sprite: 12,
+        systemNode: "cache",
         lesson: fixtureLesson("Cache", "A cache keeps a copy of a response, so the next visit loads faster."),
         tradeOff: {
           id: "cache.trade-off.fresh-prices",
@@ -470,8 +473,35 @@ export function fixtureTownV2(): Town {
         ],
         moves: cache.moves.map((move) => ({ ...move, lesson: fixtureLesson(move.name, move.catch.explanation) })),
       },
-      { ...cookie, sprite: 7, lesson: fixtureLesson("Cookie", "A cookie is small data the browser sends back.") },
-      { ...proxy, sprite: 30 },
+      {
+        ...cookie,
+        sprite: 7,
+        systemNode: "browser",
+        lesson: fixtureLesson("Cookie", "A cookie is small data the browser sends back."),
+        tradeOff: {
+          id: "cookie.trade-off.sign-in",
+          situation: "The sign-in cookie must survive a page script bug.",
+          options: ["Mark it HttpOnly", "Store it in a page variable", "Send it in the address"],
+          rightOption: 0,
+          reasons: reasons("A page script cannot read an HttpOnly cookie.", ["Page variables are private.", "Addresses are never logged."]),
+          explanation: "HttpOnly hides the cookie from page scripts.",
+          skills: [3],
+        },
+      },
+      {
+        ...proxy,
+        sprite: 30,
+        systemNode: "cdn",
+        tradeOff: {
+          id: "proxy.trade-off.near-visitors",
+          situation: "Visitors on another continent wait for every image.",
+          options: ["Put a proxy close to them", "Make the images bigger", "Turn off the cache"],
+          rightOption: 0,
+          reasons: reasons("A copy near the visitor cuts the travel time.", ["Bigger images load faster.", "A cache always slows pages."]),
+          explanation: "A proxy near the visitor serves saved copies quickly.",
+          skills: [2],
+        },
+      },
     ],
     scenarios: [
       ...town.scenarios,
@@ -533,7 +563,15 @@ export function fixtureTownV2(): Town {
   return townSchema.parse(v2);
 }
 
-export const fixtureLedgerV2 = [...fixtureLedger, "cache.trade-off.fresh-prices", "cache.decision.logo", "t99-late-launch", "t99-cache-diff"];
+export const fixtureLedgerV2 = [
+  ...fixtureLedger,
+  "cache.trade-off.fresh-prices",
+  "cache.decision.logo",
+  "cookie.trade-off.sign-in",
+  "proxy.trade-off.near-visitors",
+  "t99-late-launch",
+  "t99-cache-diff",
+];
 
 /**
  * A Meeting Battle in the two-types town, with 4 answers as long as real ones (#105). On a small
@@ -589,11 +627,39 @@ export function fixturePartnerCall() {
 }
 
 /**
+ * A Gym twin of "Sale day" (design 7.5, #113). Turn 1 has the same threat, but the logo now
+ * changes every hour: CDN wins and TTL, last time's best move, does no damage. Turns 2 and 3
+ * are copies of Sale day. Its creatures are those of Sale day, so it is ready when Sale day is.
+ */
+export function fixtureSaleDayTwin(town: Town = fixtureTownV2()) {
+  const saleDay = town.scenarios.find((scenario) => scenario.id === "t99-sale-day")!;
+  const twin = { ...structuredClone(saleDay), id: "t99-sale-day-new-logo", name: "Sale day, new logo", twinOf: saleDay.id };
+  Object.assign(twin.turns[0], {
+    constraint: "The logo changes every hour during the sale.",
+    moves: [
+      { moveId: "cache.ttl", damage: 0, counterattack: "Browsers keep the old logo for hours after it changes." },
+      { moveId: "proxy.cdn", damage: 2, counterattack: "The logo loads near each visitor, and the shop clears the CDN copy when it changes." },
+      { moveId: "cookie.http-only", damage: 0, counterattack: "Scripts cannot read the cookie, but the page is still slow." },
+    ],
+    reasons: reasons("The shop can clear a CDN copy, but not the copy in each browser.", ["A long TTL shows a new logo at once.", "A cookie makes the logo smaller."], 1),
+    modelAnswer: "Serve the logo from a CDN and clear its copy when the logo changes. Browsers keep no long copy.",
+    keyPoints: ["The logo changes every hour.", "A browser would keep an old copy.", "The shop can clear a CDN copy."],
+  });
+  return twin;
+}
+
+export const fixtureTwinLedger = ["t99-sale-day-new-logo"];
+
+/**
  * The fixture towns of the seam C bundle. Town 1 has every v1.5 field except its Town Intro, so a
- * new learner in seam C starts on the commit buttons; Town 2 has the Town Intro (#98) and a
- * Meeting Battle with long answers (#105).
+ * new learner in seam C starts on the commit buttons, and a Gym twin of Sale day (#113); Town 2
+ * has the Town Intro (#98) and a Meeting Battle with long answers (#105).
  */
 export function fixtureSeamCTowns() {
+  const town1 = fixtureTownV2();
   const town2 = fixtureTwistTown();
-  return [{ ...fixtureTownV2(), intro: undefined }, { ...town2, scenarios: [...town2.scenarios, fixturePartnerCall()] }];
+  return [
+    { ...town1, intro: undefined, scenarios: [...town1.scenarios, fixtureSaleDayTwin(town1)] },
+    { ...town2, scenarios: [...town2.scenarios, fixturePartnerCall()] },
+  ];
 }

@@ -1,7 +1,7 @@
 import { readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { SPECIES_COUNT } from "@/content/schema";
-import { lookForStatus, paletteForStage, spritePath } from "./sprite.ts";
+import { LEARNER_PORTRAIT, lookForStatus, paletteForStage, PORTRAIT_COUNT, portraitPath, spritePath } from "./sprite.ts";
 
 describe("creature sprites (#99)", () => {
   it("draws stage 1 in the normal colours, and stages 2 and 3 in the second palette", () => {
@@ -26,5 +26,13 @@ describe("creature sprites (#99)", () => {
 
   it("draws caught in colour, seen in grey, and not met as a shadow", () => {
     expect([lookForStatus("caught"), lookForStatus("seen"), lookForStatus("not-met")]).toEqual(["color", "grey", "shadow"]);
+  });
+
+  it("has every portrait of the people pack in public/sprites/portraits, the learner's among them (#110)", () => {
+    const files = new Set(readdirSync("public/sprites/portraits"));
+    for (let portrait = 1; portrait <= PORTRAIT_COUNT; portrait++) {
+      expect(files.has(portraitPath(portrait).split("/").pop()!), `portrait ${portrait}`).toBe(true);
+    }
+    expect(portraitPath(LEARNER_PORTRAIT)).toBe("/sprites/portraits/portrait-3.png");
   });
 });
