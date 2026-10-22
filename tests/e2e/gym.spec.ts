@@ -50,11 +50,13 @@ async function gymBattle(page: Page, battle: number, win: boolean) {
     await playTurn(page, "No store (Cache)", 2, true);
     await expect(page.getByRole("heading", { name: "You lost this time" })).toBeVisible();
   }
-  await page.getByRole("button", { name: "Save my ticks" }).click();
+  // Continue saves the ticks of the end screen (#104) and goes to the next Gym battle.
   await page.getByRole("button", { name: "Continue" }).click();
 }
 
 test("the Gym: 5 battles in a row, 4 wins give the badge, and the badge shows on the map", async ({ page }) => {
+  // Several full Battles with every effect: about 30 seconds on a busy machine, so it gets more time.
+  test.setTimeout(60_000);
   const user = await signInNewUser(page, "gym");
   try {
     await setUpLastWeek(user.email);
@@ -104,6 +106,8 @@ test("the Gym: 5 battles in a row, 4 wins give the badge, and the badge shows on
 });
 
 test("a Gym ends after 2 losses, gives no badge, and can be tried again", async ({ page }) => {
+  // Several full Battles with every effect: about 30 seconds on a busy machine, so it gets more time.
+  test.setTimeout(60_000);
   const user = await signInNewUser(page, "gym-lost");
   try {
     await setUpLastWeek(user.email);

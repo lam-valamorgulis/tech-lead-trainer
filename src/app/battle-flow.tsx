@@ -2,18 +2,17 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { reviewItem } from "@/content";
-import { checkTurn, OPPONENT_HP, type BattleOffer } from "@/core/battle";
-import { endLine, toV1State, whysFor } from "@/core/battle-screen";
+import { OPPONENT_HP, type BattleOffer } from "@/core/battle";
 import { playTurnV2, progressV2, startBattleV2, turnLog, type BattleV2 } from "@/core/battle-v2";
 import { OPPONENT_SPECIES } from "@/core/sprite";
 import { opponentTypes, scenarioTwist } from "@/core/twist";
 import type { OpponentType } from "@/content/schema";
 import { postEvents } from "@/lib/events/post-events";
 import type { BattleEventFields, LearningEvent } from "@/lib/events/write-events";
+import { BattleEnd } from "./battle-end";
 import { BattleScene, type PlayChoice } from "./battle-scene";
 import { CreatureSprite } from "./creature-sprite";
-import { DiscussInClaude } from "./discuss-in-claude";
-import { Fx, useMusic } from "./effects";
+import { useMusic } from "./effects";
 import { GlossaryText } from "./glossary-text";
 import { OPPONENT_LOOK } from "./opponent-look";
 import { playSound } from "./sound";
@@ -26,9 +25,8 @@ type Step = "team" | "scene" | "end";
  * the Constraint, then the moves, then 3 Reasons, before the result. Each turn is saved at play
  * time, with whether it was the best move and whether the Reason was right.
  *
- * Until the end-of-Battle screen (#104) ships, a plain won or lost screen closes the Battle. It
- * keeps the self-check of each turn's key points, which feeds the review schedule, and
- * "Discuss in Claude" with the teach-back.
+ * The end-of-Battle screen (#104) closes the Battle: every turn with its model answer and key
+ * points to tick, which feed the review schedule, then "Discuss in Claude" with the teach-back.
  */
 export function BattleFlow({
   offer,
@@ -53,24 +51,15 @@ export function BattleFlow({
   const [examplesRead, setExamplesRead] = useState(0);
   // The learner's own words of each turn, when they typed some.
   const [notes, setNotes] = useState<Record<number, string>>({});
-  // The key points ticked on each turn, for "Discuss in Claude", once the self-check is saved.
-  const [ticks, setTicks] = useState<Record<number, number[]> | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   // Battle music while the Battle runs. The end screen gives it back, so the map loop returns.
   useMusic(step === "end" ? null : "battle");
 
-  // A new step replaces the button that was tapped, so focus moves to the new heading.
+  // A new step replaces the button that was tapped, so focus moves to the new heading. The end
+  // screen moves focus itself.
   useEffect(() => {
-    const target = heading.current;
-    if (!target) return;
-    target.focus();
-    // The end screen was hidden under the scene a moment ago. On a slow device the first focus
-    // can come before the page shows again, so it tries once more on the next frame.
-    const frame = requestAnimationFrame(() => {
-      if (document.activeElement !== target) target.focus();
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [step, examplesRead, ticks]);
+    heading.current?.focus();
+  }, [step, examplesRead]);
 
   const battleFields = (): BattleEventFields => ({
     sessionId,
@@ -123,15 +112,6 @@ export function BattleFlow({
     void postEvents(events);
     setBattle(next);
   };
-
-  /** Saves the self-check of every turn. The ticks change only the review schedule, never the result. */
-  function saveChecks(ticked: Record<number, number[]>) {
-    if (!battle || ticks) return;
-    const v1 = toV1State(offer.scenario, battle);
-    const checks = battle.played.map(({ turnNumber }) => checkTurn(v1, turnNumber, ticked[turnNumber] ?? []));
-    setTicks(Object.fromEntries(checks.map((check) => [check.turnNumber, check.tickedPoints])));
-    void postEvents(checks.map((check) => ({ type: "battle-check", clientEventId: crypto.randomUUID(), ...battleFields(), ...check })));
-  }
 
   const example = offer.workedExamples[examplesRead];
   if (!battle && example) {
@@ -201,96 +181,7 @@ export function BattleFlow({
     return <BattleScene scenario={offer.scenario} battle={battle} onPlay={play} onEnd={() => setStep("end")} onLeave={onLeave} />;
   }
 
-  const won = progressV2(battle).won;
-  return (
-    <section className="stack" aria-labelledby="end-title">
-      <h2 id="end-title" ref={ticks ? undefined : heading} tabIndex={-1}>
-        {/* A loss gets a soft sound and no movement. */}
-        {won ? (
-          <Fx effect="pop" sound="win">
-            You won!
-          </Fx>
-        ) : (
-          <Fx sound="lose">You lost this time</Fx>
-        )}
-      </h2>
-      <p>{endLine(battle)}</p>
-      {ticks === null ? (
-        <SelfCheckForm offer={offer} battle={battle} onSave={saveChecks} />
-      ) : (
-        <>
-          <h3 ref={heading} tabIndex={-1}>
-            Keep learning
-          </h3>
-          <DiscussInClaude
-            battle={toV1State(offer.scenario, battle)}
-            whys={whysFor(battle, notes)}
-            ticks={ticks}
-            eventFields={battleFields}
-            onDone={() => onDone(won)}
-          />
-        </>
-      )}
-    </section>
-  );
-}
-
-/**
- * The self-check (design 7.4): each turn's model answer, and its key points to tick. Any number
- * of ticks is fine. A point not ticked brings the turn's best move back in tomorrow's reviews.
- */
-function SelfCheckForm({
-  offer,
-  battle,
-  onSave,
-}: {
-  offer: BattleOffer;
-  battle: BattleV2;
-  onSave: (ticked: Record<number, number[]>) => void;
-}) {
-  const [ticked, setTicked] = useState<Record<number, number[]>>({});
-
-  function toggle(turnNumber: number, point: number) {
-    const now = ticked[turnNumber] ?? [];
-    setTicked({ ...ticked, [turnNumber]: now.includes(point) ? now.filter((p) => p !== point) : [...now, point] });
-  }
-
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    onSave(ticked);
-  }
-
-  return (
-    <form className="stack" onSubmit={submit}>
-      <h3>Model answers</h3>
-      <p className="lead">Tick the key points you could say yourself. A point you did not tick comes back in tomorrow&apos;s reviews.</p>
-      {battle.played.map(({ turnNumber }) => {
-        const turn = offer.scenario.turns[turnNumber - 1];
-        return (
-          <fieldset key={turnNumber} className="choices card">
-            <legend>Turn {turnNumber}</legend>
-            <p>
-              <GlossaryText text={turn.modelAnswer} />
-            </p>
-            {turn.keyPoints.map((point, index) => (
-              <label key={index} className="choice">
-                <input
-                  type="checkbox"
-                  checked={(ticked[turnNumber] ?? []).includes(index + 1)}
-                  onChange={() => toggle(turnNumber, index + 1)}
-                />
-                <span>{point}</span>
-              </label>
-            ))}
-          </fieldset>
-        );
-      })}
-      <p className="lead">Your ticks never change the result.</p>
-      <button type="submit" className="button-main">
-        Save my ticks
-      </button>
-    </form>
-  );
+  return <BattleEnd scenario={offer.scenario} battle={battle} notes={notes} eventFields={battleFields} onDone={onDone} />;
 }
 
 /** UI rule 7: a colour, an icon and a word, so the type reads without colour too. */

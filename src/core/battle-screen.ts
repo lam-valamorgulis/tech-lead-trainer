@@ -1,7 +1,7 @@
 // What the Battle screen v2 shows, and when (ticket #103, design 7.2 and section 9). Pure functions:
 // no browser, no clock. The rules themselves live in battle-v2.ts.
 import type { BundledScenario } from "../content/bundle.ts";
-import { counterattackSentence, damageLabel, OPPONENT_HP, type BattleState } from "./battle.ts";
+import { counterattackSentence, damageLabel } from "./battle.ts";
 import { progressV2, type BattleV2 } from "./battle-v2.ts";
 import { EFFECTS } from "./effects.ts";
 
@@ -82,46 +82,4 @@ export function hpLevel(hp: number, max: number): "full" | "mid" | "low" {
   const share = hp / max;
   if (share <= 1 / 3) return "low";
   return share <= 2 / 3 ? "mid" : "full";
-}
-
-/** The one line under "You won!" or "You lost this time" on the plain end screen. */
-export function endLine(battle: BattleV2): string {
-  const progress = progressV2(battle);
-  if (progress.won) return `The opponent's HP reached 0 in ${battle.played.length} turns.`;
-  const why = progress.lostBy === "faint" ? "All your creatures fainted." : "Out of turns.";
-  return `${why} The opponent still has HP ${progress.opponentHp} of ${OPPONENT_HP}. The moves you used come back in tomorrow's review.`;
-}
-
-/**
- * The v1 shape of a v2 battle, for the parts that still read it until #104 ships: the self-check
- * of each turn (it fixes the best move for the review schedule) and "Discuss in Claude". The
- * damage is the hit after a wrong Reason, so the result in the package matches the screen.
- */
-export function toV1State(scenario: BundledScenario, battle: BattleV2): BattleState {
-  return {
-    scenario,
-    team: [...battle.team],
-    turns: battle.played.map((played) => ({
-      turnNumber: played.turnNumber,
-      moveId: played.moveId,
-      damage: played.damage,
-      bestMove: played.bestMove,
-      counterattack:
-        played.moveId === null
-          ? null
-          : scenario.turns[played.turnNumber - 1].moves.find((row) => row.moveId === played.moveId)!.counterattack,
-    })),
-  };
-}
-
-/** The "why" of each turn for "Discuss in Claude": the learner's own words when typed, else the Reason picked. */
-export function whysFor(battle: BattleV2, notes: Record<number, string>): Record<number, string> {
-  return Object.fromEntries(
-    battle.played.map((played) => {
-      const note = notes[played.turnNumber]?.trim() ?? "";
-      const reasons = battle.turns[played.turnNumber - 1].reasons;
-      const picked = played.reasonIndex !== null && reasons ? reasons[played.reasonIndex].text : "";
-      return [played.turnNumber, note || picked];
-    }),
-  );
 }

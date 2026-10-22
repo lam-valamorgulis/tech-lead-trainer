@@ -2,16 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { BundledScenario } from "@/content/bundle";
 import { fixtureTownV2 } from "@/content/fixture-town";
 import { OPPONENT_TYPES } from "@/content/schema";
-import { battleProgress, checkTurn } from "./battle.ts";
 import { playTurnV2, startBattleV2, type BattleV2 } from "./battle-v2.ts";
 import {
   activeBefore,
-  endLine,
   hpLevel,
-  toV1State,
   turnResultText,
   turnTimeline,
-  whysFor,
 } from "./battle-screen.ts";
 import { EFFECTS } from "./effects.ts";
 import { OPPONENT_SPECIES } from "./sprite.ts";
@@ -119,9 +115,6 @@ describe("the result text of a turn", () => {
     expect(text.reason).toBeNull();
     // A team of one had 1 HP left: it Faints, and nobody comes in next.
     expect(text.hitBack).toBe("The opponent hits back: −1 HP. Cookie fainted!");
-    expect(endLine(battle)).toBe(
-      "All your creatures fainted. The opponent still has HP 4 of 4. The moves you used come back in tomorrow's review.",
-    );
   });
 });
 
@@ -141,55 +134,6 @@ describe("the HP bar colour", () => {
   it("is full above two thirds, mid down to one third, and low below", () => {
     expect([4, 3, 2, 1, 0].map((hp) => hpLevel(hp, 4))).toEqual(["full", "full", "mid", "low", "low"]);
     expect([3, 2, 1, 0].map((hp) => hpLevel(hp, 3))).toEqual(["full", "mid", "low", "low"]);
-  });
-});
-
-describe("the plain end screen until #104", () => {
-  it("says how a won battle ended", () => {
-    const battle = play(start(), [
-      ["cache.ttl", 0],
-      ["cache.no-store", 1],
-    ]);
-    expect(endLine(battle)).toBe("The opponent's HP reached 0 in 2 turns.");
-  });
-
-  it("says how a lost battle ended, and that the moves come back tomorrow", () => {
-    const battle = play(start(), [
-      ["cookie.http-only", 0],
-      ["cache.ttl", 1],
-      ["cache.no-store", 2],
-    ]);
-    expect(endLine(battle)).toBe("Out of turns. The opponent still has HP 4 of 4. The moves you used come back in tomorrow's review.");
-  });
-
-  it("keeps the self-check and Discuss in Claude working: the v1 view has the same damage and counterattacks", () => {
-    const v2 = play(start(), [
-      ["cache.ttl", 2],
-      ["cache.no-store", 1],
-      ["proxy.cdn", 2],
-    ]);
-    const v1 = toV1State(saleDay, v2);
-    expect(v1.team).toEqual(["cache", "cookie", "proxy"]);
-    expect(v1.turns.map((turn) => [turn.moveId, turn.damage, turn.bestMove])).toEqual([
-      ["cache.ttl", 1, true],
-      ["cache.no-store", 2, true],
-      ["proxy.cdn", 2, true],
-    ]);
-    expect(v1.turns[0].counterattack).toBe("The logo loads fast, but a new logo takes an hour to show.");
-    expect(battleProgress(v1)).toMatchObject({ hp: 0, won: true, finished: true });
-    // The self-check of a turn still names that turn's best move, so review scheduling keeps working.
-    expect(checkTurn(v1, 2, [1])).toEqual({ turnNumber: 2, bestMoveId: "cache.no-store", tickedPoints: [1] });
-  });
-
-  it("gives Discuss in Claude your own words when you typed them, else the Reason you picked", () => {
-    const battle = play(start(), [
-      ["cache.ttl", 0],
-      ["cache.no-store", 1],
-    ]);
-    expect(whysFor(battle, { 2: "  Prices change often.  " })).toEqual({
-      1: "A rarely changed file is safe to keep for long.",
-      2: "Prices change often.",
-    });
   });
 });
 
