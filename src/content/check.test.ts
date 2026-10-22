@@ -777,6 +777,17 @@ describe("checkContent for v1.5 content (#93)", () => {
       ]);
     });
 
+    it("fails a twin turn with a new best move but the old Constraint line, so the screen and the log show the change (#113)", () => {
+      const town = townWithTwin();
+      twinOf(town).turns[0].constraint = town.scenarios[0].turns[0].constraint;
+      expect(checkTwin(town)).toEqual([
+        {
+          where: "t99.t99-sale-day-twin.turns.0.constraint",
+          message: "The best move differs from t99-sale-day on the same threat, so the Constraint line must differ too.",
+        },
+      ]);
+    });
+
     it("makes a twin a v1.5 scenario, so it needs a Constraint on every turn", () => {
       const town = fixtureTown();
       const twin = { ...structuredClone(town.scenarios[0]), id: "t99-sale-day-twin", twinOf: "t99-sale-day" };
