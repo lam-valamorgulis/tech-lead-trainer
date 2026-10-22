@@ -26,6 +26,10 @@ _Avoid_: architecture map, world map
 A review item with a short situation and two options, where the learner picks one and a Reason.
 _Avoid_: quiz card, trade-off card
 
+**Work question**:
+The one question at the end of the Sunday summary: "Where did you meet <concept> at work this week?". The learner taps "Not this week" or "I met it", with 1 or 2 optional sentences.
+_Avoid_: reflection, journal, survey
+
 **Skill**:
 A tech lead ability the learner grows by using knowledge, such as debugging across systems or talking with a client. A town pairs its tech topic with one or two Skills.
 _Avoid_: ability, soft skill, creature

@@ -238,6 +238,22 @@ export const readingEventSchema = z.object({
   points: z.array(z.string().trim().min(1).max(500)).length(3),
 });
 
+/**
+ * One answer to the Sunday summary's question "Where did you meet <concept> at work this week?"
+ * (#114, design 3). `met` false is "Not this week". The 1 or 2 sentences are optional, and only
+ * a "met" answer has them. `conceptId` is not an `itemId`: an answer never changes the review state.
+ */
+export const workQuestionEventSchema = z
+  .object({
+    type: z.literal("work-question"),
+    ...base,
+    weekStart: z.iso.date(),
+    conceptId: z.string().max(100).regex(/^[a-z0-9]+(-[a-z0-9]+)*$/),
+    met: z.boolean(),
+    note: z.string().trim().min(1).max(500).optional(),
+  })
+  .refine((answer) => answer.met || answer.note === undefined, { message: "Only a met answer has a note." });
+
 export const eventSchema = z.discriminatedUnion("type", [
   sessionEventSchema,
   catchEventSchema,
@@ -251,6 +267,7 @@ export const eventSchema = z.discriminatedUnion("type", [
   battleTeachBackEventSchema,
   gymEventSchema,
   readingEventSchema,
+  workQuestionEventSchema,
 ]);
 export const eventBatchSchema = z.object({ events: z.array(eventSchema).min(1).max(100) });
 
@@ -268,6 +285,7 @@ export type BattleEventFields = Pick<BattleTurnEvent, "sessionId" | "occurredAt"
 export type BattleTeachBackEvent = z.infer<typeof battleTeachBackEventSchema>;
 export type GymEvent = z.infer<typeof gymEventSchema>;
 export type ReadingEvent = z.infer<typeof readingEventSchema>;
+export type WorkQuestionEvent = z.infer<typeof workQuestionEventSchema>;
 export type LearningEvent = z.infer<typeof eventSchema>;
 
 const TABLES = {
@@ -283,6 +301,7 @@ const TABLES = {
   "battle-teach-back": "battle_teach_back_events",
   gym: "gym_events",
   reading: "reading_events",
+  "work-question": "work_question_events",
 } as const satisfies Record<LearningEvent["type"], string>;
 
 /** Every event table. "Download my data" exports each one. */
@@ -449,6 +468,16 @@ function toRow(event: LearningEvent) {
         item_id: event.itemId,
         source_url: event.sourceUrl,
         points: event.points,
+      };
+    case "work-question":
+      return {
+        client_event_id: event.clientEventId,
+        session_id: event.sessionId,
+        occurred_at: event.occurredAt,
+        week_start: event.weekStart,
+        concept_id: event.conceptId,
+        met: event.met,
+        note: event.note ?? null,
       };
   }
 }
