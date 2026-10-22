@@ -619,11 +619,39 @@ export function fixturePartnerCall() {
 }
 
 /**
+ * A Gym twin of "Sale day" (design 7.5, #113). Turn 1 has the same threat, but the logo now
+ * changes every hour: CDN wins and TTL, last time's best move, does no damage. Turns 2 and 3
+ * are copies of Sale day. Its creatures are those of Sale day, so it is ready when Sale day is.
+ */
+export function fixtureSaleDayTwin(town: Town = fixtureTownV2()) {
+  const saleDay = town.scenarios.find((scenario) => scenario.id === "t99-sale-day")!;
+  const twin = { ...structuredClone(saleDay), id: "t99-sale-day-new-logo", name: "Sale day, new logo", twinOf: saleDay.id };
+  Object.assign(twin.turns[0], {
+    constraint: "The logo changes every hour during the sale.",
+    moves: [
+      { moveId: "cache.ttl", damage: 0, counterattack: "Browsers keep the old logo for hours after it changes." },
+      { moveId: "proxy.cdn", damage: 2, counterattack: "The logo loads near each visitor, and the shop clears the CDN copy when it changes." },
+      { moveId: "cookie.http-only", damage: 0, counterattack: "Scripts cannot read the cookie, but the page is still slow." },
+    ],
+    reasons: reasons("The shop can clear a CDN copy, but not the copy in each browser.", ["A long TTL shows a new logo at once.", "A cookie makes the logo smaller."], 1),
+    modelAnswer: "Serve the logo from a CDN and clear its copy when the logo changes. Browsers keep no long copy.",
+    keyPoints: ["The logo changes every hour.", "A browser would keep an old copy.", "The shop can clear a CDN copy."],
+  });
+  return twin;
+}
+
+export const fixtureTwinLedger = ["t99-sale-day-new-logo"];
+
+/**
  * The fixture towns of the seam C bundle. Town 1 has every v1.5 field except its Town Intro, so a
- * new learner in seam C starts on the commit buttons; Town 2 has the Town Intro (#98) and a
- * Meeting Battle with long answers (#105).
+ * new learner in seam C starts on the commit buttons, and a Gym twin of Sale day (#113); Town 2
+ * has the Town Intro (#98) and a Meeting Battle with long answers (#105).
  */
 export function fixtureSeamCTowns() {
+  const town1 = fixtureTownV2();
   const town2 = fixtureTwistTown();
-  return [{ ...fixtureTownV2(), intro: undefined }, { ...town2, scenarios: [...town2.scenarios, fixturePartnerCall()] }];
+  return [
+    { ...town1, intro: undefined, scenarios: [...town1.scenarios, fixtureSaleDayTwin(town1)] },
+    { ...town2, scenarios: [...town2.scenarios, fixturePartnerCall()] },
+  ];
 }

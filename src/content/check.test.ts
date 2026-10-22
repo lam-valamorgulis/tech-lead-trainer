@@ -6,6 +6,7 @@ import {
   fixtureLedgerV2,
   fixturePartnerCall,
   fixtureSeamCTowns,
+  fixtureTwinLedger,
   fixtureTown,
   fixtureTownV2,
   fixtureTwistLedger,
@@ -449,9 +450,9 @@ describe("checkContent for v1.5 content (#93)", () => {
     expect(checkV2()).toEqual([]);
   });
 
-  it("accepts the seam C towns, with a two-types Meeting Battle and 4 long answers (#105)", () => {
+  it("accepts the seam C towns, with a two-types Meeting Battle and 4 long answers (#105), and a Gym twin (#113)", () => {
     const [town1, town2] = fixtureSeamCTowns();
-    const ledger = [...fixtureLedgerV2, ...fixtureTwistLedger, "t98-partner-call"];
+    const ledger = [...fixtureLedgerV2, ...fixtureTwinLedger, ...fixtureTwistLedger, "t98-partner-call"];
     expect(checkContent({ towns: [town1, town2], ledger, glossary: fixtureGlossary() })).toEqual([]);
     expect(fixturePartnerCall().turns[0].moves).toHaveLength(4);
   });

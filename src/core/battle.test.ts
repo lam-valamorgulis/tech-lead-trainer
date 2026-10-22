@@ -72,7 +72,7 @@ describe("nextBattle", () => {
     expect(nextBattle({ towns: [], town: retired, catches: caught("cache", "proxy"), battles: [], today: TODAY, committedMinutes: 15 })).toBeNull();
   });
 
-  it("does not offer a Gym twin yet, because the Battle screen does not show its reversed Constraint (#107)", () => {
+  it("never offers a Gym twin in the daily Battle: twins belong to the Gym (#107, #113)", () => {
     // The twin is never played, so it would come first if it could be offered.
     const content = fixtureTownV2();
     content.scenarios.push({ ...structuredClone(content.scenarios[0]), id: "t99-sale-day-twin", twinOf: "t99-sale-day" });

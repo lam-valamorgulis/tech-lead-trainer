@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { nextTurn, playMove, SALE_DAY_REASONS } from "../support/battle";
+import { battlePanel, nextTurn, panelSettled, playMove, SALE_DAY_REASONS } from "../support/battle";
 import { local, signInNewUser } from "../support/e2e";
 import { sql } from "../support/local-admin";
 
@@ -123,6 +123,89 @@ test("a Gym ends after 2 losses, gives no badge, and can be tried again", async 
 
     await page.reload();
     await expect(page.getByRole("button", { name: "Start the Gym" })).toBeVisible();
+  } finally {
+    await user.forget();
+  }
+});
+
+/** The learner played "Sale day" once, 3 days ago, so its Gym twin "Sale day, new logo" is an old situation now. */
+async function playedSaleDay(email: string) {
+  await sql(
+    local,
+    `insert into battle_turn_events (user_id, client_event_id, session_id, occurred_at, battle_id, scenario_id, content_hash,
+       turn_number, move_id, damage, best_move, battle_kind, move_damage, reason_index, reason_correct, hp_lost, constraint_variant)
+     select id, gen_random_uuid(), gen_random_uuid(), now() - interval '3 days', gen_random_uuid(), 't99-sale-day', '0123456789abcdef',
+       1, 'cache.ttl', 2, true, 'battle', 2, 0, true, 0, 'main'
+     from auth.users where email = $1`,
+    [email],
+  );
+}
+
+test("a Gym twin replays an old battle with a reversed Constraint: last time's best move now loses (#113)", async ({ page }) => {
+  test.setTimeout(60_000);
+  const user = await signInNewUser(page, "gym-twin");
+  try {
+    await setUpLastWeek(user.email);
+    await playedSaleDay(user.email);
+    await page.goto("/gym/t99");
+    await expect(page.getByText(/^1 battle is a rematch: a situation you met before, with a changed Constraint\./)).toBeVisible();
+    await page.getByRole("button", { name: "Start the Gym" }).click();
+
+    // The twin comes first. Sale day was played, so no worked example comes before it.
+    await expect(page.getByText(/^Gym battle 1 of 5/)).toBeVisible();
+    await expect(page.getByRole("heading", { name: "A battle begins: Sale day, new logo" })).toBeVisible();
+    await expect(page.getByText(/^A rematch: Sale day\. The threats are the same as last time\. One Constraint changed/)).toBeVisible();
+    for (const creature of ["Cache", "Cookie", "Proxy"]) await page.getByLabel(creature).check();
+    await page.getByRole("button", { name: "Start the battle" }).click();
+
+    // Turn 1: the old threat, word for word, and the Constraint marked as changed, with last time's.
+    await panelSettled(page);
+    await expect(battlePanel(page).getByText("Every visitor downloads the same logo and styles again.")).toBeVisible();
+    await expect(battlePanel(page).getByText("Constraint changed")).toBeVisible();
+    await expect(battlePanel(page).getByText("The logo changes every hour during the sale.")).toBeVisible();
+    await expect(battlePanel(page).getByText("Last time: The logo changes once a year.")).toBeVisible();
+    // TTL, last time's best move, now does no damage.
+    await playMove(page, "TTL (Cache)", "The shop can clear a CDN copy, but not the copy in each browser.");
+    await expect(battlePanel(page).getByText(/^No effect · 0/)).toBeVisible();
+    await nextTurn(page);
+    // Turn 2 is a copy of Sale day: its Constraint did not change.
+    await panelSettled(page);
+    await expect(battlePanel(page).getByText("Constraint", { exact: true })).toBeVisible();
+    await expect(battlePanel(page).getByText(/^Last time:/)).toHaveCount(0);
+    await playMove(page, "No store (Cache)", SALE_DAY_REASONS[1].right);
+    await nextTurn(page);
+    await playMove(page, "CDN (Proxy)", SALE_DAY_REASONS[2].right);
+    await nextTurn(page, true);
+    await expect(page.getByRole("heading", { name: "You won!" })).toBeVisible();
+    // The end screen names last time's best move on the reversed turn.
+    const turn1 = page.getByRole("article", { name: "Turn 1" });
+    await expect(turn1.getByText("Constraint changed")).toBeVisible();
+    // "logo" is a glossary word: its hidden definition sits inside the line, so the line is matched in two parts.
+    await expect(turn1.locator(".battle-end-old")).toHaveText(/^Last time: The logo changes once a year\..* The best move was TTL\.$/);
+    await expect(turn1.getByText(/Best: CDN/)).toBeVisible();
+    await page.getByRole("button", { name: "Continue" }).click();
+
+    // The other Gym battles are normal ones. Two losses end the Gym, and its result shows.
+    await gymBattle(page, 2, false);
+    await gymBattle(page, 3, false);
+    await expect(page.getByRole("heading", { name: "No badge this time" })).toBeVisible();
+    await expect(page.getByText("You won 1 of 3 battles. The badge needs 4 wins. Try again any time.")).toBeVisible();
+
+    // The reversed turn is logged with its Constraint variant; the copied turns keep "main".
+    await expect
+      .poll(() =>
+        sql(
+          local,
+          `select turn_number, move_id, best_move, damage, constraint_variant from battle_turn_events t join auth.users u on u.id = t.user_id
+            where u.email = $1 and scenario_id = 't99-sale-day-new-logo' order by turn_number`,
+          [user.email],
+        ),
+      )
+      .toEqual([
+        { turn_number: 1, move_id: "cache.ttl", best_move: false, damage: 0, constraint_variant: "reversed" },
+        { turn_number: 2, move_id: "cache.no-store", best_move: true, damage: 2, constraint_variant: "main" },
+        { turn_number: 3, move_id: "proxy.cdn", best_move: true, damage: 2, constraint_variant: "main" },
+      ]);
   } finally {
     await user.forget();
   }

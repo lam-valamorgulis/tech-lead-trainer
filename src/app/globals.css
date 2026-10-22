@@ -1784,6 +1784,26 @@ html:has(.battle-scene) {
   color: var(--battle-gold);
 }
 
+/* A Gym twin's reversed Constraint (#113): another border colour and the words "Constraint changed". */
+.battle-constraint-reversed {
+  border-color: #ff8a94;
+}
+
+.battle-constraint-reversed .battle-label {
+  color: #ffb3b9;
+}
+
+.battle-constraint-old {
+  margin-top: 4px;
+  font-size: 14px;
+  color: #e8dcc0;
+}
+
+.battle-end-old {
+  font-size: 15px;
+  color: var(--color-muted);
+}
+
 .battle-threat .glossary-term,
 .battle-constraint .glossary-term {
   color: inherit;

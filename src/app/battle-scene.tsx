@@ -18,6 +18,7 @@ import {
 } from "@/core/battle-screen";
 import { BAR_NAMES, CREATURE_HP, progressV2, teamHp, usableMovesV2, YOU, type BattleV2, type PlayedTurnV2 } from "@/core/battle-v2";
 import { EFFECTS, soundForDamage, type EffectName } from "@/core/effects";
+import type { GymTwin, ReversedTurn } from "@/core/gym";
 import { PERSON_WORDS, type MeetingPerson } from "@/core/portrait";
 import { OPPONENT_SPECIES } from "@/core/sprite";
 import { scenarioTwist, threatTypeOf } from "@/core/twist";
@@ -58,10 +59,13 @@ export function BattleScene({
   onPlay,
   onEnd,
   onLeave,
+  twin,
 }: {
   scenario: BundledScenario;
   battle: BattleV2;
   onPlay: PlayChoice;
+  /** A Gym twin (#113): a turn with a reversed Constraint shows the change. */
+  twin?: GymTwin;
   /** The learner leaves the scene after the last turn's result. */
   onEnd: () => void;
   /** Ends the session from inside the scene, as Finish does. No Leave button without it. */
@@ -106,7 +110,14 @@ export function BattleScene({
         <Stage scenario={scenario} battle={battle} turnNumber={showing} result={result} timeline={timeline} />
       </div>
       {result === null && (
-        <ChoicePanel key={`turn-${showing}`} scenario={scenario} battle={battle} onPlay={play} onLeave={onLeave} />
+        <ChoicePanel
+          key={`turn-${showing}`}
+          scenario={scenario}
+          battle={battle}
+          reversed={twin?.turns[showing - 1] ?? null}
+          onPlay={play}
+          onLeave={onLeave}
+        />
       )}
       {result !== null && panelOpen && (
         <ResultPanel
@@ -342,11 +353,14 @@ function HpBar({ label, hp, before, max, dropAt }: { label: string; hp: number; 
 function ChoicePanel({
   scenario,
   battle,
+  reversed,
   onPlay,
   onLeave,
 }: {
   scenario: BundledScenario;
   battle: BattleV2;
+  /** On a Gym twin's turn with a reversed Constraint: what it replaces. */
+  reversed: ReversedTurn;
   onPlay: PlayChoice;
   onLeave?: () => void;
 }) {
@@ -449,12 +463,18 @@ function ChoicePanel({
           <GlossaryText text={turn.threat} />
         </p>
       </div>
+      {/* A Gym twin (#113): the threat is the old one, so the Constraint line shows that it changed. */}
       {turn.constraint && (
-        <div className="battle-constraint">
-          <span className="battle-label">Constraint</span>
+        <div className={reversed ? "battle-constraint battle-constraint-reversed" : "battle-constraint"}>
+          <span className="battle-label">{reversed ? "Constraint changed" : "Constraint"}</span>
           <p>
             <GlossaryText text={turn.constraint} />
           </p>
+          {reversed && (
+            <p className="battle-constraint-old">
+              Last time: {reversed.oldConstraint === null ? "no Constraint" : <GlossaryText text={reversed.oldConstraint} />}
+            </p>
+          )}
         </div>
       )}
       <div className="battle-choices" role="group" aria-label="Your move">
