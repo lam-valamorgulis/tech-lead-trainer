@@ -1,6 +1,7 @@
 import type { ConfusablePair } from "@/core/review";
 import { currentTownNumber, townToPlay } from "@/core/roadmap";
-import type { Creature, CreatureOf } from "../core/week.ts";
+import { bestRow } from "../core/battle.ts";
+import type { ConceptOfTurn, Creature, CreatureOf } from "../core/week.ts";
 import type { BundledTown, ContentBundle } from "./bundle.ts";
 import type { Boss } from "./weekend.ts";
 import type { Card } from "./schema.ts";
@@ -107,7 +108,18 @@ export function itemCard(id: string): { name: string; card: Card } | undefined {
   return cards.get(id);
 }
 
-const scenarioNames = new Map(bundle.towns.flatMap((town) => town.scenarios.map((scenario) => [scenario.id, scenario.name])));
+const scenarios = new Map(bundle.towns.flatMap((town) => town.scenarios.map((scenario) => [scenario.id, scenario])));
+
+/**
+ * The concept a battle turn tests: the creature of the turn's best move, in any town, retired or
+ * not. Undefined for a Meeting answer, a review verdict, or a turn the content does not have.
+ */
+export const turnConcept: ConceptOfTurn = (scenarioId, turnNumber) => {
+  const turn = scenarios.get(scenarioId)?.turns[turnNumber - 1];
+  return turn ? creatureOf(bestRow(turn).moveId) : undefined;
+};
+
+const scenarioNames = new Map([...scenarios].map(([id, scenario]) => [id, scenario.name]));
 
 /** The display name of a battle scenario in any town, retired or not. */
 export function scenarioName(id: string): string | undefined {
