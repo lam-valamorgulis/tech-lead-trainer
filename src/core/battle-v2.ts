@@ -21,10 +21,16 @@ export const BAR_NAMES: Record<ScenarioKind, { opponent: string; team: string }>
 };
 
 /**
- * The Constraint a turn showed, as logged. "main" is the turn's own `constraint` line. A later
- * Gym can show a reversed Constraint under another name (design 7.5).
+ * The Constraint a turn showed, as logged. "main" is the turn's own `constraint` line, in a
+ * situation the learner meets for the first time, or in a copy of an old turn.
  */
 export const CONSTRAINT_MAIN = "main";
+
+/**
+ * A Gym twin's turn (design 7.5, #113) with the old scenario's threat, word for word, under
+ * another Constraint line: the reversed Constraint.
+ */
+export const CONSTRAINT_REVERSED = "reversed";
 
 type Damage = 0 | 1 | 2;
 
@@ -208,8 +214,11 @@ export type TurnLogFields = Pick<PlayedTurnV2, "moveDamage" | "reasonIndex" | "r
   constraintVariant: string | null;
 };
 
-/** The v2 log fields of one played turn. The Skills and the Constraint come from the content at play time. */
-export function turnLog(battle: BattleV2, turnNumber: number): TurnLogFields {
+/**
+ * The v2 log fields of one played turn. The Skills and the Constraint come from the content at
+ * play time. `reversed`: the turn showed a Gym twin's reversed Constraint.
+ */
+export function turnLog(battle: BattleV2, turnNumber: number, reversed = false): TurnLogFields {
   const played = battle.played.find((turn) => turn.turnNumber === turnNumber);
   if (!played) throw new Error(`Turn ${turnNumber} was not played.`);
   const turn = battle.turns[turnNumber - 1];
@@ -220,7 +229,7 @@ export function turnLog(battle: BattleV2, turnNumber: number): TurnLogFields {
     reasonCorrect: played.reasonCorrect,
     hpLost: played.hpLost,
     skillIds: turn.skills && turn.skills.length > 0 ? [...turn.skills] : null,
-    constraintVariant: turn.constraint ? CONSTRAINT_MAIN : null,
+    constraintVariant: turn.constraint ? (reversed ? CONSTRAINT_REVERSED : CONSTRAINT_MAIN) : null,
   };
 }
 

@@ -1784,6 +1784,27 @@ html:has(.battle-scene) {
   color: var(--battle-gold);
 }
 
+/* A Gym twin's reversed Constraint (#113): another border colour and the words "Constraint changed". */
+.battle-constraint-reversed {
+  border-color: #ff8a94;
+}
+
+.battle-constraint-reversed .battle-label {
+  color: #ffb3b9;
+}
+
+/* Two classes, so the gap wins over `.battle-panel p { margin: 0 }`. A full sentence: 16 px (UI rule 10). */
+.battle-constraint .battle-constraint-old {
+  margin-top: 4px;
+  font-size: 16px;
+  color: #e8dcc0;
+}
+
+.battle-end-old {
+  font-size: 16px;
+  color: var(--color-muted);
+}
+
 .battle-threat .glossary-term,
 .battle-constraint .glossary-term {
   color: inherit;

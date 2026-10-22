@@ -4,6 +4,7 @@ import { KEY_POINTS, kindOf, type BattleTurn, type ScenarioKind } from "../conte
 import { dueKinds, type WeeklyKind } from "./battle-week.ts";
 import { caughtIds, type CatchRecord } from "./catch.ts";
 import type { LearningDay } from "./day.ts";
+import type { GymTwin } from "./gym.ts";
 import type { RecheckRecord } from "./review.ts";
 
 /** The opponent's HP. With HP 3 a random guesser wins 63% of battles; with HP 4, 37% (design 7). */
@@ -27,6 +28,8 @@ export type BattleOffer = {
   scenario: BundledScenario;
   team: { size: number; choices: string[] };
   workedExamples: WorkedExample[];
+  /** Only on a Gym twin (design 7.5): the old scenario and its turns, so the screen can show the reversed Constraint. */
+  twin?: GymTwin;
 };
 
 export type PlayedTurn = {
@@ -97,17 +100,28 @@ export type OfferInput = { town: BundledTown; towns: BundledTown[]; catches: Cat
  * team and no worked example.
  */
 export function readyOffers({ town, towns, catches, battles }: OfferInput, kind: ScenarioKind = "battle"): BattleOffer[] {
-  const plays = (scenario: BundledScenario) => battles.filter((battle) => battle.scenarioId === scenario.id).length;
-  // A stable sort keeps file order between scenarios played equally often.
-  const leastPlayed = (scenarios: BundledScenario[]) => [...scenarios].sort((a, b) => plays(a) - plays(b));
-  // A Gym twin (design 7.5) repeats a threat with the Constraint reversed. A twin belongs in the
-  // Gym, next to its old scenario, so twins wait for the Gym ticket.
+  // A Gym twin (design 7.5) repeats a threat with the Constraint reversed. It belongs in the Gym
+  // only (gym.ts), so the daily offer never has one.
   const playable = town.scenarios.filter((scenario) => !scenario.retired && kindOf(scenario) === kind && scenario.twinOf === undefined);
   // Agent Diff Battle comes with its own screen (#106).
   if (kind === "agent-diff") return [];
   if (kind === "meeting") {
-    return leastPlayed(playable).map((scenario) => ({ scenario, team: { size: 0, choices: [] }, workedExamples: [] }));
+    return leastPlayed(playable, battles).map((scenario) => ({ scenario, team: { size: 0, choices: [] }, workedExamples: [] }));
   }
+  return battleOffers({ town, towns, catches, battles }, playable);
+}
+
+/** The scenarios played the fewest times first. A stable sort keeps file order between scenarios played equally often. */
+function leastPlayed(scenarios: BundledScenario[], battles: BattleRecord[]): BundledScenario[] {
+  const plays = (scenario: BundledScenario) => battles.filter((battle) => battle.scenarioId === scenario.id).length;
+  return [...scenarios].sort((a, b) => plays(a) - plays(b));
+}
+
+/**
+ * The offers of the normal Battles among `scenarios` that the team can win today, the least
+ * played first. The Gym uses it for its twins too.
+ */
+export function battleOffers({ town, towns, catches, battles }: OfferInput, scenarios: BundledScenario[]): BattleOffer[] {
   const caught = caughtIds(catches);
   // This town's creatures first, then those of earlier towns. A retired creature cannot join a team, even when it was caught.
   const earlier = towns.filter((other) => other.number < town.number).sort((a, b) => a.number - b.number);
@@ -115,8 +129,8 @@ export function readyOffers({ town, towns, catches, battles }: OfferInput, kind:
     .flatMap((t) => t.creatures)
     .filter((creature) => !creature.retired && caught.has(creature.id))
     .map((c) => c.id);
-  const ready = playable.filter((scenario) => [...conceptsOf(scenario)].every((concept) => choices.includes(concept)));
-  return leastPlayed(ready).map((scenario) => ({
+  const ready = scenarios.filter((scenario) => [...conceptsOf(scenario)].every((concept) => choices.includes(concept)));
+  return leastPlayed(ready, battles).map((scenario) => ({
     scenario,
     team: { size: Math.min(TEAM_SIZE, choices.length), choices },
     workedExamples: workedExamplesFor(town, scenario, catches, battles),

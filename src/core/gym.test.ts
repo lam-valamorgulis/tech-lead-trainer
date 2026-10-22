@@ -1,10 +1,11 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildBundle } from "@/content/bundle";
-import { fixtureTown, fixtureTwistTown } from "@/content/fixture-town";
-import { townSchema } from "@/content/schema";
-import type { BattleRecord } from "./battle.ts";
+import { fixtureSaleDayTwin, fixtureTown, fixtureTownV2, fixtureTwistTown } from "@/content/fixture-town";
+import { townSchema, type Town } from "@/content/schema";
+import { bestRow, readyOffers, type BattleOffer, type BattleRecord } from "./battle.ts";
 import type { CatchRecord } from "./catch.ts";
-import { badges, gymBattles, gymIsOpen, gymOpensOn, gymProgress, type GymRecord } from "./gym.ts";
+import { badges, gymBattles, gymIsOpen, gymOpensOn, gymProgress, gymTwinOffers, reversedTurns, type GymRecord } from "./gym.ts";
 
 const caught = (...itemIds: string[]): CatchRecord[] =>
   itemIds.map((itemId) => ({ itemId, correct: true, learningDay: "2026-11-01" }));
@@ -85,6 +86,139 @@ describe("gymBattles", () => {
   it("needs 5 ready scenarios, so a learner with too few caught creatures cannot start it yet", () => {
     expect(gymBattles({ towns: [], town: townWithScenarios(4), catches: caught("cache", "proxy"), battles: [] })).toBeNull();
     expect(gymBattles({ towns: [], town: townWithScenarios(7), catches: caught("cache"), battles: [] })).toBeNull();
+  });
+});
+
+const playedOn = (...scenarioIds: string[]): BattleRecord[] =>
+  scenarioIds.map((scenarioId, i) => ({ battleId: `b${i}`, scenarioId, learningDay: "2026-11-02", kind: "battle" }));
+
+describe("gymBattles with Gym twins (design 7.5, #113)", () => {
+  // The v2 fixture town has 5 normal Battles: Sale day and 4 copies. Its twin "Sale day, new logo"
+  // has Sale day's threats; on turn 1 the logo changes every hour, so CDN wins, not TTL.
+  const bundled = (content: Town) => buildBundle([townSchema.parse(content)]).towns[0];
+  function townWithTwins(...extra: ((content: Town) => Town["scenarios"][number])[]) {
+    const content = fixtureTownV2();
+    content.scenarios.push(fixtureSaleDayTwin(content), ...extra.map((make) => make(content)));
+    return content;
+  }
+  const ids = (gym: BattleOffer[] | null) => gym?.map((offer) => offer.scenario.id);
+
+  it("plays the twin of a battle the learner already played first, then the normal battles", () => {
+    const gym = gymBattles({ towns: [], town: bundled(townWithTwins()), catches: caught("cache", "proxy"), battles: playedOn("t99-sale-day") });
+    expect(ids(gym)).toEqual(["t99-sale-day-new-logo", "t99-flash-sale", "t99-holiday-rush", "t99-launch-day", "t99-price-drop"]);
+  });
+
+  it("gives the twin offer its old scenario and the reversed turn, with last time's Constraint and best move", () => {
+    const [twin, normal] = gymBattles({ towns: [], town: bundled(townWithTwins()), catches: caught("cache", "proxy"), battles: playedOn("t99-sale-day") })!;
+    expect(twin.twin).toEqual({
+      originalId: "t99-sale-day",
+      originalName: "Sale day",
+      turns: [{ oldConstraint: "The logo changes once a year.", oldBestMoveId: "cache.ttl" }, null, null],
+    });
+    expect(normal.twin).toBeUndefined();
+  });
+
+  it("leaves out a twin whose old battle the learner never played: it is not an old situation yet", () => {
+    const gym = gymBattles({ towns: [], town: bundled(townWithTwins()), catches: caught("cache", "proxy"), battles: playedOn("t99-flash-sale") });
+    expect(ids(gym)).not.toContain("t99-sale-day-new-logo");
+    expect(gym).toHaveLength(5);
+  });
+
+  it("leaves out a twin the team cannot win, like any battle", () => {
+    const content = townWithTwins();
+    const twin = content.scenarios.at(-1)!;
+    // Turn 1 of the twin now needs HttpOnly, and the learner did not catch Cookie.
+    for (const row of twin.turns[0].moves) row.damage = row.moveId === "cookie.http-only" ? 2 : 0;
+    const gym = gymBattles({ towns: [], town: bundled(content), catches: caught("cache", "proxy"), battles: playedOn("t99-sale-day") });
+    expect(ids(gym)).not.toContain("t99-sale-day-new-logo");
+  });
+
+  it("plays 5 normal battles in a town with no twins, and counts a twin toward the 5, so twins never block the Gym", () => {
+    const noTwins = gymBattles({ towns: [], town: bundled(fixtureTownV2()), catches: caught("cache", "proxy"), battles: playedOn("t99-sale-day") });
+    expect(noTwins?.every((offer) => offer.twin === undefined)).toBe(true);
+    expect(noTwins).toHaveLength(5);
+
+    // Only 4 normal battles left: the twin makes the fifth.
+    const content = townWithTwins();
+    Object.assign(content.scenarios.find((s) => s.id === "t99-price-drop")!, { retired: true });
+    const withTwin = gymBattles({ towns: [], town: bundled(content), catches: caught("cache", "proxy"), battles: playedOn("t99-sale-day") });
+    expect(withTwin).toHaveLength(5);
+    expect(gymBattles({ towns: [], town: bundled(content), catches: caught("cache", "proxy"), battles: [] })).toBeNull();
+  });
+
+  it("puts every twin before the normal battles, and still picks the twin with both sides of a confusable pair first", () => {
+    // A twin of Flash sale, first in the file, with no HttpOnly row: it holds Cache but not Cookie.
+    const flashTwin = (content: Town) => {
+      const twin = { ...fixtureSaleDayTwin(content), id: "t99-flash-sale-new-logo", twinOf: "t99-flash-sale" };
+      // HttpOnly becomes another 0-damage move: No store in turn 1, TTL in turn 3.
+      twin.turns.forEach((turn, index) => {
+        const instead = index === 0 ? "cache.no-store" : "cache.ttl";
+        turn.moves = turn.moves.map((row) => (row.moveId === "cookie.http-only" ? { ...row, moveId: instead } : row));
+      });
+      return twin;
+    };
+    const content = townWithTwins(flashTwin);
+    content.scenarios.splice(content.scenarios.length - 2, 0, content.scenarios.pop()!);
+    expect(content.scenarios.at(-2)!.id).toBe("t99-flash-sale-new-logo");
+    const gym = gymBattles({
+      towns: [],
+      town: bundled(content),
+      catches: caught("cache", "cookie", "proxy"),
+      battles: playedOn("t99-sale-day", "t99-flash-sale"),
+    });
+    expect(ids(gym)?.slice(0, 2)).toEqual(["t99-sale-day-new-logo", "t99-flash-sale-new-logo"]);
+    expect(gym?.slice(2).every((offer) => offer.twin === undefined)).toBe(true);
+  });
+
+  it("never offers a twin in the daily Battle, even after its old battle was played", () => {
+    const town = bundled(townWithTwins());
+    expect(readyOffers({ towns: [], town, catches: caught("cache", "proxy"), battles: playedOn("t99-sale-day") }).map((o) => o.scenario.id)).not.toContain(
+      "t99-sale-day-new-logo",
+    );
+  });
+
+  it("leaves out a twin of a Meeting Battle: the Gym holds normal Battles", () => {
+    const meetingTwin = (content: Town) => ({ ...structuredClone(content.scenarios.find((s) => s.id === "t99-late-launch")!), id: "t99-late-launch-twin", twinOf: "t99-late-launch" });
+    const town = bundled(townWithTwins(meetingTwin));
+    expect(gymTwinOffers({ towns: [], town, catches: caught("cache", "proxy"), battles: playedOn("t99-sale-day", "t99-late-launch") }).map((o) => o.scenario.id)).toEqual([
+      "t99-sale-day-new-logo",
+    ]);
+  });
+});
+
+describe("reversedTurns", () => {
+  it("marks the turn with the old threat and another Constraint, and its best move differs from last time's", () => {
+    const content = fixtureTownV2();
+    const twin = fixtureSaleDayTwin(content);
+    const turns = reversedTurns(twin, content.scenarios[0]);
+    expect(turns.map((turn) => turn !== null)).toEqual([true, false, false]);
+    expect(bestRow(twin.turns[0]).moveId).toBe("proxy.cdn");
+    expect(turns[0]?.oldBestMoveId).toBe("cache.ttl");
+  });
+
+  it("finds the old turn by its threat when the twin moves it to another place", () => {
+    const content = fixtureTownV2();
+    const twin = fixtureSaleDayTwin(content);
+    twin.turns.reverse();
+    expect(reversedTurns(twin, content.scenarios[0]).map((turn) => turn?.oldBestMoveId ?? null)).toEqual([null, null, "cache.ttl"]);
+  });
+
+  it("holds for every twin of town 1: one reversed turn at least, where the old best move is no longer the best", () => {
+    const town1 = townSchema.parse(JSON.parse(readFileSync("content/towns/t01.json", "utf8")));
+    const twins = town1.scenarios.filter((scenario) => scenario.twinOf !== undefined);
+    expect(twins.length).toBeGreaterThanOrEqual(5);
+    for (const twin of twins) {
+      const original = town1.scenarios.find((scenario) => scenario.id === twin.twinOf)!;
+      const changed = reversedTurns(twin, original).filter((turn, i) => turn !== null && bestRow(twin.turns[i]).moveId !== turn.oldBestMoveId);
+      expect(changed.length, twin.id).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it("gives town 1 a Gym of 5 twins once the learner played their old battles and caught every creature", () => {
+    const town1 = buildBundle([townSchema.parse(JSON.parse(readFileSync("content/towns/t01.json", "utf8")))]).towns[0];
+    const originals = town1.scenarios.filter((s) => s.twinOf !== undefined).map((s) => s.twinOf!);
+    const gym = gymBattles({ towns: [town1], town: town1, catches: caught(...town1.creatures.map((c) => c.id)), battles: playedOn(...originals) });
+    expect(gym?.filter((offer) => offer.twin !== undefined)).toHaveLength(5);
   });
 });
 

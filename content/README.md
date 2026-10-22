@@ -149,10 +149,12 @@ The Gym meets an old situation again with the Constraint reversed (design 7.5). 
 - The twin has the same `opponentType` and the same `kind` as that scenario.
 - At least one turn of the twin has the same `threat` as a turn of that scenario, word for word.
 - On at least one of those turns, the best move is a different move. The reversed Constraint is the reason.
+- A turn with the same threat and a different best move has a different Constraint line too. Otherwise the app could not show or log the change.
 - A twin is a v1.5 scenario, so every turn has a Constraint, 3 Reasons and Skills, and the twin has a `source`.
 - The other turns may be copies of the old turns.
 - `twinOf` is not in the content hash, like `name`.
-- The Battle screen shows the Constraint (#103). Until the Gym uses twins, the app does not offer a twin.
+- The app never offers a twin as a daily Battle. The Gym plays it (#113), once the learner played the scenario it names: twins first, then normal Battles. A twin of a Meeting Battle waits, because the Gym holds normal Battles only.
+- A turn with a scenario's threat, word for word, under another Constraint line is a reversed turn. The Battle screen marks it "Constraint changed" and shows last time's Constraint. The log saves it with the Constraint variant `reversed`; every other turn with a Constraint saves `main`.
 
 A Reason is logged by its index in the file's `reasons` list (0, 1 or 2), next to the scenario's content hash. Moving a Reason changes the hash, so an old log still says which list its index points into. The app may show the Reasons in another order, but it logs the file index.
 

@@ -4,6 +4,7 @@ import type { BattleTurn } from "@/content/schema";
 import {
   BAR_NAMES,
   CONSTRAINT_MAIN,
+  CONSTRAINT_REVERSED,
   CREATURE_HP,
   YOU,
   damageBack,
@@ -325,6 +326,14 @@ describe("the log fields of a turn", () => {
       skillIds: [3, 10],
       constraintVariant: CONSTRAINT_MAIN,
     });
+  });
+
+  it("log a Gym twin's reversed Constraint as reversed, and a turn with no Constraint as none (#113)", () => {
+    let battle = startBattleV2({ kind: "battle", turns: [turnOf([2, 1, 0]), turnOf([2, 1, 0], 0, { constraint: undefined }), turnOf([2, 1, 0])] }, ["a"]);
+    battle = playTurnV2(playTurnV2(battle, "a.m", 0), "a.m", 0);
+    expect(turnLog(battle, 1, true).constraintVariant).toBe(CONSTRAINT_REVERSED);
+    expect(turnLog(battle, 1).constraintVariant).toBe(CONSTRAINT_MAIN);
+    expect(turnLog(battle, 2, true).constraintVariant).toBeNull();
   });
 
   it("leave out the Skills and the Constraint of a turn that has none, and the Reason of a turn with none", () => {
