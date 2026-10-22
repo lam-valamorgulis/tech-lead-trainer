@@ -130,8 +130,8 @@ describe("a Meeting Battle on the screen (#105)", () => {
 
   it("puts the full answer line on the button, where a Battle shows the move and its creature", () => {
     const [facts] = lateLaunch.turns[0].moves;
-    expect(moveWords(facts, nameOf)).toEqual({ main: "Give the cause, the new date and the risk.", owner: null });
-    expect(moveWords(saleDay.turns[0].moves[0], nameOf)).toEqual({ main: "TTL", owner: "Cache" });
+    expect(moveWords(facts, nameOf)).toEqual({ main: "Give the cause, the new date and the risk.", detail: null });
+    expect(moveWords(saleDay.turns[0].moves[0], nameOf)).toEqual({ main: "TTL", detail: "Cache" });
   });
 
   it("says the answer you chose, then what happens, and that the best answer costs no Trust", () => {
@@ -166,6 +166,54 @@ describe("a Meeting Battle on the screen (#105)", () => {
       ["facts", 0],
     ]);
     expect(text(battle, 2).hitBack).toBe("The client has no doubt left!");
+  });
+});
+
+describe("an Agent Diff Battle on the screen (#106)", () => {
+  // "Cache diff": on every turn Block is best (2), Ask for a test does 1, Approve does 0. Reason 0 is right.
+  const cacheDiff = { ...town.scenarios.find((s) => s.kind === "agent-diff")!, hash: "0123456789abcdef" } as BundledScenario;
+  const review = (verdicts: [string, number][]) =>
+    verdicts.reduce((state, [verdict, reason]) => playTurnV2(state, `verdict.${verdict}`, reason), startBattleV2(cacheDiff));
+  const text = (battle: BattleV2, turnNumber: number) => turnResultText({ battle, scenario: cacheDiff, turnNumber, nameOf });
+
+  it("puts the verdict's name on the button, and what it does next to it", () => {
+    const [block, approve, test] = cacheDiff.turns[0].moves;
+    expect(moveWords(block, nameOf)).toEqual({ main: "Block", detail: "Do not merge it" });
+    expect(moveWords(approve, nameOf)).toEqual({ main: "Approve", detail: "Merge it as it is" });
+    expect(moveWords(test, nameOf)).toEqual({ main: "Ask for a test", detail: "Merge it only after a test proves it" });
+  });
+
+  it("says the verdict you chose, then what happens, and that the best verdict costs no Trust", () => {
+    expect(text(review([["block", 0]]), 1)).toEqual({
+      damage: "Strong hit · 2 ●●",
+      choice: "You chose Block. The release waits, but no old price reaches a shopper.",
+      reason: null,
+      hitBack: "Best verdict. No Trust lost.",
+    });
+  });
+
+  it("says the Trust you lost after a weaker verdict, and when your Trust is gone", () => {
+    const battle = review([
+      ["approve", 0],
+      ["ask-for-test", 0],
+    ]);
+    expect(text(battle, 1).choice).toBe("You chose Approve. Shoppers see old prices for an hour.");
+    expect(text(battle, 1).hitBack).toBe("The team trusts your review less: −2 Trust.");
+    expect(text(battle, 2).hitBack).toBe("The team trusts your review less: −1 Trust. Your Trust is gone!");
+  });
+
+  it("says the diff has no risk left on the winning turn", () => {
+    const battle = review([
+      ["block", 0],
+      ["block", 0],
+    ]);
+    expect(text(battle, 2).hitBack).toBe("The diff has no risk left!");
+  });
+
+  it("shows no attack type in a two-types town, as in a Meeting Battle", () => {
+    const twoTypes = { ...cacheDiff, opponentType: "outage" as const, secondType: "speed" as const };
+    twoTypes.turns = cacheDiff.turns.map((turn) => ({ ...turn, threatType: "speed" as const }));
+    expect(attackTypeShown({ kind: "agent-diff" }, twoTypes, 0)).toBeNull();
   });
 });
 

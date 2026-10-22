@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { reviewItem } from "@/content";
 import type { BundledScenario } from "@/content/bundle";
-import type { OpponentType } from "@/content/schema";
+import type { OpponentType, ScenarioKind } from "@/content/schema";
 import { MAX_TURNS, OPPONENT_HP } from "@/core/battle";
 import {
   activeBefore,
@@ -17,20 +17,29 @@ import {
   type TurnTimeline,
 } from "@/core/battle-screen";
 import { BAR_NAMES, CREATURE_HP, progressV2, teamHp, usableMovesV2, YOU, type BattleV2, type PlayedTurnV2 } from "@/core/battle-v2";
+import { verdictName } from "@/core/agent-diff";
 import { EFFECTS, soundForDamage, type EffectName } from "@/core/effects";
 import type { GymTwin, ReversedTurn } from "@/core/gym";
 import { PERSON_WORDS, type MeetingPerson } from "@/core/portrait";
-import { OPPONENT_SPECIES } from "@/core/sprite";
+import { AGENT_SPECIES, OPPONENT_SPECIES } from "@/core/sprite";
 import { scenarioTwist, threatTypeOf } from "@/core/twist";
 import { CreatureSprite } from "./creature-sprite";
+import { DiffBlock } from "./diff-block";
 import { fxStyle } from "./effects";
 import { GlossaryText } from "./glossary-text";
-import { OPPONENT_LOOK, PERSON_LOOK } from "./opponent-look";
+import { AGENT_LOOK, OPPONENT_LOOK, PERSON_LOOK } from "./opponent-look";
 import { PersonPortrait } from "./person-portrait";
 import { playSound } from "./sound";
 
-/** The name of a creature or a move, and "You" in a Meeting Battle, where You play alone. */
-const nameOf: NameOf = (id) => (id === YOU ? "You" : (reviewItem(id)?.name ?? id));
+/** The name of a creature, a move or a review verdict, and "You" when You play alone. */
+const nameOf: NameOf = (id) => (id === YOU ? "You" : (verdictName(id) ?? reviewItem(id)?.name ?? id));
+
+/** The name of the scene for screen readers, and the class of its background, per kind of battle. */
+const SCENE_LOOK: Record<ScenarioKind, { name: string; stage: string }> = {
+  battle: { name: "Battle", stage: "" },
+  meeting: { name: "Meeting Battle", stage: "battle-stage-office" },
+  "agent-diff": { name: "Agent Diff Battle", stage: "battle-stage-lab" },
+};
 
 /** The person on the other side of a Meeting Battle (#105), or undefined in a normal Battle. */
 function personOf(scenario: BundledScenario, battle: BattleV2): MeetingPerson | undefined {
@@ -97,16 +106,14 @@ export function BattleScene({
   const timeline = result === null ? null : turnTimeline(battle.played[result - 1]);
   useTurnSounds(result === null ? null : battle.played[result - 1], skipped);
   const panelOpen = useResultPanel(result, timeline, skipped);
-  // A Meeting Battle is in an office, with people in frames (#105, design 9 rule 18).
-  const meeting = personOf(scenario, battle) !== undefined;
+  // A Meeting Battle is in an office, with people in frames (#105, design 9 rule 18). An Agent
+  // Diff Battle is in a lab, with the AI agent on a pad (#106).
+  const look = SCENE_LOOK[battle.kind];
 
   return (
-    <section
-      className={skipped ? "battle-scene battle-skip" : "battle-scene"}
-      aria-label={`${meeting ? "Meeting Battle" : "Battle"}: ${scenario.name}`}
-    >
+    <section className={skipped ? "battle-scene battle-skip" : "battle-scene"} aria-label={`${look.name}: ${scenario.name}`}>
       {/* A tap on the scene during the effects skips them. The panel below has its own buttons. */}
-      <div className={meeting ? "battle-stage battle-stage-office" : "battle-stage"} onClick={() => result !== null && setSkipped(true)}>
+      <div className={`battle-stage ${look.stage}`.trim()} onClick={() => result !== null && setSkipped(true)}>
         <Stage scenario={scenario} battle={battle} turnNumber={showing} result={result} timeline={timeline} />
       </div>
       {result === null && (
@@ -204,8 +211,13 @@ function Stage({
   const alive = teamHp(after).filter((hp) => hp > 0).length;
   const threatType: OpponentType = scenarioTwist(scenario) ? threatTypeOf(scenario, turnNumber - 1) : scenario.opponentType;
   const person = personOf(scenario, battle);
-  // UI rule 7: the type, or the person of a meeting, is a colour, an icon and a word.
-  const look = person ? { ...PERSON_LOOK[person], word: PERSON_WORDS[person].name } : OPPONENT_LOOK[scenario.opponentType];
+  const agent = kind === "agent-diff";
+  // UI rule 7: the type, the person of a meeting or the AI agent is a colour, an icon and a word.
+  const look = person
+    ? { ...PERSON_LOOK[person], word: PERSON_WORDS[person].name }
+    : agent
+      ? AGENT_LOOK
+      : OPPONENT_LOOK[scenario.opponentType];
   // A new creature comes in at the start of the battle and after a Faint (design 7.3).
   const entering = result === null && (turnNumber === 1 || activeBefore(battle, turnNumber - 1) !== mine);
   const t = timeline;
@@ -231,10 +243,11 @@ function Stage({
 
       {!person && <div className="battle-pad battle-pad-opponent" aria-hidden="true" />}
       <div className="battle-opponent" data-testid="opponent">
-        {/* Design 7.2: the threat's icon above the opponent's head. In a meeting, the person speaks. */}
+        {/* Design 7.2: the threat's icon above the opponent's head. In a meeting, the person speaks;
+            the agent's diff carries a warning. */}
         {result === null && (
           <span className="battle-threat-icon" aria-hidden="true">
-            {person ? "💬" : OPPONENT_LOOK[threatType].icon}
+            {person ? "💬" : agent ? "⚠️" : OPPONENT_LOOK[threatType].icon}
           </span>
         )}
         <Effect name="faint" at={played && opponentHp === 0 && t ? t.resultAt : null} fainting>
@@ -244,7 +257,7 @@ function Stage({
                 {person ? (
                   <PersonPortrait person={person} />
                 ) : (
-                  <CreatureSprite species={OPPONENT_SPECIES[scenario.opponentType]} side="front" />
+                  <CreatureSprite species={agent ? AGENT_SPECIES : OPPONENT_SPECIES[scenario.opponentType]} side="front" />
                 )}
               </div>
             </Effect>
@@ -368,7 +381,8 @@ function ChoicePanel({
   const turn = scenario.turns[turnNumber - 1];
   const moves = usableMovesV2(battle);
   const person = personOf(scenario, battle);
-  // A two-type opponent shows the type that attacks; a Meeting person does not (#105).
+  const agent = battle.kind === "agent-diff";
+  // A two-type opponent shows the type that attacks; a Meeting person and an AI agent do not.
   const attackType = attackTypeShown(battle, scenario, turnNumber - 1);
   const [picked, setPicked] = useState<string | null>(null);
   const [noteOpen, setNoteOpen] = useState(false);
@@ -450,7 +464,7 @@ function ChoicePanel({
   }
 
   return (
-    <Panel key="moves" slide more={person ? "More answers below" : "More moves below"}>
+    <Panel key="moves" slide more={person ? "More answers below" : agent ? "More verdicts below" : "More moves below"}>
       <PanelHeading heading={heading} onLeave={onLeave}>
         Turn {turnNumber} of {MAX_TURNS}
       </PanelHeading>
@@ -458,11 +472,13 @@ function ChoicePanel({
       {attackType && <AttackType type={attackType} />}
       {/* UI rule 3: the threat and the Constraint come before the moves. */}
       <div className="battle-threat">
-        <span className="battle-label">{person ? `${PERSON_WORDS[person].the} says` : "Threat"}</span>
+        <span className="battle-label">{person ? `${PERSON_WORDS[person].the} says` : agent ? "What changed" : "Threat"}</span>
         <p>
           <GlossaryText text={turn.threat} />
         </p>
       </div>
+      {/* The agent's code, under what changed (#106). It scrolls sideways inside the panel. */}
+      {agent && scenario.diff && <DiffBlock diff={scenario.diff} />}
       {/* A Gym twin (#113): the threat is the old one, so the Constraint line shows that it changed. */}
       {turn.constraint && (
         <div className={reversed ? "battle-constraint battle-constraint-reversed" : "battle-constraint"}>
@@ -479,15 +495,16 @@ function ChoicePanel({
       )}
       <div className="battle-choices" role="group" aria-label="Your move">
         {moves.map((moveId) => {
-          // A Meeting answer shows its whole line, wrapped (#105). A move shows its name and its creature.
+          // A Meeting answer shows its whole line, wrapped (#105). A verdict shows its name and what it
+          // does (#106). A move shows its name and its creature.
           const words = moveWords(turn.moves.find((row) => row.moveId === moveId)!, nameOf);
           return (
             <button key={moveId} type="button" className="battle-choice" onClick={(event) => pickMove(moveId, event.timeStamp)}>
-              {words.owner === null ? (
+              {words.detail === null ? (
                 words.main
               ) : (
                 <>
-                  <span className="battle-choice-name">{words.main}</span> <small>({words.owner})</small>
+                  <span className="battle-choice-name">{words.main}</span> <small>({words.detail})</small>
                 </>
               )}
             </button>

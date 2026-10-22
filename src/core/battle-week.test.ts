@@ -3,7 +3,8 @@ import type { ScenarioKind } from "../content/schema.ts";
 import { battleKindOn, dueKinds, WEEKLY_KINDS, type KindRecord } from "./battle-week.ts";
 import { addDays } from "./day.ts";
 
-// Design 3: 1 or 2 Meeting Battles a week, in place of a normal Battle. 2026-10-19 is a Monday.
+// Design 3: 1 or 2 Meeting Battles a week and 1 Agent Diff Battle a week, each in place of a
+// normal Battle. 2026-10-19 is a Monday.
 const MONDAY = "2026-10-19";
 const day = (offset: number) => addDays(MONDAY, offset);
 
@@ -37,18 +38,18 @@ describe("the week rule for Meeting Battles (design 3)", () => {
   });
 
   it("gives a learner who battles every day a Meeting on Monday and Thursday: 2 a week", () => {
-    expect(playWeek([0, 1, 2, 3, 4, 5, 6])).toEqual(["meeting", "battle", "battle", "meeting", "battle", "battle", "battle"]);
+    expect(playWeek([0, 1, 2, 3, 4, 5, 6])).toEqual(["meeting", "agent-diff", "battle", "meeting", "battle", "battle", "battle"]);
   });
 
   it("gives a learner who battles 3 days a week 1 Meeting, and one who battles once a week 1 too", () => {
-    expect(playWeek([1, 3, 5])).toEqual(["meeting", "battle", "battle"]);
+    expect(playWeek([1, 3, 5])).toEqual(["meeting", "agent-diff", "battle"]);
     expect(playWeek([4])).toEqual(["meeting"]);
   });
 
   it("never gives more than 2 in a week, and starts again on Monday", () => {
     const kinds = playWeek([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     expect(kinds.slice(0, 7).filter((kind) => kind === "meeting")).toHaveLength(2);
-    expect(kinds.slice(7)).toEqual(["meeting", "battle", "battle", "meeting"]);
+    expect(kinds.slice(7)).toEqual(["meeting", "agent-diff", "battle", "meeting"]);
   });
 
   it("moves the Meeting to the next Battle day when a Meeting day fell back to a normal Battle", () => {
@@ -73,8 +74,9 @@ describe("the week rule for Meeting Battles (design 3)", () => {
   });
 
   it("lists every due kind in priority order, so the caller can skip a kind with nothing ready", () => {
-    const kinds = [...WEEKLY_KINDS, { kind: "agent-diff" as const, battleDays: [0] }];
-    expect(dueKinds({ today: MONDAY, battles: knowsBattles, weeklyKinds: kinds })).toEqual(["meeting", "agent-diff"]);
+    // Monday's Meeting fell back to a normal Battle, so on Tuesday both kinds are due: Meeting first.
+    const history = [...knowsBattles, record(MONDAY, "battle")];
+    expect(dueKinds({ today: day(1), battles: history })).toEqual(["meeting", "agent-diff"]);
     expect(dueKinds({ today: MONDAY, battles: [] })).toEqual([]);
   });
 
@@ -82,13 +84,65 @@ describe("the week rule for Meeting Battles (design 3)", () => {
     expect(battleKindOn({ today: MONDAY, battles: [{ battleId: "old", learningDay: day(-1) }] })).toBe("meeting");
   });
 
-  it("lets a later kind join the week without moving a Meeting day (#106)", () => {
-    const withAgentDiff = [...WEEKLY_KINDS, { kind: "agent-diff" as const, battleDays: [1] }];
-    const everyDay = [0, 1, 2, 3, 4, 5, 6];
-    const meetingDays = (kinds: ScenarioKind[]) => kinds.flatMap((kind, i) => (kind === "meeting" ? [i] : []));
-    const before = playWeek(everyDay);
-    const after = playWeek(everyDay, knowsBattles, withAgentDiff);
-    expect(meetingDays(after)).toEqual(meetingDays(before));
-    expect(after.filter((kind) => kind === "agent-diff")).toHaveLength(1);
+});
+
+describe("the week rule for Agent Diff Battles (#106, design 3)", () => {
+  const meetingOnly = WEEKLY_KINDS.filter(({ kind }) => kind === "meeting");
+  const daysOf = (kinds: ScenarioKind[], wanted: ScenarioKind) => kinds.flatMap((kind, i) => (kind === wanted ? [i] : []));
+  /** Every way to battle on some days of one week: 127 patterns, from 1 day to all 7. */
+  const allPatterns = Array.from({ length: 127 }, (_, n) => [0, 1, 2, 3, 4, 5, 6].filter((d) => ((n + 1) >> d) & 1));
+
+  it("comes after Meeting Battle in the priority order", () => {
+    expect(WEEKLY_KINDS.map(({ kind }) => kind)).toEqual(["meeting", "agent-diff"]);
+  });
+
+  it("gives exactly one Agent Diff day in every week with 2 or more Battle days: the second Battle day", () => {
+    for (const days of allPatterns.filter((pattern) => pattern.length >= 2)) {
+      expect(daysOf(playWeek(days), "agent-diff"), days.join(",")).toEqual([1]);
+    }
+  });
+
+  it("never moves a Meeting day: the Meeting days are the same as with Meeting Battle alone", () => {
+    for (const days of allPatterns) {
+      expect(daysOf(playWeek(days), "meeting"), days.join(",")).toEqual(daysOf(playWeek(days, knowsBattles, meetingOnly), "meeting"));
+    }
+  });
+
+  it("gives no Agent Diff Battle to a learner with only 1 Battle day a week: that day is the Meeting", () => {
+    for (const offset of [0, 3, 6]) expect(playWeek([offset])).toEqual(["meeting"]);
+  });
+
+  it("starts again each week: one Agent Diff day in each of 2 weeks", () => {
+    expect(playWeek([0, 2, 4, 7, 9, 11])).toEqual(["meeting", "agent-diff", "battle", "meeting", "agent-diff", "battle"]);
+  });
+
+  it("moves the Agent Diff day to the next Battle day when it fell back to a normal Battle", () => {
+    // Tuesday was the Agent Diff day, but none was ready, so a normal Battle was played.
+    const history = [...knowsBattles, record(MONDAY, "meeting"), record(day(1), "battle")];
+    expect(battleKindOn({ today: day(2), battles: history })).toBe("agent-diff");
+    // Played on Wednesday: Thursday is the second Meeting, then normal Battles.
+    const after = [...history, record(day(2), "agent-diff")];
+    expect(battleKindOn({ today: day(3), battles: after })).toBe("meeting");
+    expect(battleKindOn({ today: day(4), battles: [...after, record(day(3), "meeting")] })).toBe("battle");
+  });
+
+  it("lets a Meeting that fell back go first: the Agent Diff Battle waits one more Battle day", () => {
+    // No Meeting was ready on Monday. Tuesday is the Meeting, Wednesday the Agent Diff Battle.
+    const history = [...knowsBattles, record(MONDAY, "battle")];
+    expect(battleKindOn({ today: day(1), battles: history })).toBe("meeting");
+    expect(battleKindOn({ today: day(2), battles: [...history, record(day(1), "meeting")] })).toBe("agent-diff");
+  });
+
+  it("waits, like the Meeting, until the learner played a normal Battle on an earlier day", () => {
+    const meetingsOnly = [record(day(-3), "meeting"), record(MONDAY, "meeting")];
+    expect(battleKindOn({ today: day(1), battles: meetingsOnly })).toBe("battle");
+  });
+
+  it("is pure: the same history gives the same kind, in any order, also after today's own Battle", () => {
+    const history = [...knowsBattles, record(MONDAY, "meeting")];
+    const today = day(1);
+    expect(battleKindOn({ today, battles: history })).toBe("agent-diff");
+    expect(battleKindOn({ today, battles: [...history].reverse() })).toBe("agent-diff");
+    expect(battleKindOn({ today, battles: [...history, record(today, "agent-diff")] })).toBe("agent-diff");
   });
 });

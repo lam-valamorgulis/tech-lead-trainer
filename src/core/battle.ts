@@ -62,8 +62,8 @@ export function bestRow(turn: BattleTurn) {
  * Today's battle, or null. A 3-minute day is reviews only, and a day that already started a
  * battle gets no second one. A scenario is ready when the team can hold the creature of every
  * best move, so a well-chosen team can always win. The least-played ready scenario comes first.
- * On a Meeting day (the week rule, battle-week.ts) a ready Meeting Battle comes in place of the
- * normal Battle. With no ready Meeting Battle, the day falls back to a normal Battle.
+ * On a Meeting day or an Agent Diff day (the week rule, battle-week.ts) a ready Battle of that
+ * kind comes in place of the normal Battle. With none ready, the day falls back to a normal Battle.
  */
 export function nextBattle({
   town,
@@ -96,16 +96,14 @@ export type OfferInput = { town: BundledTown; towns: BundledTown[]; catches: Cat
 /**
  * Every scenario of one kind the learner can play today, as a battle offer, the least played
  * first. A normal Battle is ready when the team can hold the creature of every best move, from
- * this town or an earlier one. A Meeting Battle needs no creature: You play alone, so it has no
- * team and no worked example.
+ * this town or an earlier one. A Meeting Battle and an Agent Diff Battle (#106) need no
+ * creature: You play alone, so they have no team and no worked example.
  */
 export function readyOffers({ town, towns, catches, battles }: OfferInput, kind: ScenarioKind = "battle"): BattleOffer[] {
   // A Gym twin (design 7.5) repeats a threat with the Constraint reversed. It belongs in the Gym
   // only (gym.ts), so the daily offer never has one.
   const playable = town.scenarios.filter((scenario) => !scenario.retired && kindOf(scenario) === kind && scenario.twinOf === undefined);
-  // Agent Diff Battle comes with its own screen (#106).
-  if (kind === "agent-diff") return [];
-  if (kind === "meeting") {
+  if (kind !== "battle") {
     return leastPlayed(playable, battles).map((scenario) => ({ scenario, team: { size: 0, choices: [] }, workedExamples: [] }));
   }
   return battleOffers({ town, towns, catches, battles }, playable);

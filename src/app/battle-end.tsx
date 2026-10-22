@@ -5,6 +5,7 @@ import { itemCard, reviewItem } from "@/content";
 import type { BundledScenario } from "@/content/bundle";
 import { endChecks, endView, toggleTick, type EndTurn, type Ticks } from "@/core/battle-end";
 import type { BattleV2 } from "@/core/battle-v2";
+import { AGENT_DIFF_OPPONENT } from "@/core/agent-diff";
 import type { GymTwin, ReversedTurn } from "@/core/gym";
 import { PERSON_WORDS } from "@/core/portrait";
 import { discussPackage, teachBackItems } from "@/core/discuss";
@@ -47,9 +48,18 @@ export function BattleEnd({
   eventFields: () => BattleEventFields;
   onDone: (won: boolean) => void;
 }) {
-  // A Meeting Battle names its person in the result line, for example "The client" (#105).
+  // A Meeting Battle names its person in the result line, for example "The client" (#105), and
+  // an Agent Diff Battle names the diff (#106).
   const [view] = useState(() =>
-    endView(battle, nameOf, battle.kind === "meeting" && scenario.person ? PERSON_WORDS[scenario.person].the : undefined),
+    endView(
+      battle,
+      nameOf,
+      battle.kind === "meeting" && scenario.person
+        ? PERSON_WORDS[scenario.person].the
+        : battle.kind === "agent-diff"
+          ? AGENT_DIFF_OPPONENT
+          : undefined,
+    ),
   );
   const won = view.result === "won";
   const [ticks, setTicks] = useState<Ticks>({});
