@@ -93,6 +93,19 @@ describe("the end view", () => {
     expect(resultLine(meeting)).toBe("The opponent's Doubt reached 0 in 2 turns.");
   });
 
+  it("names the person of a Meeting Battle when the screen gives one (#105)", () => {
+    const won = play(startBattleV2(lateLaunch), [
+      ["answer.facts-0", 0],
+      ["answer.facts-1", 0],
+    ]);
+    expect(endView(won, nameOf, "The client").line).toBe("The client's Doubt reached 0 in 2 turns.");
+    const lost = play(startBattleV2(lateLaunch), [
+      ["answer.blame-0", 0],
+      ["answer.vague-1", 1],
+    ]);
+    expect(resultLine(lost, "Your manager")).toBe("Your Trust reached 0. Your manager still has Doubt 4 of 4.");
+  });
+
   it("says when all the creatures fainted", () => {
     // Cookie alone: HttpOnly costs 2 HP, then no move costs the last 1.
     const battle = play(startBattleV2(saleDay, ["cookie"]), [

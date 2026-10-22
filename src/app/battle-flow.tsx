@@ -6,7 +6,7 @@ import { OPPONENT_HP, type BattleOffer } from "@/core/battle";
 import { playTurnV2, progressV2, startBattleV2, turnLog, type BattleV2 } from "@/core/battle-v2";
 import { OPPONENT_SPECIES } from "@/core/sprite";
 import { opponentTypes, scenarioTwist } from "@/core/twist";
-import type { OpponentType } from "@/content/schema";
+import { kindOf, type OpponentType } from "@/content/schema";
 import { postEvents } from "@/lib/events/post-events";
 import type { BattleEventFields, LearningEvent } from "@/lib/events/write-events";
 import { BattleEnd } from "./battle-end";
@@ -14,6 +14,7 @@ import { BattleScene, type PlayChoice } from "./battle-scene";
 import { CreatureSprite } from "./creature-sprite";
 import { useMusic } from "./effects";
 import { GlossaryText } from "./glossary-text";
+import { MeetingIntro } from "./meeting-intro";
 import { OPPONENT_LOOK } from "./opponent-look";
 import { playSound } from "./sound";
 
@@ -52,8 +53,10 @@ export function BattleFlow({
   // The learner's own words of each turn, when they typed some.
   const [notes, setNotes] = useState<Record<number, string>>({});
   const heading = useRef<HTMLHeadingElement>(null);
-  // Battle music while the Battle runs. The end screen gives it back, so the map loop returns.
-  useMusic(step === "end" ? null : "battle");
+  // A Meeting Battle (#105) has no team to pick: You play alone, in an office.
+  const meeting = kindOf(offer.scenario) === "meeting";
+  // Battle or meeting music while it runs. The end screen gives it back, so the map loop returns.
+  useMusic(step === "end" ? null : meeting ? "meeting" : "battle");
 
   // A new step replaces the button that was tapped, so focus moves to the new heading. The end
   // screen moves focus itself.
@@ -145,6 +148,20 @@ export function BattleFlow({
           {isLastExample ? "Go to the battle" : "Next example"}
         </button>
       </section>
+    );
+  }
+
+  if ((!battle || step === "team") && meeting) {
+    return (
+      <MeetingIntro
+        offer={offer}
+        heading={heading}
+        onStart={() => {
+          playSound("select");
+          setBattle(startBattleV2(offer.scenario));
+          setStep("scene");
+        }}
+      />
     );
   }
 

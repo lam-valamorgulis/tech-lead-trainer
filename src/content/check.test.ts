@@ -4,6 +4,8 @@ import {
   fixtureGlossary,
   fixtureLedger,
   fixtureLedgerV2,
+  fixturePartnerCall,
+  fixtureSeamCTowns,
   fixtureTown,
   fixtureTownV2,
   fixtureTwistLedger,
@@ -445,6 +447,13 @@ describe("checkContent for v1.5 content (#93)", () => {
 
   it("accepts the v2 fixture town, with every new field", () => {
     expect(checkV2()).toEqual([]);
+  });
+
+  it("accepts the seam C towns, with a two-types Meeting Battle and 4 long answers (#105)", () => {
+    const [town1, town2] = fixtureSeamCTowns();
+    const ledger = [...fixtureLedgerV2, ...fixtureTwistLedger, "t98-partner-call"];
+    expect(checkContent({ towns: [town1, town2], ledger, glossary: fixtureGlossary() })).toEqual([]);
+    expect(fixturePartnerCall().turns[0].moves).toHaveLength(4);
   });
 
   it("fails when a turn of a v1.5 scenario has no Constraint", () => {

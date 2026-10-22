@@ -1078,6 +1078,37 @@ html:has(.battle-scene) {
     radial-gradient(50% 90% at 80% 100%, #5fa392 0 60%, transparent 61%);
 }
 
+/* A Meeting Battle (#105) is in an office, as in the prototype: a wall with a window over the
+   top third, then a wooden floor. People stand in frames, so there are no pads. */
+.battle-stage-office {
+  background: linear-gradient(#cdbfa6 0 36%, #8a6b4a 36% 39%, #b08a60 39%);
+}
+
+.battle-stage-office::before {
+  left: 10%;
+  right: auto;
+  top: calc(env(safe-area-inset-top) + 92px);
+  width: 30%;
+  height: 16%;
+  background: linear-gradient(90deg, #9fd8f5 0 48%, #6a5338 48% 52%, #9fd8f5 52%);
+  border: 4px solid #6a5338;
+}
+
+/* A person: a 64 px portrait in a cream frame (design 9 rule 18). */
+.portrait-frame {
+  display: inline-block;
+  padding: 4px;
+  line-height: 0;
+  background: #fbf7e9;
+  border: 4px solid #070a16;
+  border-radius: 4px;
+  box-shadow: 4px 4px 0 rgb(0 0 0 / 30%);
+}
+
+.portrait-art {
+  image-rendering: pixelated;
+}
+
 .battle-shake {
   position: absolute;
   inset: 0;
@@ -1129,6 +1160,8 @@ html:has(.battle-scene) {
 /* Design 7.2: the threat's icon above the opponent's head. */
 .battle-threat-icon {
   position: absolute;
+  /* Over the opponent: a framed portrait would cover it (#105). */
+  z-index: 1;
   top: -18px;
   left: 0;
   padding: 0 6px;
@@ -1359,11 +1392,38 @@ html:has(.battle-scene) {
   min-height: 52px;
   padding: 8px 14px;
   text-align: left;
+  /* A Meeting answer is a whole line: it wraps, and is never cut (#105). */
+  white-space: normal;
+  overflow-wrap: anywhere;
   color: var(--color-text);
   background: var(--battle-panel-2);
   border: 3px solid var(--battle-edge);
   border-radius: 6px;
   box-shadow: inset 0 -4px 0 rgb(0 0 0 / 35%);
+}
+
+/* More content below the fold of the panel (#105): a fade and a short line. iPhone shows no scroll bar. */
+.battle-more {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 32px 16px calc(8px + env(safe-area-inset-bottom));
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--battle-gold);
+  background: linear-gradient(transparent, var(--battle-panel) 60%);
+  /* Taps go through to the buttons under the fade. */
+  pointer-events: none;
+}
+
+/* The Meeting answer the learner picked, above its Reasons. */
+.battle-picked {
+  padding: 6px 10px;
+  border-left: 4px solid var(--battle-gold);
 }
 
 .battle-choice:active {

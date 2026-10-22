@@ -1719,6 +1719,184 @@
             }
           ],
           "hash": "c86c482913a5b231"
+        },
+        {
+          "id": "t98-partner-call",
+          "name": "Partner call",
+          "kind": "meeting",
+          "person": "manager",
+          "source": {
+            "title": "MDN: 429 Too Many Requests",
+            "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/429"
+          },
+          "opponentType": "traffic",
+          "secondType": "security",
+          "problem": "Your manager asks why the new partner API is slow.",
+          "turns": [
+            {
+              "threatType": "traffic",
+              "threat": "Why are the partners angry about the new API?",
+              "constraint": "The partners pay for the API, and their contract starts next week.",
+              "reasons": [
+                {
+                  "text": "A quota stops one partner from slowing all the others.",
+                  "right": true
+                },
+                {
+                  "text": "More servers fix every kind of load.",
+                  "right": false
+                },
+                {
+                  "text": "Waiting shows the manager you stay calm.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                21
+              ],
+              "moves": [
+                {
+                  "moveId": "answer.cause-0",
+                  "label": "One partner sends far more requests than the others, so each partner gets a quota before next week.",
+                  "damage": 2,
+                  "counterattack": "Your manager agrees to the quota plan."
+                },
+                {
+                  "moveId": "answer.servers-0",
+                  "label": "We can buy more servers this week, so every partner gets fast answers again, whatever they send.",
+                  "damage": 1,
+                  "counterattack": "Your manager asks who pays for the servers."
+                },
+                {
+                  "moveId": "answer.wait-0",
+                  "label": "It is probably a short problem, so I would like to wait one more week and see what happens.",
+                  "damage": 0,
+                  "counterattack": "Your manager now doubts your plan."
+                },
+                {
+                  "moveId": "answer.blame-0",
+                  "label": "The partners wrote code that retries too often, so this is their problem and not ours to fix.",
+                  "damage": 0,
+                  "counterattack": "Your manager hears blame, not a plan."
+                }
+              ],
+              "modelAnswer": "Name the cause, then the plan and its date. A quota for each partner fixes it before the contract starts.",
+              "keyPoints": [
+                "Name the cause.",
+                "Give one plan.",
+                "Say when it is done."
+              ]
+            },
+            {
+              "threatType": "security",
+              "threat": "Why are the partners angry about the new API?",
+              "constraint": "The partners pay for the API, and their contract starts next week.",
+              "reasons": [
+                {
+                  "text": "A quota stops one partner from slowing all the others.",
+                  "right": true
+                },
+                {
+                  "text": "More servers fix every kind of load.",
+                  "right": false
+                },
+                {
+                  "text": "Waiting shows the manager you stay calm.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                21
+              ],
+              "moves": [
+                {
+                  "moveId": "answer.cause-1",
+                  "label": "One partner sends far more requests than the others, so each partner gets a quota before next week.",
+                  "damage": 2,
+                  "counterattack": "Your manager agrees to the quota plan."
+                },
+                {
+                  "moveId": "answer.servers-1",
+                  "label": "We can buy more servers this week, so every partner gets fast answers again, whatever they send.",
+                  "damage": 1,
+                  "counterattack": "Your manager asks who pays for the servers."
+                },
+                {
+                  "moveId": "answer.wait-1",
+                  "label": "It is probably a short problem, so I would like to wait one more week and see what happens.",
+                  "damage": 0,
+                  "counterattack": "Your manager now doubts your plan."
+                },
+                {
+                  "moveId": "answer.blame-1",
+                  "label": "The partners wrote code that retries too often, so this is their problem and not ours to fix.",
+                  "damage": 0,
+                  "counterattack": "Your manager hears blame, not a plan."
+                }
+              ],
+              "modelAnswer": "Name the cause, then the plan and its date. A quota for each partner fixes it before the contract starts.",
+              "keyPoints": [
+                "Name the cause.",
+                "Give one plan.",
+                "Say when it is done."
+              ]
+            },
+            {
+              "threatType": "traffic",
+              "threat": "Why are the partners angry about the new API?",
+              "constraint": "The partners pay for the API, and their contract starts next week.",
+              "reasons": [
+                {
+                  "text": "A quota stops one partner from slowing all the others.",
+                  "right": true
+                },
+                {
+                  "text": "More servers fix every kind of load.",
+                  "right": false
+                },
+                {
+                  "text": "Waiting shows the manager you stay calm.",
+                  "right": false
+                }
+              ],
+              "skills": [
+                21
+              ],
+              "moves": [
+                {
+                  "moveId": "answer.cause-2",
+                  "label": "One partner sends far more requests than the others, so each partner gets a quota before next week.",
+                  "damage": 2,
+                  "counterattack": "Your manager agrees to the quota plan."
+                },
+                {
+                  "moveId": "answer.servers-2",
+                  "label": "We can buy more servers this week, so every partner gets fast answers again, whatever they send.",
+                  "damage": 1,
+                  "counterattack": "Your manager asks who pays for the servers."
+                },
+                {
+                  "moveId": "answer.wait-2",
+                  "label": "It is probably a short problem, so I would like to wait one more week and see what happens.",
+                  "damage": 0,
+                  "counterattack": "Your manager now doubts your plan."
+                },
+                {
+                  "moveId": "answer.blame-2",
+                  "label": "The partners wrote code that retries too often, so this is their problem and not ours to fix.",
+                  "damage": 0,
+                  "counterattack": "Your manager hears blame, not a plan."
+                }
+              ],
+              "modelAnswer": "Name the cause, then the plan and its date. A quota for each partner fixes it before the contract starts.",
+              "keyPoints": [
+                "Name the cause.",
+                "Give one plan.",
+                "Say when it is done."
+              ]
+            }
+          ],
+          "hash": "e4db985bea6f71b0"
         }
       ]
     }
