@@ -1,6 +1,7 @@
 // "Discuss in Claude" and the teach-back (design 10, tickets #19 and #104). Pure functions: no clock, no browser.
 import type { BundledScenario } from "../content/bundle.ts";
 import type { Card } from "../content/schema.ts";
+import { verdictName } from "./agent-diff.ts";
 import { bestRow, counterattackSentence, creatureOf, OPPONENT_HP } from "./battle.ts";
 import { endView, whyLost, type EndTurn, type EndView, type NameOf, type Ticks } from "./battle-end.ts";
 import { BAR_NAMES, endSummary, type BattleV2 } from "./battle-v2.ts";
@@ -28,7 +29,8 @@ export type ItemOf = (id: string) => { name: string; card: Card } | undefined;
 const KIND_WORDS = { battle: "Battle", meeting: "Meeting Battle", "agent-diff": "Agent Diff Battle" } as const;
 
 export type DiscussInput = {
-  scenario: Pick<BundledScenario, "name" | "problem" | "opponentType" | "secondType" | "source" | "turns">;
+  /** `diff` is the code of an Agent Diff Battle (#106). */
+  scenario: Pick<BundledScenario, "name" | "problem" | "opponentType" | "secondType" | "source" | "turns" | "diff">;
   /** A finished battle. */
   battle: BattleV2;
   /** The learner's own words on each turn, by turn number, when they typed some. */
@@ -45,7 +47,7 @@ export type DiscussInput = {
  * has its Constraint, the Reason picked (and the right one when it was wrong) and the HP lost.
  */
 export function discussPackage(input: DiscussInput): string {
-  const nameOf: NameOf = (id) => input.itemOf(id)?.name ?? id;
+  const nameOf: NameOf = (id) => verdictName(id) ?? input.itemOf(id)?.name ?? id;
   const view = endView(input.battle, nameOf);
   const cards = cardSections(input);
   return (
@@ -83,6 +85,8 @@ function battleSection({ scenario, battle }: DiscussInput, view: EndView, nameOf
     `- ${bars.team} I lost: ${view.hpLost}`,
     `- Best moves: ${view.bestMoves.count} of ${view.bestMoves.of}`,
     ...(reasons.of > 0 ? [`- Right Reasons: ${reasons.count} of ${reasons.of}`] : []),
+    // The coach needs the agent's code to ask about it (#106).
+    ...(battle.kind === "agent-diff" && scenario.diff ? ["", "The agent's diff:", "", "```diff", scenario.diff, "```"] : []),
   ].join("\n");
 }
 

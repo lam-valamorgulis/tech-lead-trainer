@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { AGENT_SPECIES } from "../core/sprite.ts";
 import { checkContent } from "./check.ts";
 import {
   fixtureGlossary,
@@ -491,6 +492,14 @@ describe("checkContent for v1.5 content (#93)", () => {
     town.creatures[2].sprite = 11;
     expect(checkV2(town)).toEqual([
       { where: "t99.proxy", message: "Sprite 11 is the Battle opponent of type traffic. Pick another species." },
+    ]);
+  });
+
+  it("fails a creature that uses the sprite of the AI agent in an Agent Diff Battle (#106)", () => {
+    const town = fixtureTownV2();
+    town.creatures[2].sprite = AGENT_SPECIES;
+    expect(checkV2(town)).toEqual([
+      { where: "t99.proxy", message: `Sprite ${AGENT_SPECIES} is the AI agent of the Agent Diff Battle. Pick another species.` },
     ]);
   });
 

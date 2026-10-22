@@ -2,6 +2,7 @@
 // One screen after the last turn: the counts, then each turn with its model answer and the key
 // points to tick. It works for every kind of battle: the bar names come from BAR_NAMES.
 import { KEY_POINTS, type BattleTurn } from "../content/schema.ts";
+import { verdictName } from "./agent-diff.ts";
 import { bestRow, creatureOf, damageLabel, OPPONENT_HP, type SelfCheck } from "./battle.ts";
 import { BAR_NAMES, endSummary, type BattleV2 } from "./battle-v2.ts";
 
@@ -9,14 +10,15 @@ import { BAR_NAMES, endSummary, type BattleV2 } from "./battle-v2.ts";
 export type NameOf = (id: string) => string;
 
 /**
- * How a move shows on the end screen and in the package. A Meeting answer shows its own words.
- * A creature's move names its creature too, for example "TTL (Cache)", as the move buttons do.
+ * How a move shows on the end screen and in the package. A Meeting answer shows its own words,
+ * and a review verdict its name, for example "Block" (#106). A creature's move names its
+ * creature too, for example "TTL (Cache)", as the move buttons do.
  */
 export function moveName(battle: Pick<BattleV2, "kind">, turn: BattleTurn, moveId: string | null, nameOf: NameOf): string | null {
   if (moveId === null) return null;
   const row = turn.moves.find((r) => r.moveId === moveId);
   if (row?.label) return row.label;
-  return battle.kind === "battle" ? `${nameOf(moveId)} (${nameOf(creatureOf(moveId))})` : nameOf(moveId);
+  return battle.kind === "battle" ? `${nameOf(moveId)} (${nameOf(creatureOf(moveId))})` : (verdictName(moveId) ?? nameOf(moveId));
 }
 
 /** One turn on the end screen. */

@@ -1094,6 +1094,88 @@ html:has(.battle-scene) {
   border: 4px solid #6a5338;
 }
 
+/* An Agent Diff Battle (#106) is in a lab, as in the prototype: a dark wall with a blue grid over
+   the top third, then a blue floor. The AI agent stands on a blue pad. */
+.battle-stage-lab {
+  background: linear-gradient(#18234d 0 36%, #24306a 36%);
+}
+
+.battle-stage-lab::before {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 36%;
+  background-image:
+    linear-gradient(rgb(126 195 238 / 12%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(126 195 238 / 12%) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+.battle-stage-lab .battle-pad {
+  background: #3b4a8f;
+}
+
+/* The agent's diff (#106): monospace at 14 px, so it reads on an iPhone without zoom. Lines never
+   wrap; the block scrolls sideways on its own, never the page. */
+.diff-block {
+  /* In the panel's flex column, a scroll box may shrink to almost nothing. It keeps its full
+     height, and the panel scrolls instead. */
+  flex-shrink: 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  background: #0b1022;
+  border: 3px solid var(--battle-edge, #070a16);
+  border-radius: 6px;
+}
+
+.diff-block:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.diff-code {
+  /* As wide as the longest line, so the tint of a line runs under all of its code. */
+  display: inline-block;
+  min-width: 100%;
+  margin: 0;
+  padding: 8px 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre;
+  color: #e3ebff;
+}
+
+.diff-line {
+  display: block;
+  padding-right: 12px;
+}
+
+.diff-sign {
+  display: inline-block;
+  width: 2ch;
+  text-align: center;
+  font-weight: 700;
+}
+
+.diff-added {
+  background: rgb(63 191 106 / 20%);
+}
+
+.diff-added .diff-sign {
+  color: #7ef0a4;
+}
+
+.diff-removed {
+  background: rgb(224 65 79 / 22%);
+}
+
+.diff-removed .diff-sign {
+  color: #ff9aa5;
+}
+
 /* A person: a 64 px portrait in a cream frame (design 9 rule 18). */
 .portrait-frame {
   display: inline-block;

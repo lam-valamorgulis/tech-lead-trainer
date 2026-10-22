@@ -1318,7 +1318,7 @@
           "id": "t99-cache-diff",
           "name": "Cache diff",
           "kind": "agent-diff",
-          "diff": "+ res.set(\"Cache-Control\", \"max-age=3600\");\n  res.json(price);",
+          "diff": "router.get(\"/api/prices/:sku\", async (req, res) => {\n   const price = await prices.findBySku(req.params.sku, { includeSalePrice: true, currency: req.query.currency });\n-  res.set(\"Cache-Control\", \"no-store\");\n+  res.set(\"Cache-Control\", \"max-age=3600\");\n   res.json(price);\n });",
           "source": {
             "title": "MDN: Cache-Control",
             "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control"
@@ -1462,7 +1462,7 @@
               ]
             }
           ],
-          "hash": "bf84654bf956b778"
+          "hash": "cd2af6bd477e0f2c"
         }
       ]
     },

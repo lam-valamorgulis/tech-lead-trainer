@@ -4,6 +4,7 @@ import type { BundledScenario } from "../content/bundle.ts";
 import type { BattleTurn, OpponentType } from "../content/schema.ts";
 import { counterattackSentence, creatureOf, damageLabel } from "./battle.ts";
 import { BAR_NAMES, progressV2, type BattleV2 } from "./battle-v2.ts";
+import { VERDICT_WORDS, verdictName } from "./agent-diff.ts";
 import { EFFECTS } from "./effects.ts";
 import { PERSON_WORDS } from "./portrait.ts";
 import { scenarioTwist, threatTypeOf } from "./twist.ts";
@@ -47,12 +48,15 @@ export type TurnResultText = { damage: string; choice: string; reason: string | 
 export type NameOf = (id: string) => string;
 
 /**
- * The words on a move button. A Meeting answer shows its whole line, so nothing is cut (#105).
- * A creature move shows its name, and its creature as the `owner`.
+ * The words on a move button: the `main` words, and the small `detail` next to them. A Meeting
+ * answer shows its whole line, so nothing is cut (#105). A review verdict shows its name and
+ * what it does (#106). A creature move shows its name, and its creature as the detail.
  */
-export function moveWords(row: BattleTurn["moves"][number], nameOf: NameOf): { main: string; owner: string | null } {
-  if (row.label !== undefined) return { main: row.label, owner: null };
-  return { main: nameOf(row.moveId), owner: nameOf(creatureOf(row.moveId)) };
+export function moveWords(row: BattleTurn["moves"][number], nameOf: NameOf): { main: string; detail: string | null } {
+  if (row.label !== undefined) return { main: row.label, detail: null };
+  const verdict = VERDICT_WORDS[row.moveId];
+  if (verdict) return { main: verdict.name, detail: verdict.meaning };
+  return { main: nameOf(row.moveId), detail: nameOf(creatureOf(row.moveId)) };
 }
 
 export function turnResultText({
@@ -79,16 +83,29 @@ export function turnResultText({
   const choice =
     row?.label !== undefined
       ? `You chose “${row.label}” ${row.counterattack}`
-      : counterattackSentence(played.moveId && nameOf(played.moveId), row?.counterattack ?? null);
+      : counterattackSentence(played.moveId && (verdictName(played.moveId) ?? nameOf(played.moveId)), row?.counterattack ?? null);
   return {
     damage: damageLabel(played.damage),
     choice,
     reason,
-    hitBack:
-      battle.kind === "meeting" && scenario.person
-        ? meetingHitBack(battle, turnNumber, PERSON_WORDS[scenario.person].the)
-        : hitBackText(battle, turnNumber, scenario.name, nameOf),
+    hitBack: hitBackFor(battle, turnNumber, scenario, nameOf),
   };
+}
+
+/** What the other side did back, in the words of the kind of battle. */
+function hitBackFor(battle: BattleV2, turnNumber: number, scenario: Pick<BundledScenario, "name" | "person">, nameOf: NameOf): string {
+  if (battle.kind === "meeting" && scenario.person) {
+    const person = PERSON_WORDS[scenario.person].the;
+    return aloneHitBack(battle, turnNumber, { won: `${person} has no doubt left!`, best: "Best answer", hit: `${person} pushes back` });
+  }
+  if (battle.kind === "agent-diff") {
+    return aloneHitBack(battle, turnNumber, {
+      won: "The diff has no risk left!",
+      best: "Best verdict",
+      hit: "The team trusts your review less",
+    });
+  }
+  return hitBackText(battle, turnNumber, scenario.name, nameOf);
 }
 
 /** The battle as it stood after its first `turns` turns, for example before or after one turn's result. */
@@ -106,13 +123,16 @@ function hitBackText(battle: BattleV2, turnNumber: number, opponentName: string,
   return `The opponent hits back: −${played.hpLost} HP.${faints}${next}`;
 }
 
-/** In a Meeting Battle the person pushes back, and You lose Trust, not HP (#105). */
-function meetingHitBack(battle: BattleV2, turnNumber: number, person: string): string {
+/**
+ * When You play alone, You lose Trust, not HP: the person of a Meeting Battle pushes back (#105),
+ * and after a weak verdict in an Agent Diff Battle the team trusts your review less (#106).
+ */
+function aloneHitBack(battle: BattleV2, turnNumber: number, words: { won: string; best: string; hit: string }): string {
   const played = battle.played[turnNumber - 1];
-  if (progressV2(battleAfter(battle, turnNumber)).won) return `${person} has no doubt left!`;
+  if (progressV2(battleAfter(battle, turnNumber)).won) return words.won;
   const trust = BAR_NAMES[battle.kind].team;
-  if (played.hpLost === 0) return played.bestMove ? `Best answer. No ${trust} lost.` : `No ${trust} lost.`;
-  return `${person} pushes back: −${played.hpLost} ${trust}.${played.fainted.length > 0 ? ` Your ${trust} is gone!` : ""}`;
+  if (played.hpLost === 0) return played.bestMove ? `${words.best}. No ${trust} lost.` : `No ${trust} lost.`;
+  return `${words.hit}: −${played.hpLost} ${trust}.${played.fainted.length > 0 ? ` Your ${trust} is gone!` : ""}`;
 }
 
 /** The team member who was in at the start of a turn: the one who takes that turn's hit. */

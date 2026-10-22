@@ -1,5 +1,5 @@
 import { bestRow, creatureOf, OPPONENT_HP } from "../core/battle.ts";
-import { OPPONENT_SPECIES } from "../core/sprite.ts";
+import { AGENT_SPECIES, OPPONENT_SPECIES } from "../core/sprite.ts";
 import {
   AGENT_VERDICTS,
   glossarySchema,
@@ -76,7 +76,8 @@ export function checkContent(input: ContentInput): Problem[] {
 
 /**
  * Each concept is its own species (design 9, rule 19), so no two creatures share a sprite, in any
- * town. The species of the Battle opponents (#103) are not creatures, so no creature takes them.
+ * town. The species of the Battle opponents (#103) and of the AI agent (#106) are not creatures,
+ * so no creature takes them.
  */
 function spriteProblems(towns: Town[]): Problem[] {
   const owner = new Map<number, string>();
@@ -89,6 +90,8 @@ function spriteProblems(towns: Town[]): Problem[] {
       const opponent = opponentOf.get(creature.sprite);
       if (opponent) {
         problems.push({ where: itemLabel(town, creature), message: `Sprite ${creature.sprite} is the Battle opponent of type ${opponent}. Pick another species.` });
+      } else if (creature.sprite === AGENT_SPECIES) {
+        problems.push({ where: itemLabel(town, creature), message: `Sprite ${creature.sprite} is the AI agent of the Agent Diff Battle. Pick another species.` });
       } else if (first) {
         problems.push({ where: itemLabel(town, creature), message: `Sprite ${creature.sprite} is already used by ${first}. Each creature has its own sprite.` });
       } else {
