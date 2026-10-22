@@ -3,7 +3,7 @@ import { cardPick, turnPick, type SkillPick } from "@/core/trainer-card";
 import { pendingEvents } from "./events/post-events";
 import { selectAll } from "./select-all";
 
-type TurnRow = { client_event_id: string; skill_ids: number[]; best_move: boolean; reason_correct: boolean | null };
+type TurnRow = { client_event_id: string; skill_ids: number[]; best_move: boolean };
 type CardRow = { client_event_id: string; skill_ids: number[]; choice_correct: boolean; reason_correct: boolean };
 
 /**
@@ -19,7 +19,7 @@ export async function loadSkillPicks(client: SupabaseClient): Promise<SkillPick[
     selectAll((from, to) =>
       client
         .from("battle_turn_events")
-        .select("client_event_id, skill_ids, best_move, reason_correct")
+        .select("client_event_id, skill_ids, best_move")
         .not("skill_ids", "is", null)
         .order("occurred_at")
         .order("id")
@@ -40,10 +40,10 @@ export async function loadSkillPicks(client: SupabaseClient): Promise<SkillPick[
   const savedTurns = new Set(turnRows.map((row) => row.client_event_id));
   const savedCards = new Set(cardRows.map((row) => row.client_event_id));
   const turns = [
-    ...turnRows.map((row) => ({ skillIds: row.skill_ids, bestMove: row.best_move, reasonCorrect: row.reason_correct })),
+    ...turnRows.map((row) => ({ skillIds: row.skill_ids, bestMove: row.best_move })),
     ...waitingTurns
       .filter((event) => !savedTurns.has(event.clientEventId))
-      .map((event) => ({ skillIds: event.skillIds ?? null, bestMove: event.bestMove, reasonCorrect: event.reasonCorrect ?? null })),
+      .map((event) => ({ skillIds: event.skillIds ?? null, bestMove: event.bestMove })),
   ];
   const cards = [
     ...cardRows.map((row) => ({ skillIds: row.skill_ids, choiceCorrect: row.choice_correct, reasonCorrect: row.reason_correct })),

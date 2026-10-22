@@ -9,14 +9,14 @@ import { SKILLS, type SkillId } from "../content/skills.ts";
 export type SkillPick = { skillIds: readonly number[]; right: boolean };
 
 /** What the Trainer Card needs from a battle turn row. The kind of battle does not matter. */
-export type SkillTurn = { skillIds: readonly number[] | null; bestMove: boolean; reasonCorrect?: boolean | null };
+export type SkillTurn = { skillIds: readonly number[] | null; bestMove: boolean };
 
 /** What the Trainer Card needs from a Decision Card row (#109). */
 export type SkillCard = { skillIds: readonly number[]; choiceCorrect: boolean; reasonCorrect: boolean };
 
 /**
  * A battle turn is a right pick when the best move was picked, the same rule as the best-move rate
- * (design 7.7). The Reason does not count here; it is logged, so this can change later.
+ * (design 7.7). The Reason does not count here. The log keeps it, so this rule can change later.
  * A turn with no Skills logged (played before v2, or content with no Skills) is left out.
  */
 export function turnPick(turn: SkillTurn): SkillPick | null {

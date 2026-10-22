@@ -6,13 +6,16 @@ const rateOf = (rates: SkillRate[], id: number) => rates.find((rate) => rate.id 
 
 describe("turnPick", () => {
   it("counts a turn right when the best move was picked, whatever the Reason", () => {
-    expect(turnPick({ skillIds: [3], bestMove: true, reasonCorrect: false })).toEqual({ skillIds: [3], right: true });
-    expect(turnPick({ skillIds: [3], bestMove: false, reasonCorrect: true })).toEqual({ skillIds: [3], right: false });
+    // A turn with the best move and a wrong Reason, then one with another move and the right Reason.
+    const bestMoveWrongReason = { skillIds: [3], bestMove: true, reasonCorrect: false };
+    const otherMoveRightReason = { skillIds: [3], bestMove: false, reasonCorrect: true };
+    expect(turnPick(bestMoveWrongReason)).toEqual({ skillIds: [3], right: true });
+    expect(turnPick(otherMoveRightReason)).toEqual({ skillIds: [3], right: false });
   });
 
   it("leaves out a turn with no logged Skills: a turn from before v2, or content with no Skills", () => {
-    expect(turnPick({ skillIds: null, bestMove: true, reasonCorrect: null })).toBeNull();
-    expect(turnPick({ skillIds: [], bestMove: true, reasonCorrect: null })).toBeNull();
+    expect(turnPick({ skillIds: null, bestMove: true })).toBeNull();
+    expect(turnPick({ skillIds: [], bestMove: true })).toBeNull();
   });
 });
 

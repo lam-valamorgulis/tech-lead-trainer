@@ -1301,7 +1301,8 @@ a[aria-current="page"] {
 
 .skill-not-met {
   color: var(--color-muted);
-  border: 2px dashed var(--color-line);
+  border-style: dashed;
+  border-color: var(--color-line);
 }
 
 .skill-not-met .skill-rate {
