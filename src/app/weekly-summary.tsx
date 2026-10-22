@@ -42,7 +42,8 @@ export function WeeklySummaryNumbers({ summary }: { summary: StoredWeeklySummary
         <>
           <li>Best moves under Constraint: {formatWeekRate(picks.constraintBestMoves, "turn")}</li>
           <li>Decision Cards right: {formatWeekRate(picks.decisionCards, "card")}</li>
-          <li>Most-missed concepts: {names(picks.mostMissed) || "none this week"}</li>
+          {/* The summary can show on the Rest Stop, so no word blames the learner (design 5). */}
+          <li>Concepts to work on: {names(picks.mostMissed) || "none this week"}</li>
         </>
       ) : (
         <li>Best moves: {formatBestMoveRate(summary.bestMoves)}</li>

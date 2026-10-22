@@ -1,10 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { sql } from "../support/local-admin";
-import { local, signInNewUser } from "../support/e2e";
-
-// Words that blame the learner for the break. None may appear on the Rest Stop.
-const BLAME = /missed|streak|lost|behind|failed|lazy|should have|broke|gave up|too long/i;
+import { BLAME, local, signInNewUser } from "../support/e2e";
 
 async function learnedDaysAgo(email: string, days: number) {
   await sql(

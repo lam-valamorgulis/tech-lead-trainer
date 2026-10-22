@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 import { addDays } from "../../src/core/day";
 import { formatWeek, latestSummaryWeek } from "../../src/core/week";
 import { sql } from "../support/local-admin";
-import { local, signInNewUser } from "../support/e2e";
+import { BLAME, local, signInNewUser } from "../support/e2e";
 
 /** One session of `seconds` active seconds at `occurredAt` (an SQL time expression). */
 async function learned(email: string, occurredAt: string, seconds: number) {
@@ -123,10 +123,12 @@ test("the Sunday summary of last week shows on home and keeps its numbers", asyn
     await expect(page.getByText("Time: 20 min of 5 h 15 min")).toBeVisible();
     await expect(page.getByText("Best moves under Constraint: no turns this week")).toBeVisible();
     await expect(page.getByText("Decision Cards right: no cards this week")).toBeVisible();
-    await expect(page.getByText("Most-missed concepts: none this week")).toBeVisible();
+    await expect(page.getByText("Concepts to work on: none this week")).toBeVisible();
     await expect(page.getByText("Weakest creatures: Cache")).toBeVisible();
     // No wrong pick this week, so the question names the weakest creature.
     await expect(page.getByText("Where did you meet Cache at work this week?")).toBeVisible();
+    // The summary sits on the Rest Stop here, which never blames the learner (design 5).
+    await expect(page.locator(".week-summary")).not.toContainText(BLAME);
     const accessibility = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
     expect(accessibility.violations).toEqual([]);
 
@@ -141,7 +143,7 @@ test("the Sunday summary of last week shows on home and keeps its numbers", asyn
   }
 });
 
-test("the Sunday summary compares with last week, names the most-missed concepts and saves a short answer", async ({ page }) => {
+test("the Sunday summary compares with last week, names the concepts to work on and saves a short answer", async ({ page }) => {
   const user = await signInNewUser(page, "week-picks");
   try {
     const weekStart = await learnAWeekOfPicks(user.email);
@@ -150,8 +152,9 @@ test("the Sunday summary compares with last week, names the most-missed concepts
     await expect(page.getByText("Best moves under Constraint: 50% (1 of 2 turns), down 50 points from 100% last week")).toBeVisible();
     await expect(page.getByText("Decision Cards right: 50% (1 of 2 cards), none last week")).toBeVisible();
     // Proxy: 1 turn without the best move and 1 wrong Decision Card.
-    await expect(page.getByText("Most-missed concepts: Proxy")).toBeVisible();
+    await expect(page.getByText("Concepts to work on: Proxy")).toBeVisible();
     await expect(page.getByText("Where did you meet Proxy at work this week?")).toBeVisible();
+    await expect(page.locator(".week-summary")).not.toContainText(BLAME);
     const accessibility = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
     expect(accessibility.violations).toEqual([]);
 
@@ -165,7 +168,7 @@ test("the Sunday summary compares with last week, names the most-missed concepts
     // The answer and the numbers are still there after a reload.
     await page.reload();
     await page.getByText(`Week summary: ${formatWeek(weekStart)}`).click();
-    await expect(page.getByText("Most-missed concepts: Proxy")).toBeVisible();
+    await expect(page.getByText("Concepts to work on: Proxy")).toBeVisible();
     await expect(page.locator(".week-summary").getByRole("status")).toHaveText("Your answer: Our CDN served an old page after a deploy.");
     await expect(page.getByRole("button", { name: "Not this week" })).toBeHidden();
   } finally {
