@@ -88,6 +88,44 @@ async function expectReadableCode(page: Page, block: ReturnType<Page["getByTestI
   await expect(block.locator(".diff-added")).toContainText("Added:");
 }
 
+/**
+ * The code block keeps the full height of its code: in the panel's flex column it must not shrink
+ * (#139 review). Scrolled to, it is on screen, and it shows every line with no inner vertical scroll.
+ */
+async function expectWholeCode(block: ReturnType<Page["getByTestId"]>) {
+  await block.scrollIntoViewIfNeeded();
+  await expect(block).toBeInViewport();
+  const { shown, code } = await block.evaluate((el) => ({ shown: el.clientHeight, code: el.querySelector("pre")!.scrollHeight }));
+  expect(code).toBeGreaterThan(100);
+  expect(shown).toBeGreaterThanOrEqual(code);
+}
+
+test("on a small iPhone the code block keeps its full height, and the panel scrolls instead", async ({ page }) => {
+  test.setTimeout(60_000);
+  // iPhone SE size: the panel is 333 px, shorter than the threat, the code and the verdicts together.
+  await page.setViewportSize({ width: 375, height: 667 });
+  const user = await signInNewUser(page, "agent-diff-small");
+  try {
+    await agentDiffDay(user.email);
+    await catchItems(user.email, ["cache", "cookie", "proxy"]);
+    await page.reload();
+    await page.getByRole("button", { name: "15 minutes" }).click();
+    await page.getByRole("button", { name: "Start the review" }).click();
+
+    const panel = battlePanel(page);
+    await expect(panel.getByRole("heading", { name: "Turn 1 of 3" })).toBeFocused();
+    await panelSettled(page);
+    expect((await panel.boundingBox())!.y).toBeGreaterThanOrEqual(667 / 2 - 1);
+    await expect(page.getByTestId("battle-more")).toHaveText("More verdicts below ↓");
+    await expectWholeCode(panel.getByTestId("diff-block"));
+    // The last verdict is still reachable at the end of the panel.
+    await panel.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
+    await expect(panel.getByRole("button", { name: /^Ask for a test/ })).toBeInViewport({ ratio: 1 });
+  } finally {
+    await user.forget();
+  }
+});
+
 test("an Agent Diff Battle: the agent in a lab, the code in the panel, review verdicts, Risk and Trust, kind and Skills logged", async ({
   page,
 }, testInfo) => {
@@ -132,6 +170,7 @@ test("an Agent Diff Battle: the agent in a lab, the code in the panel, review ve
     const code = panel.getByTestId("diff-block");
     await expect(code).toContainText(LONG_LINE);
     await expectReadableCode(page, code);
+    await expectWholeCode(code);
     for (const verdict of ["Block (Do not merge it)", "Approve (Merge it as it is)", "Ask for a test (Merge it only after a test proves it)"]) {
       await panel.getByRole("button", { name: verdict, exact: true }).scrollIntoViewIfNeeded();
       await expect(panel.getByRole("button", { name: verdict, exact: true })).toBeVisible();

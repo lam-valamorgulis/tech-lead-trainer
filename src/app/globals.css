@@ -1118,6 +1118,9 @@ html:has(.battle-scene) {
 /* The agent's diff (#106): monospace at 14 px, so it reads on an iPhone without zoom. Lines never
    wrap; the block scrolls sideways on its own, never the page. */
 .diff-block {
+  /* In the panel's flex column, a scroll box may shrink to almost nothing. It keeps its full
+     height, and the panel scrolls instead. */
+  flex-shrink: 0;
   min-width: 0;
   max-width: 100%;
   overflow-x: auto;
