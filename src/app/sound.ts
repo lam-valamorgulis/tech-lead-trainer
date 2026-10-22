@@ -24,10 +24,18 @@ const songStack: SongName[] = [];
 let playing: { song: SongName; step: number; nextAt: number } | null = null;
 let timer: ReturnType<typeof setInterval> | null = null;
 
+/**
+ * A browser driven by a test (Playwright sets `navigator.webdriver`) plays every sound at volume 0.
+ * The sound code still runs, so tests still cover it, but the owner's Mac stays quiet.
+ */
+function masterVolume(on: boolean): number {
+  return on && !navigator.webdriver ? 1 : 0;
+}
+
 /** Follows the "Sound effects" setting and the speaker button. Off silences every sound at once. */
 export function setSoundOn(on: boolean): void {
   soundOn = on;
-  if (master && context) master.gain.setValueAtTime(on ? 1 : 0, context.currentTime);
+  if (master && context) master.gain.setValueAtTime(masterVolume(on), context.currentTime);
   if (on) followSong();
   else stopMusic();
 }
@@ -45,6 +53,7 @@ export function startSound(): void {
       if (session) session.type = "ambient";
       context = new AudioContext();
       master = context.createGain();
+      master.gain.value = masterVolume(true);
       master.connect(context.destination);
       effects = context.createGain();
       effects.gain.value = EFFECTS_VOLUME;
@@ -99,11 +108,20 @@ function followSong(): void {
   if (!soundOn || !context || wanted === null) return stopMusic();
   if (playing?.song === wanted) return;
   playing = { song: wanted, step: 0, nextAt: context.currentTime + 0.05 };
+  markSong(wanted);
   timer ??= setInterval(planMusic, MUSIC_TICK_MS);
+}
+
+/** The loop that plays, as `data-music` on the page, so a test can tell the loops apart (#105). */
+function markSong(song: SongName | null): void {
+  if (typeof document === "undefined") return;
+  if (song) document.documentElement.dataset.music = song;
+  else delete document.documentElement.dataset.music;
 }
 
 function stopMusic(): void {
   playing = null;
+  markSong(null);
   if (timer) clearInterval(timer);
   timer = null;
 }

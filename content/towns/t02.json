@@ -2638,7 +2638,7 @@
                 "text": "A client starts work that takes time. The server does not want to hold the connection open. So it answers at once, before the work is finished."
               },
               {
-                "text": "The status code is 202 Accepted. It means the request was accepted for processing, but the processing is not complete. Example status line: HTTP/1.1 202 Accepted."
+                "text": "The status code is 202 Accepted. It means the request was accepted for processing, but the processing is not complete."
               },
               {
                 "text": "The answer is noncommittal on purpose. The request might never be done, because it can be disallowed when processing really happens. The response should describe the current status and point to a status monitor."
@@ -3872,6 +3872,10 @@
     {
       "id": "t02-first-endpoints",
       "name": "The first endpoints",
+      "source": {
+        "title": "Slack Engineering: How we design our APIs at Slack",
+        "url": "https://slack.engineering/how-we-design-our-apis-at-slack/"
+      },
       "opponentType": "data",
       "secondType": "traffic",
       "problem": "Your team builds the first version of a library API. The mobile team starts to use it this week.",
@@ -3879,6 +3883,25 @@
         {
           "threatType": "data",
           "threat": "The plan has endpoints like /getBook, /saveBook and /removeBookNow. Each one returns a different shape of book.",
+          "constraint": "No client depends on these endpoints yet, so a rewrite is still cheap.",
+          "reasons": [
+            {
+              "text": "The resource schema is the same in all standard methods.",
+              "right": true
+            },
+            {
+              "text": "Clean names alone make every endpoint return the same book.",
+              "right": false
+            },
+            {
+              "text": "A status code decides what shape a resource has.",
+              "right": false
+            }
+          ],
+          "skills": [
+            2,
+            3
+          ],
           "moves": [
             {
               "moveId": "resource-design.resource-name",
@@ -3910,7 +3933,26 @@
         },
         {
           "threatType": "traffic",
-          "threat": "Create answers 200 OK with an empty body. So the app calls List every second until it finds the new book.",
+          "threat": "Your create endpoint does not follow the industry standard for a create response. Developers cannot guess what it returns.",
+          "constraint": "Your design rule: be consistent with industry standards first.",
+          "reasons": [
+            {
+              "text": "An empty 200 already tells the app where the new book is.",
+              "right": false
+            },
+            {
+              "text": "A 201 can name the new book in its Location header.",
+              "right": true
+            },
+            {
+              "text": "A new custom method is the usual way to find new items.",
+              "right": false
+            }
+          ],
+          "skills": [
+            2,
+            20
+          ],
           "moves": [
             {
               "moveId": "api-status-code.created",
@@ -3937,34 +3979,53 @@
         },
         {
           "threatType": "data",
-          "threat": "Product wants an archive action. A teammate adds an archived flag that any Update call can change by mistake.",
+          "threat": "You renamed /getBook to /books/{id}. App builds that worked yesterday get 404 today.",
+          "constraint": "Your rule: what worked yesterday should work tomorrow. The app only reads with the old URL.",
+          "reasons": [
+            {
+              "text": "A 404 with a helpful message tells the app where the book went.",
+              "right": false
+            },
+            {
+              "text": "Bringing back /getBook next to the new endpoint keeps the design clean.",
+              "right": false
+            },
+            {
+              "text": "A permanent redirect sends the app to the new URL by itself.",
+              "right": true
+            }
+          ],
+          "skills": [
+            2,
+            20
+          ],
           "moves": [
             {
               "moveId": "resource-design.resource-name",
+              "damage": 1,
+              "counterattack": "Book names are clean, but the old builds still get 404."
+            },
+            {
+              "moveId": "status-code.client-error",
               "damage": 0,
-              "counterattack": "You rename the flag, but any Update can still archive a book by mistake."
+              "counterattack": "You explain the 404 in the docs, and the old builds still fail."
+            },
+            {
+              "moveId": "status-code.redirect",
+              "damage": 2,
+              "counterattack": "Old builds reach the new URL, but you must keep the old route as a redirect."
             },
             {
               "moveId": "api-status-code.created",
               "damage": 0,
-              "counterattack": "Archive calls now return 201, but nothing new was created, so clients get confused."
-            },
-            {
-              "moveId": "resource-design.standard-methods",
-              "damage": 1,
-              "counterattack": "Update now has a special archive rule, but the rule hides inside a normal update."
-            },
-            {
-              "moveId": "resource-design.custom-method",
-              "damage": 2,
-              "counterattack": "POST with :archive is clear, but the team must document and test one more method."
+              "counterattack": "Creates return 201, but reads of /getBook still fail."
             }
           ],
-          "modelAnswer": "Archiving does not fit a standard method cleanly, so add a custom method: POST on the book with :archive. Do not bend Update to make it sort of work. The cost: one more method to document and test.",
+          "modelAnswer": "Answer the old URL with a permanent redirect, 301 or 308, and a Location header with the new URL. The client then loads the new URL at once. The cost: you keep the old route for the redirect.",
           "keyPoints": [
-            "Use a custom method when no standard method fits.",
-            "It uses POST and a colon verb, like :archive.",
-            "Do not bend Update to do the job."
+            "A redirect has a status code that starts with 3.",
+            "The Location header names the new URL.",
+            "301 and 308 are permanent redirects."
           ]
         }
       ]
@@ -3972,13 +4033,36 @@
     {
       "id": "t02-confused-client",
       "name": "The confused client",
+      "source": {
+        "title": "GitHub Docs: Troubleshooting the REST API",
+        "url": "https://docs.github.com/en/rest/using-the-rest-api/troubleshooting-the-rest-api"
+      },
       "opponentType": "traffic",
       "secondType": "data",
-      "problem": "A partner app calls your orders API. It cannot tell success from failure, so it guesses.",
+      "problem": "A partner app calls your orders API. It decides what to show from your status codes.",
       "turns": [
         {
           "threatType": "data",
           "threat": "The API answers 400 for broken JSON and also for a quantity of minus 3. The app shows Try again for both.",
+          "constraint": "The JSON is valid, but a quantity of minus 3 fails validation.",
+          "reasons": [
+            {
+              "text": "422 says the request is readable but cannot be processed.",
+              "right": true
+            },
+            {
+              "text": "400 Bad Request is the right code for a request with a bad value.",
+              "right": false
+            },
+            {
+              "text": "409 fits any value that the server refuses.",
+              "right": false
+            }
+          ],
+          "skills": [
+            2,
+            20
+          ],
           "moves": [
             {
               "moveId": "api-status-code.conflict",
@@ -4005,66 +4089,104 @@
         },
         {
           "threatType": "traffic",
-          "threat": "Create answers 200 OK with an empty body. So the app lists all orders again and again to find the new one.",
+          "threat": "A script asks for many private orders of other shops. Each 403 answer tells it that the order exists.",
+          "constraint": "Outsiders must not even learn that a private order exists.",
+          "reasons": [
+            {
+              "text": "A 403 hides the order better, because it refuses access.",
+              "right": false
+            },
+            {
+              "text": "A 404 hides whether the order exists at all.",
+              "right": true
+            },
+            {
+              "text": "A 401 tells the script to stop and sign in.",
+              "right": false
+            }
+          ],
+          "skills": [
+            12,
+            2
+          ],
           "moves": [
             {
-              "moveId": "resource-design.custom-method",
+              "moveId": "api-auth.unauthorized-vs-forbidden",
+              "damage": 1,
+              "counterattack": "The code is honest, but each 403 still tells the script that the order exists."
+            },
+            {
+              "moveId": "status-code.client-error",
+              "damage": 2,
+              "counterattack": "The script learns nothing, but partners must now check their access when they get 404."
+            },
+            {
+              "moveId": "api-status-code.conflict",
               "damage": 0,
-              "counterattack": "You add a :findNewest method, and the app now polls that instead."
+              "counterattack": "You answer 409, and the script still learns which orders exist."
             },
             {
               "moveId": "resource-design.resource-name",
               "damage": 0,
-              "counterattack": "Orders get clean names, but the app still cannot learn the new one."
-            },
-            {
-              "moveId": "api-status-code.unprocessable",
-              "damage": 0,
-              "counterattack": "Bad orders are clearer now, but good orders still give no name back."
-            },
-            {
-              "moveId": "api-status-code.created",
-              "damage": 2,
-              "counterattack": "The app reads Location and stops listing, but each create path must set it."
+              "counterattack": "Orders get clean names, but the answers still show which ones exist."
             }
           ],
-          "modelAnswer": "Answer a new order with 201 Created and a Location header. The app learns at once that the order exists, and where it is. The cost: every create path must return the right Location.",
+          "modelAnswer": "Answer 404 Not Found, not 403 Forbidden, for orders the caller may not see. A 403 says that the order exists. A server may send 404 to hide that a resource exists. The cost: partners must check their access on a 404.",
           "keyPoints": [
-            "201 Created says a new resource exists.",
-            "Location names the new order.",
-            "No need to list everything to find it."
+            "403 means the server knows the client, but denies access.",
+            "404 can hide that a resource exists.",
+            "Partners must then check their access on a 404."
           ]
         },
         {
           "threatType": "data",
-          "threat": "Two staff members change the same order at once. The second PUT wins, and the first change is lost without a word.",
-          "moves": [
+          "threat": "Two staff members create an order label with the same name at once. The second create fails, and the app shows Try again.",
+          "constraint": "The name was free when the user started, but another create took it first.",
+          "reasons": [
             {
-              "moveId": "api-status-code.conflict",
-              "damage": 2,
-              "counterattack": "The second PUT now gets 409, but the staff must merge the two changes by hand."
+              "text": "Try again works, because the next create gets a new chance.",
+              "right": false
             },
+            {
+              "text": "A new method can merge the two creates by itself.",
+              "right": false
+            },
+            {
+              "text": "A 409 tells the user that the name is already in use.",
+              "right": true
+            }
+          ],
+          "skills": [
+            2,
+            3
+          ],
+          "moves": [
             {
               "moveId": "api-status-code.created",
               "damage": 0,
-              "counterattack": "You answer 201, but nothing new was created, and the change is still lost."
+              "counterattack": "You answer 201 for both, and now two labels share one name."
             },
             {
               "moveId": "resource-design.custom-method",
               "damage": 0,
-              "counterattack": "You add an :updateSafely method, but it also saves over the first change."
+              "counterattack": "You add a :createSafely method, and it fails the same way."
+            },
+            {
+              "moveId": "api-status-code.conflict",
+              "damage": 2,
+              "counterattack": "The second create gets 409, and the user must pick another name."
             },
             {
               "moveId": "resource-design.standard-methods",
               "damage": 0,
-              "counterattack": "Update returns the saved order now, but the first change is still lost."
+              "counterattack": "Create returns the label now, but the second create still fails with no reason."
             }
           ],
-          "modelAnswer": "Answer the conflicting PUT with 409 Conflict. Give enough detail, so the user can see the other change and merge. The cost: users must resolve the conflict themselves and send again.",
+          "modelAnswer": "Answer the second create with 409 Conflict. The request conflicts with the current state: the name is taken. Give enough detail, so the user can see the source of the conflict. The cost: the user must pick another name.",
           "keyPoints": [
             "409 means a conflict with the current state.",
-            "The response shows the source of the conflict.",
-            "The user resolves it and sends the request again."
+            "Say what caused the conflict.",
+            "The user changes the request and sends it again."
           ]
         }
       ]
@@ -4072,13 +4194,36 @@
     {
       "id": "t02-unreadable-errors",
       "name": "Errors nobody can read",
+      "source": {
+        "title": "Slack Engineering: How we design our APIs at Slack",
+        "url": "https://slack.engineering/how-we-design-our-apis-at-slack/"
+      },
       "opponentType": "data",
       "secondType": "security",
       "problem": "Your shop API returns errors, but the app and the support team cannot use them.",
       "turns": [
         {
           "threatType": "data",
-          "threat": "The app decides what to do by reading the error title. A copy change in one title broke the top-up flow.",
+          "threat": "Your errors have only human-readable text, with no stable code. The app picks its next step by matching those words.",
+          "constraint": "Your rule: errors are unambiguous, with codes next to the human-readable text.",
+          "reasons": [
+            {
+              "text": "Code should match a stable type URI, not human text.",
+              "right": true
+            },
+            {
+              "text": "A title stays the same once the API ships, so code can match it.",
+              "right": false
+            },
+            {
+              "text": "The status code alone tells every problem apart.",
+              "right": false
+            }
+          ],
+          "skills": [
+            2,
+            20
+          ],
           "moves": [
             {
               "moveId": "problem-details.extension",
@@ -4111,6 +4256,24 @@
         {
           "threatType": "security",
           "threat": "A failed payment returns the SQL error and a full stack trace to the browser.",
+          "constraint": "The API is public, so anyone can make a payment fail.",
+          "reasons": [
+            {
+              "text": "An extension member hides data from attackers.",
+              "right": false
+            },
+            {
+              "text": "A stack trace shows attackers how the system is built.",
+              "right": true
+            },
+            {
+              "text": "A typed error is safe, even with a trace inside.",
+              "right": false
+            }
+          ],
+          "skills": [
+            12
+          ],
           "moves": [
             {
               "moveId": "problem-details.safe-detail",
@@ -4137,34 +4300,53 @@
         },
         {
           "threatType": "data",
-          "threat": "The app parses the detail sentence to find the account balance. A new wording breaks it.",
+          "threat": "Your SDK turns every error into Request failed. It throws away the HTTP headers and the raw body.",
+          "constraint": "The error type is in the body, and the wait time is in a header.",
+          "reasons": [
+            {
+              "text": "A clear status line makes the headers and the body extra.",
+              "right": false
+            },
+            {
+              "text": "Error bodies matter to the server team, but SDK users can skip them.",
+              "right": false
+            },
+            {
+              "text": "The status code alone carries neither the type nor the wait time.",
+              "right": true
+            }
+          ],
+          "skills": [
+            2,
+            20
+          ],
           "moves": [
             {
-              "moveId": "api-status-code.conflict",
-              "damage": 0,
-              "counterattack": "You switch to 409, but the app still parses the sentence."
+              "moveId": "http-message.status-line",
+              "damage": 1,
+              "counterattack": "Developers see 429 Too Many Requests, but the wait time is still lost."
             },
             {
               "moveId": "problem-details.type",
-              "damage": 1,
-              "counterattack": "The type is clear, but the balance still hides inside the sentence."
+              "damage": 0,
+              "counterattack": "The body has a type URI, but the SDK still throws the body away."
+            },
+            {
+              "moveId": "http-message.headers-and-body",
+              "damage": 2,
+              "counterattack": "Developers get the full error, but the SDK error object grows bigger."
             },
             {
               "moveId": "problem-details.safe-detail",
               "damage": 0,
-              "counterattack": "The detail gets shorter, and the app's parser breaks again."
-            },
-            {
-              "moveId": "problem-details.extension",
-              "damage": 2,
-              "counterattack": "The balance is a field now, but old app versions still parse the sentence."
+              "counterattack": "The detail is safe now, but nobody sees it."
             }
           ],
-          "modelAnswer": "Put the balance in an extension member, like balance: 30. Clients should not parse the detail text. The cost: old app versions keep parsing until users update them.",
+          "modelAnswer": "A response has a status line, headers and an optional body. Each part can carry data the developer needs. So pass all three on in the SDK error. The cost: the error object grows bigger.",
           "keyPoints": [
-            "Extensions carry machine data.",
-            "Do not parse the detail text.",
-            "Clients ignore extensions they do not know."
+            "A response has a status line, headers and a body.",
+            "Error details can sit in the headers and the body.",
+            "Do not let the SDK throw them away."
           ]
         }
       ]
@@ -4172,13 +4354,35 @@
     {
       "id": "t02-leaked-key",
       "name": "The leaked key",
+      "source": {
+        "title": "RubyGems Blog: API key logging leak",
+        "url": "https://blog.rubygems.org/2020/07/28/api-key-leak.html"
+      },
       "opponentType": "security",
       "secondType": "traffic",
-      "problem": "A partner reports strange calls made with its API key. Your team checks how keys and tokens travel.",
+      "problem": "API keys leaked through your access logs. Your team checks how keys and tokens travel.",
       "turns": [
         {
           "threatType": "security",
-          "threat": "The partner shared a log file in a support ticket. It holds full URLs with apiKey= values.",
+          "threat": "Your access logs go to an outside service. They hold full URLs with API keys in the query string.",
+          "constraint": "The logs keep every full URL, and these API clients can send headers.",
+          "reasons": [
+            {
+              "text": "Logs store full URLs, so a key in a URL gets stored too.",
+              "right": true
+            },
+            {
+              "text": "HTTPS encrypts the whole URL, so the key stays out of the server logs.",
+              "right": false
+            },
+            {
+              "text": "Failed requests are the ones that end up in the logs.",
+              "right": false
+            }
+          ],
+          "skills": [
+            12
+          ],
           "moves": [
             {
               "moveId": "api-auth.https-only",
@@ -4205,7 +4409,26 @@
         },
         {
           "threatType": "traffic",
-          "threat": "Users with valid tokens get 401 for other teams' reports. The app signs in again and again, and floods the sign-in server.",
+          "threat": "With two-factor authentication on, a valid API key is not enough to push a gem. The push tool asks for a new key again and again.",
+          "constraint": "The key is valid; this action also needs the second factor.",
+          "reasons": [
+            {
+              "text": "A 401 and a 403 mean the same thing to a client tool.",
+              "right": false
+            },
+            {
+              "text": "A 401 asks for new credentials, so the tool asks for a key again.",
+              "right": true
+            },
+            {
+              "text": "A 409 tells the tool to stop and wait.",
+              "right": false
+            }
+          ],
+          "skills": [
+            12,
+            2
+          ],
           "moves": [
             {
               "moveId": "api-auth.key-not-in-url",
@@ -4237,34 +4460,52 @@
         },
         {
           "threatType": "security",
-          "threat": "An old test endpoint still answers over plain http. One app version sends tokens to it.",
+          "threat": "A teammate says API keys in the query string are fine, because HTTPS encrypts the URL on the network.",
+          "constraint": "Your Nginx and CDN access logs store the full request URL, query string included.",
+          "reasons": [
+            {
+              "text": "HTTPS keeps the URL encrypted in the logs as well.",
+              "right": false
+            },
+            {
+              "text": "Access logs store the path of each request, but they drop the query string.",
+              "right": false
+            },
+            {
+              "text": "The request target is part of the request line that gets logged.",
+              "right": true
+            }
+          ],
+          "skills": [
+            12
+          ],
           "moves": [
             {
               "moveId": "api-auth.https-only",
+              "damage": 1,
+              "counterattack": "The network is safe, but the logs still store the full request line."
+            },
+            {
+              "moveId": "problem-details.safe-detail",
+              "damage": 0,
+              "counterattack": "Error bodies are safe, but the keys still sit in the logs."
+            },
+            {
+              "moveId": "http-message.request-line",
               "damage": 2,
-              "counterattack": "The plain http endpoint closes, but the old app version stops working until users update."
+              "counterattack": "The team sees why the logs hold keys, but every client must move its key out of the URL."
             },
             {
               "moveId": "api-auth.unauthorized-vs-forbidden",
               "damage": 0,
-              "counterattack": "The codes are correct, but the tokens still travel in plain text."
-            },
-            {
-              "moveId": "api-auth.key-not-in-url",
-              "damage": 1,
-              "counterattack": "Tokens leave the URL, but plain http still shows the headers too."
-            },
-            {
-              "moveId": "resource-design.resource-name",
-              "damage": 0,
-              "counterattack": "The test endpoint gets a nicer name, but it is still plain http."
+              "counterattack": "The status codes are right, but the logs still hold the keys."
             }
           ],
-          "modelAnswer": "Serve the API only over HTTPS, and close the plain http endpoint. HTTPS protects tokens in transit and lets clients authenticate the service. The cost: the old app version breaks until users update.",
+          "modelAnswer": "The first line of an HTTP/1.x request is the request line: method, request target and protocol. The request target is usually a URL. So a log of request lines also holds any key in that URL. The cost: clients must move their keys.",
           "keyPoints": [
-            "Secure REST services offer only HTTPS.",
-            "HTTPS protects credentials in transit.",
-            "Clients can check that they talk to the real service."
+            "The request line has a method, a target and a protocol.",
+            "The request target is usually a URL.",
+            "A log of request lines stores keys in URLs."
           ]
         }
       ]
@@ -4272,45 +4513,82 @@
     {
       "id": "t02-greedy-partner",
       "name": "The greedy partner",
+      "source": {
+        "title": "Stripe Blog: Scaling your API with rate limiters",
+        "url": "https://stripe.com/blog/rate-limiters"
+      },
       "opponentType": "traffic",
       "secondType": "outage",
       "problem": "One partner's integration sends more requests than all the other partners together.",
       "turns": [
         {
-          "threatType": "traffic",
-          "threat": "The partner's nightly job sends 60 requests in the first second of each minute. It gets 429 under a limit of 60 per minute.",
+          "threatType": "outage",
+          "threat": "During an incident, your servers cannot serve all regular traffic. Low-priority calls crowd out critical calls, like new payments.",
+          "constraint": "The overload is on your side, and no single user sends too fast.",
+          "reasons": [
+            {
+              "text": "The cause is your own overload, not one client's speed.",
+              "right": true
+            },
+            {
+              "text": "A 429 is the right answer to an overload of any kind.",
+              "right": false
+            },
+            {
+              "text": "Each request should wait the same, so no call gets dropped.",
+              "right": false
+            }
+          ],
+          "skills": [
+            10,
+            2
+          ],
           "moves": [
             {
               "moveId": "rate-limit.api-key-quota",
-              "damage": 0,
-              "counterattack": "You give the job its own key, but its bursts still hit the limit."
+              "damage": 1,
+              "counterattack": "Fast keys get 429, but the overload is yours, so careful partners get blamed too."
             },
             {
               "moveId": "rate-limit.retry-after",
-              "damage": 1,
-              "counterattack": "The job waits after each 429, but every new minute starts with a burst again."
-            },
-            {
-              "moveId": "api-auth.https-only",
               "damage": 0,
-              "counterattack": "The calls are secure, but the bursts still fail."
+              "counterattack": "You send a wait time, but every kind of call still fights for the same servers."
             },
             {
-              "moveId": "rate-limit.token-bucket",
+              "moveId": "status-code.server-error",
               "damage": 2,
-              "counterattack": "The job spreads its calls over the minute, but each run now takes the whole minute."
+              "counterattack": "New payments get through, but some low-priority calls fail with 503 until the servers recover."
             }
           ],
-          "modelAnswer": "With a token bucket, capacity refills all the time. A limit can also apply over shorter times, like 60 per minute as 1 per second. So spread the requests evenly. The cost: each run takes the whole minute.",
+          "modelAnswer": "Answer the low-priority calls with 503 Service Unavailable, so payments get through. A 503 means the server is not ready, for example from too much traffic. Use it for temporary conditions. The cost: some calls fail for a while.",
           "keyPoints": [
-            "Capacity refills all the time, up to a maximum.",
-            "A limit can apply over shorter times.",
-            "Spread requests instead of sending bursts."
+            "503 says the server is not ready for now.",
+            "429 is for a client that sends too many requests.",
+            "Drop low-priority calls first, so payments get through."
           ]
         },
         {
           "threatType": "traffic",
-          "threat": "One partner key sends 300 requests per second. Calls from the other partners slow down.",
+          "threat": "One user is responsible for a spike in traffic. Calls from every other user slow down.",
+          "constraint": "One API key causes the spike, and every other user pays for it.",
+          "reasons": [
+            {
+              "text": "A wait header makes a fast client slow down by itself.",
+              "right": false
+            },
+            {
+              "text": "A limit per key stops one user from slowing everyone.",
+              "right": true
+            },
+            {
+              "text": "Moving the key to a header lowers the request rate.",
+              "right": false
+            }
+          ],
+          "skills": [
+            2,
+            20
+          ],
           "moves": [
             {
               "moveId": "rate-limit.retry-after",
@@ -4342,7 +4620,26 @@
         },
         {
           "threatType": "outage",
-          "threat": "The partner's script gets 429, but it retries at once, again and again, all night.",
+          "threat": "A user's misbehaving script hits the limit. It retries at once, again and again, all night.",
+          "constraint": "The script can slow down without changing its result, if it knows how long to wait.",
+          "reasons": [
+            {
+              "text": "A smoother bucket stops a script that retries at once.",
+              "right": false
+            },
+            {
+              "text": "A wait field in the error body reaches each client.",
+              "right": false
+            },
+            {
+              "text": "Retry-After tells the client how long to wait.",
+              "right": true
+            }
+          ],
+          "skills": [
+            2,
+            10
+          ],
           "moves": [
             {
               "moveId": "rate-limit.retry-after",
@@ -4355,9 +4652,9 @@
               "counterattack": "Capacity refills smoothly, but the script still hits you between refills."
             },
             {
-              "moveId": "problem-details.extension",
+              "moveId": "api-auth.key-not-in-url",
               "damage": 0,
-              "counterattack": "You add a wait field to the error body, but the script never reads error bodies."
+              "counterattack": "The key moves to a header, and the script still retries at once."
             }
           ],
           "modelAnswer": "Send a Retry-After header, so the client knows how long to wait. The value is seconds or an HTTP date. The cost: you must choose a wait that is fair and correct.",
@@ -4372,13 +4669,36 @@
     {
       "id": "t02-endless-list",
       "name": "The endless list",
+      "source": {
+        "title": "Slack Engineering: Evolving API Pagination at Slack",
+        "url": "https://slack.engineering/evolving-api-pagination-at-slack/"
+      },
       "opponentType": "speed",
       "secondType": "data",
-      "problem": "GET /orders was built for a small shop. Now the shop has 40,000 orders.",
+      "problem": "An endpoint was designed for a few hundred records. Now it returns hundreds of thousands.",
       "turns": [
         {
           "threatType": "speed",
-          "threat": "GET /orders returns all 40,000 orders in one response. Mobile apps wait 20 seconds for it.",
+          "threat": "GET /orders returns every order in one response. Mobile apps wait a long time for it.",
+          "constraint": "Clients must still be able to reach every order, page by page.",
+          "reasons": [
+            {
+              "text": "A nextLink lets the client fetch pages until none is left.",
+              "right": true
+            },
+            {
+              "text": "A smaller page size shows clients where the rest of the list is.",
+              "right": false
+            },
+            {
+              "text": "Fewer calls per minute make each response smaller.",
+              "right": false
+            }
+          ],
+          "skills": [
+            2,
+            3
+          ],
           "moves": [
             {
               "moveId": "paging.page-size",
@@ -4409,35 +4729,78 @@
           ]
         },
         {
-          "threatType": "speed",
-          "threat": "A client sends page_size 100000 to avoid paging. Each call still takes 20 seconds.",
-          "moves": [
+          "threatType": "data",
+          "threat": "A task app calls users.list again and again to retrieve all users. A teammate fears that the repeated calls change data.",
+          "constraint": "In your own API, the list call uses GET, and it only reads users.",
+          "reasons": [
             {
-              "moveId": "paging.next-link",
-              "damage": 1,
-              "counterattack": "The client gets a nextLink, but its pages are still huge."
+              "text": "Each repeated call needs an idempotency key to be safe.",
+              "right": false
             },
             {
-              "moveId": "rate-limit.api-key-quota",
-              "damage": 0,
-              "counterattack": "You limit the key, but each giant page is still slow."
+              "text": "A safe method only reads, so repeated calls change nothing.",
+              "right": true
             },
             {
-              "moveId": "paging.page-size",
-              "damage": 2,
-              "counterattack": "The API lowers page_size to the maximum, but the client must follow more pages."
+              "text": "Repeated list calls can move the cursor on the server and skip users.",
+              "right": false
             }
           ],
-          "modelAnswer": "Set a maximum page size, and lower bigger values to it. Document the default size. The API may return fewer results than asked. The cost: the client must follow more pages.",
+          "skills": [
+            2,
+            20
+          ],
+          "moves": [
+            {
+              "moveId": "idempotency-key.saved-response",
+              "damage": 1,
+              "counterattack": "Keys work, but this read-only call never needed one."
+            },
+            {
+              "moveId": "http-method.safe",
+              "damage": 2,
+              "counterattack": "The app keeps calling, but your servers still log and count every call."
+            },
+            {
+              "moveId": "paging.page-token",
+              "damage": 0,
+              "counterattack": "The token stays opaque, but the teammate still fears the calls."
+            },
+            {
+              "moveId": "rate-limit.token-bucket",
+              "damage": 0,
+              "counterattack": "Calls spread out, but nobody knows yet if they change data."
+            }
+          ],
+          "modelAnswer": "GET is a safe method: it does not change the state of the server. It is read-only. So repeated list calls change no data. The cost: the server can still log or count the calls.",
           "keyPoints": [
-            "A page_size above the maximum is lowered to it.",
-            "A missing page_size gets a documented default.",
-            "A page can be shorter than asked."
+            "GET, HEAD and OPTIONS are safe.",
+            "Safe means read-only.",
+            "The server can still log or count calls."
           ]
         },
         {
           "threatType": "data",
-          "threat": "A partner decodes your base-64 page token and edits the offset in it. After you change the token, their app shows the wrong orders.",
+          "threat": "A partner decodes your Base64 page token and edits what is inside. After you change the token, their app shows the wrong orders.",
+          "constraint": "You want to change how paging works inside the token next month.",
+          "reasons": [
+            {
+              "text": "Base64 encoding is enough to keep a page token opaque to clients.",
+              "right": false
+            },
+            {
+              "text": "A nextLink hides the token from the partner.",
+              "right": false
+            },
+            {
+              "text": "Clients who can read a token come to depend on what is inside.",
+              "right": true
+            }
+          ],
+          "skills": [
+            2,
+            20
+          ],
           "moves": [
             {
               "moveId": "paging.page-token",
@@ -4467,13 +4830,36 @@
     {
       "id": "t02-two-editors",
       "name": "Two editors",
+      "source": {
+        "title": "Microsoft: Azure REST API Guidelines",
+        "url": "https://github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md"
+      },
       "opponentType": "data",
-      "secondType": "speed",
-      "problem": "Support agents edit customers in a web app. The app calls your customers API.",
+      "secondType": "outage",
+      "problem": "Support agents change the same records through your API. It follows the Azure guidelines, where ETags offer optimistic concurrency.",
       "turns": [
         {
           "threatType": "data",
-          "threat": "Two agents edit one customer. The second save silently erases the first agent's change.",
+          "threat": "Two agents change one record at the same time. The second save erases the first agent's change.",
+          "constraint": "Each agent's app keeps the ETag of the record that it read.",
+          "reasons": [
+            {
+              "text": "If-Match lets the server refuse a save based on old data.",
+              "right": true
+            },
+            {
+              "text": "If-None-Match protects saves as well as reads.",
+              "right": false
+            },
+            {
+              "text": "A 409 alone tells the server which save used old data.",
+              "right": false
+            }
+          ],
+          "skills": [
+            2,
+            3
+          ],
           "moves": [
             {
               "moveId": "api-status-code.conflict",
@@ -4504,40 +4890,78 @@
           ]
         },
         {
-          "threatType": "speed",
-          "threat": "The app downloads the same 2 MB customer list every minute, even when nothing changed.",
+          "threatType": "outage",
+          "threat": "An agent's save times out, so the app is not sure if it worked. The app drops the change and shows an error.",
+          "constraint": "Your guidelines say every operation is idempotent, so clients can retry.",
+          "reasons": [
+            {
+              "text": "A save that timed out has to be checked by hand.",
+              "right": false
+            },
+            {
+              "text": "An idempotent request can be sent again with the same effect.",
+              "right": true
+            },
+            {
+              "text": "A retry is safe after the agent reloads the page, not before.",
+              "right": false
+            }
+          ],
+          "skills": [
+            2,
+            10
+          ],
           "moves": [
             {
-              "moveId": "conditional-request.if-none-match",
+              "moveId": "http-method.post",
+              "damage": 0,
+              "counterattack": "You switch the save to POST, which is not guaranteed to be idempotent."
+            },
+            {
+              "moveId": "http-method.idempotent",
               "damage": 2,
-              "counterattack": "An unchanged list returns 304, but the ETag must change every time the list changes."
+              "counterattack": "The app retries the save, but each response may differ."
+            },
+            {
+              "moveId": "conditional-request.if-none-match",
+              "damage": 0,
+              "counterattack": "Reads are cheaper, but the save is still dropped."
             },
             {
               "moveId": "paging.page-size",
-              "damage": 1,
-              "counterattack": "Pages get smaller, but the app still downloads data that did not change."
-            },
-            {
-              "moveId": "conditional-request.if-match",
               "damage": 0,
-              "counterattack": "If-Match guards changes, so the downloads stay the same."
-            },
-            {
-              "moveId": "rate-limit.retry-after",
-              "damage": 0,
-              "counterattack": "You ask the app to wait, but it still downloads the full list each time."
+              "counterattack": "Pages get smaller, but the save is still dropped."
             }
           ],
-          "modelAnswer": "Send If-None-Match with the stored ETag on each GET. If nothing changed, the server answers 304 Not Modified, and the app uses its copy. The cost: the ETag must change whenever the list changes.",
+          "modelAnswer": "A request is idempotent if several identical requests have the same intended effect as one. A client can safely retry it when it is not sure the request arrived. So the app retries the save. The cost: the response can still differ between calls.",
           "keyPoints": [
-            "If-None-Match carries the stored ETag.",
-            "No change means 304 Not Modified.",
-            "The app reuses its stored copy."
+            "Identical requests have the same effect as one.",
+            "A client can retry an idempotent request.",
+            "The response can still differ."
           ]
         },
         {
           "threatType": "data",
-          "threat": "Your ETag is a version number. An update worked, but its reply was lost. The identical retry is now rejected as a conflict.",
+          "threat": "An update worked, but its reply was lost. The identical retry is now seen as a conflict.",
+          "constraint": "The ETag is the record's version number.",
+          "reasons": [
+            {
+              "text": "A version number is the most precise ETag, so retries can trust it.",
+              "right": false
+            },
+            {
+              "text": "If-None-Match lets an update retry pass.",
+              "right": false
+            },
+            {
+              "text": "A hash of the whole resource stays the same for an identical retry.",
+              "right": true
+            }
+          ],
+          "skills": [
+            2,
+            10
+          ],
           "moves": [
             {
               "moveId": "api-status-code.conflict",
@@ -4567,40 +4991,87 @@
     {
       "id": "t02-double-charge",
       "name": "The double charge",
+      "source": {
+        "title": "Stripe Blog: Designing robust and predictable APIs with idempotency",
+        "url": "https://stripe.com/blog/idempotency"
+      },
       "opponentType": "outage",
       "secondType": "data",
-      "problem": "Your payment service accepts idempotency keys from the shop apps. Customers still report strange charges.",
+      "problem": "Your payment service accepts idempotency keys. Networks fail, so clients are often unsure whether a call worked.",
       "turns": [
         {
           "threatType": "outage",
-          "threat": "A queue replays failed payments three days later with the old keys. Some customers now pay twice.",
-          "moves": [
+          "threat": "A client creates a DNS record with PUT, and the connection breaks. A teammate wants an idempotency key on this call too.",
+          "constraint": "The PUT carries all the information needed to create the record.",
+          "reasons": [
             {
-              "moveId": "idempotency-key.key-expiry",
-              "damage": 2,
-              "counterattack": "You know old keys are gone, but late retries now need a payment check first."
+              "text": "Identical PUT requests have the same effect as one.",
+              "right": true
             },
+            {
+              "text": "An idempotency key is needed for each kind of retry.",
+              "right": false
+            },
+            {
+              "text": "A POST is safer to retry than a PUT.",
+              "right": false
+            }
+          ],
+          "skills": [
+            2,
+            3
+          ],
+          "moves": [
             {
               "moveId": "idempotency-key.saved-response",
               "damage": 1,
-              "counterattack": "Saved responses help fast retries, but these keys were removed long ago."
+              "counterattack": "Keys work, but you now store responses for a call that was already safe."
+            },
+            {
+              "moveId": "http-method.post",
+              "damage": 0,
+              "counterattack": "You switch to POST, and now a retry may create the record twice."
+            },
+            {
+              "moveId": "http-method.idempotent",
+              "damage": 2,
+              "counterattack": "Retries of the PUT are safe as they are, but each response may still differ."
             },
             {
               "moveId": "rate-limit.retry-after",
               "damage": 0,
-              "counterattack": "The queue waits even longer, so the keys get even older."
+              "counterattack": "The client waits longer before it retries, but nobody knows if a retry is safe."
             }
           ],
-          "modelAnswer": "Stripe API v1 may remove keys that are at least 24 hours old. A reused key after that runs as a new request. So retry while the key is still saved, and check the payment state before a late retry. The cost: an extra check for old failures.",
+          "modelAnswer": "PUT is idempotent: identical requests have the same intended effect as one. So the client can retry it safely after a failure. POST is not guaranteed to be idempotent. The cost: the response can still differ between calls.",
           "keyPoints": [
-            "Keys may be removed after 24 hours.",
-            "A removed key runs as a new request.",
-            "Check the state before a late retry."
+            "PUT and DELETE are idempotent.",
+            "A client can retry an idempotent request safely.",
+            "POST is not guaranteed to be idempotent."
           ]
         },
         {
           "threatType": "outage",
-          "threat": "A payment call times out. The shop app makes a new key for the retry, and the customer pays twice.",
+          "threat": "A charge call fails with a network error. The shop app makes a new key for the retry, and the customer pays twice.",
+          "constraint": "The retry is for the same charge, after a network error.",
+          "reasons": [
+            {
+              "text": "A new key for the retry is safer, because it starts clean.",
+              "right": false
+            },
+            {
+              "text": "Only the same key lets the service return the first result.",
+              "right": true
+            },
+            {
+              "text": "If-Match stops a second payment.",
+              "right": false
+            }
+          ],
+          "skills": [
+            2,
+            10
+          ],
           "moves": [
             {
               "moveId": "idempotency-key.parameter-check",
@@ -4628,6 +5099,25 @@
         {
           "threatType": "data",
           "threat": "A bug in one shop app reuses one key for every order of the day. Later orders get the first order's receipt.",
+          "constraint": "Different orders arrive with the same key on the same day.",
+          "reasons": [
+            {
+              "text": "Keys that expire after a day stop the mix-up.",
+              "right": false
+            },
+            {
+              "text": "The saved response is a safe answer to any reuse of a key.",
+              "right": false
+            },
+            {
+              "text": "A key belongs to one request, so other parameters are an error.",
+              "right": true
+            }
+          ],
+          "skills": [
+            2,
+            8
+          ],
           "moves": [
             {
               "moveId": "idempotency-key.key-expiry",
@@ -4662,13 +5152,82 @@
     {
       "id": "t02-ghost-servers",
       "name": "The ghost servers",
+      "source": {
+        "title": "Amazon Builders' Library: Making retries safe with idempotent APIs",
+        "url": "https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/"
+      },
       "opponentType": "outage",
       "secondType": "data",
       "problem": "Your cloud service creates servers for customers. Their scripts retry every failed call.",
       "turns": [
         {
+          "threatType": "outage",
+          "threat": "A launch call gets no response, perhaps because of a network timeout. A teammate wants scripts to send it again at once.",
+          "constraint": "The launch call is a plain POST, and it carries no client token yet.",
+          "reasons": [
+            {
+              "text": "A repeated POST may start a second server.",
+              "right": true
+            },
+            {
+              "text": "The HTTP client retries each request safely by itself.",
+              "right": false
+            },
+            {
+              "text": "A timeout means that the server did not start.",
+              "right": false
+            }
+          ],
+          "skills": [
+            2,
+            10
+          ],
+          "moves": [
+            {
+              "moveId": "http-method.idempotent",
+              "damage": 0,
+              "counterattack": "You call the launch idempotent, but a repeated POST can still start a second server."
+            },
+            {
+              "moveId": "client-token.retention",
+              "damage": 0,
+              "counterattack": "You plan to keep tokens longer, but these calls carry none."
+            },
+            {
+              "moveId": "http-method.post",
+              "damage": 2,
+              "counterattack": "The scripts stop blind repeats, but each retry now needs a check first."
+            }
+          ],
+          "modelAnswer": "POST is not idempotent. Identical POST requests may have extra effects, like creating the same thing twice. So a blind repeat of the launch is not safe. The cost: each retry needs a check first.",
+          "keyPoints": [
+            "POST is not idempotent.",
+            "A repeated POST may create a second resource.",
+            "Do not repeat it blindly."
+          ]
+        },
+        {
           "threatType": "data",
           "threat": "Retries get ResourceAlreadyExists. Customer scripts think someone else made the server, and they stop.",
+          "constraint": "Customer scripts treat ResourceAlreadyExists as another person's server.",
+          "reasons": [
+            {
+              "text": "Keeping tokens longer changes what a retry hears.",
+              "right": false
+            },
+            {
+              "text": "Every retry with the same token should get the first answer.",
+              "right": true
+            },
+            {
+              "text": "A typed error tells the script that it was its own server.",
+              "right": false
+            }
+          ],
+          "skills": [
+            2,
+            20
+          ],
           "moves": [
             {
               "moveId": "api-status-code.conflict",
@@ -4701,6 +5260,25 @@
         {
           "threatType": "outage",
           "threat": "Your service saves the client token, then crashes before it creates the server. Retries now say success, but no server exists.",
+          "constraint": "The service can crash between any two steps of a create.",
+          "reasons": [
+            {
+              "text": "Saving the response with the token keeps the token and the server together after a crash.",
+              "right": false
+            },
+            {
+              "text": "Expired tokens clean up a broken create quickly.",
+              "right": false
+            },
+            {
+              "text": "A token and a server saved in one step cannot be split by a crash.",
+              "right": true
+            }
+          ],
+          "skills": [
+            2,
+            10
+          ],
           "moves": [
             {
               "moveId": "idempotency-key.saved-response",
@@ -4724,46 +5302,42 @@
             "All or nothing, as one ACID operation.",
             "No token without the resource."
           ]
-        },
-        {
-          "threatType": "data",
-          "threat": "A retry arrives a day after the customer deleted the server. Your service forgot the token and starts a new server.",
-          "moves": [
-            {
-              "moveId": "client-token.atomic-record",
-              "damage": 0,
-              "counterattack": "Saves are atomic, but the token is already gone."
-            },
-            {
-              "moveId": "idempotency-key.parameter-check",
-              "damage": 0,
-              "counterattack": "The parameters match, but the token is gone, so a new server starts."
-            },
-            {
-              "moveId": "client-token.retention",
-              "damage": 2,
-              "counterattack": "Tokens now live as long as the server plus a margin, but the token store grows."
-            }
-          ],
-          "modelAnswer": "Keep the token record for the life of the resource, plus time for late requests. Then a late retry gets the first answer, with the current state. The cost: you store more token records.",
-          "keyPoints": [
-            "Late retries can arrive after a delete.",
-            "Keep tokens for the life of the resource plus a margin.",
-            "Keeping them forever is not practical."
-          ]
         }
       ]
     },
     {
       "id": "t02-twin-grants",
       "name": "The twin grants",
+      "source": {
+        "title": "Amazon Builders' Library: Timeouts, retries, and backoff with jitter",
+        "url": "https://builder.aws.com/content/3EumjoZascWd1oZiEgL8ORlv3qE/timeouts-retries-and-backoff-with-jitter"
+      },
       "opponentType": "data",
       "secondType": "traffic",
-      "problem": "Your services follow the Azure and Google API guidelines. Workers grant access and create books in parallel.",
+      "problem": "Workers call your services in parallel. Each worker retries a call that fails or times out.",
       "turns": [
         {
           "threatType": "data",
-          "threat": "A grant action uses POST. After a timeout, the retry grants access twice and writes two audit entries.",
+          "threat": "A grant call with a side effect times out. The worker retries it, and access is granted twice.",
+          "constraint": "The service recognizes a repeated POST by its Repeatability-Request-ID header.",
+          "reasons": [
+            {
+              "text": "Repeatability-Request-ID lets the service run a repeated POST once.",
+              "right": true
+            },
+            {
+              "text": "Comparing parameters stops an exact retry.",
+              "right": false
+            },
+            {
+              "text": "If-Match also stops a repeated action that has no ETag.",
+              "right": false
+            }
+          ],
+          "skills": [
+            2,
+            10
+          ],
           "moves": [
             {
               "moveId": "repeatability.headers",
@@ -4795,7 +5369,26 @@
         },
         {
           "threatType": "traffic",
-          "threat": "Parallel workers send the same CreateBook call to a Google-style API. The API creates one book per worker.",
+          "threat": "Several workers send the same create call. Each call creates one more book.",
+          "constraint": "The API accepts a request_id field, and all workers can share one ID.",
+          "reasons": [
+            {
+              "text": "Repeatability headers work in this API too, so workers can use them.",
+              "right": false
+            },
+            {
+              "text": "One request_id for all workers makes duplicates get the first success.",
+              "right": true
+            },
+            {
+              "text": "Longer token retention helps calls that carry no token.",
+              "right": false
+            }
+          ],
+          "skills": [
+            2,
+            3
+          ],
           "moves": [
             {
               "moveId": "repeatability.headers",
@@ -4822,34 +5415,53 @@
         },
         {
           "threatType": "traffic",
-          "threat": "The service has a short hiccup. Every worker retries at the same moment, and the service slows down even more.",
+          "threat": "A worker drops a call for good after one 503 Service Unavailable. The work is lost.",
+          "constraint": "The 503 came from a short overload, and the call has no side effects.",
+          "reasons": [
+            {
+              "text": "A 503 means that the request itself is wrong.",
+              "right": false
+            },
+            {
+              "text": "A server error means the client should fix its call before it tries again.",
+              "right": false
+            },
+            {
+              "text": "A 503 is for temporary conditions, so a later try can work.",
+              "right": true
+            }
+          ],
+          "skills": [
+            10,
+            2
+          ],
           "moves": [
             {
+              "moveId": "status-code.client-error",
+              "damage": 0,
+              "counterattack": "You treat the 503 as a bad request, and the work stays lost."
+            },
+            {
               "moveId": "repeatability.request-id",
-              "damage": 0,
-              "counterattack": "Duplicates are safe, but the retries still arrive all at once."
+              "damage": 1,
+              "counterattack": "A retry would be safe now, but the worker still drops the call."
             },
             {
-              "moveId": "rate-limit.retry-after",
+              "moveId": "status-code.server-error",
               "damage": 2,
-              "counterattack": "Workers wait the time you send, but some work now finishes later."
-            },
-            {
-              "moveId": "repeatability.headers",
-              "damage": 0,
-              "counterattack": "Retries are recognized, but they still flood the service."
+              "counterattack": "The worker retries after a wait, so the work finishes later."
             },
             {
               "moveId": "rate-limit.api-key-quota",
-              "damage": 1,
-              "counterattack": "Each worker's key is limited, but they all still retry at the same moment."
+              "damage": 0,
+              "counterattack": "Each key is limited, but the dropped work never comes back."
             }
           ],
-          "modelAnswer": "Answer with 503 Service Unavailable and a Retry-After header, so workers wait before they retry. The cost: some work finishes later.",
+          "modelAnswer": "A 503 Service Unavailable means the server is not ready, for example from too much traffic. It is for temporary conditions. So wait, then try the call again. The cost: the work finishes later.",
           "keyPoints": [
-            "A 503 means a temporary overload that should pass after a delay.",
-            "Retry-After tells clients how long to wait.",
-            "Send it with 503 when the service is unavailable."
+            "5xx codes are server errors.",
+            "503 is for temporary conditions.",
+            "Retry after a wait."
           ]
         }
       ]
@@ -4857,23 +5469,41 @@
     {
       "id": "t02-slow-export",
       "name": "The slow export",
+      "source": {
+        "title": "Microsoft: Azure REST API Guidelines",
+        "url": "https://github.com/microsoft/api-guidelines/blob/vNext/azure/Guidelines.md"
+      },
       "opponentType": "speed",
       "secondType": "traffic",
-      "problem": "Your API follows the Azure guidelines. Customers export their data with one call, and the export can take several minutes.",
+      "problem": "Your API follows the Azure guidelines. Customers export their data with one call, and the export takes several minutes.",
       "turns": [
         {
           "threatType": "speed",
-          "threat": "The export call takes 3 minutes. The load balancer drops it, and clients see timeouts.",
+          "threat": "Clients wait minutes for the export call to answer, and many of them time out.",
+          "constraint": "Another process builds the export, and clients can check back later.",
+          "reasons": [
+            {
+              "text": "A 202 answers at once while the work runs elsewhere.",
+              "right": true
+            },
+            {
+              "text": "A 200 OK can tell the client that the work still runs.",
+              "right": false
+            },
+            {
+              "text": "Bigger pages make one long call fast enough.",
+              "right": false
+            }
+          ],
+          "skills": [
+            2,
+            3
+          ],
           "moves": [
             {
               "moveId": "paging.next-link",
               "damage": 1,
               "counterattack": "The export comes in pages, but building each page is still slow."
-            },
-            {
-              "moveId": "long-running.accepted",
-              "damage": 2,
-              "counterattack": "The call returns 202 at once, but clients must now check a status monitor for the result."
             },
             {
               "moveId": "rate-limit.retry-after",
@@ -4883,19 +5513,43 @@
             {
               "moveId": "long-running.operation-id",
               "damage": 0,
-              "counterattack": "You accept an Operation-Id, but the call still blocks for 3 minutes."
+              "counterattack": "You accept an Operation-Id, but the call still blocks for minutes."
+            },
+            {
+              "moveId": "status-code.success",
+              "damage": 2,
+              "counterattack": "The call returns 202 Accepted at once, but clients must check back for the result."
             }
           ],
-          "modelAnswer": "Make the export a long-running operation. Return 202 Accepted at once, with a link to a status monitor. A 202 does not promise success. The cost: clients must check the status monitor for the result.",
+          "modelAnswer": "Return 202 Accepted at once. It means the request was received, but not yet acted upon. It fits work that another process or a batch handles. The cost: clients must check back for the result.",
           "keyPoints": [
-            "The 202 response points to a status monitor.",
             "202 Accepted returns at once.",
-            "A 202 promises nothing about the result."
+            "The work is not done yet.",
+            "Clients check back later for the result."
           ]
         },
         {
           "threatType": "traffic",
-          "threat": "A client retries the start call after a network error. Now two exports run for the same request.",
+          "threat": "A client retries the start call after a network error. Now the service could start a second export.",
+          "constraint": "The client sends the same Operation-Id with each try.",
+          "reasons": [
+            {
+              "text": "A request_id field in the body works the same way in this API.",
+              "right": false
+            },
+            {
+              "text": "An identical retry with the same Operation-Id gets the same response.",
+              "right": true
+            },
+            {
+              "text": "A status monitor stops a second export.",
+              "right": false
+            }
+          ],
+          "skills": [
+            2,
+            10
+          ],
           "moves": [
             {
               "moveId": "long-running.operation-id",
@@ -4927,7 +5581,26 @@
         },
         {
           "threatType": "traffic",
-          "threat": "Clients poll the status URL 50 times per second while the export runs.",
+          "threat": "Clients poll the status monitor again and again, with no pause, while the export runs.",
+          "constraint": "Clients poll fast because nothing tells them when to ask again.",
+          "reasons": [
+            {
+              "text": "A 429 answer tells the client the right poll rate for the export.",
+              "right": false
+            },
+            {
+              "text": "Another 202 makes clients wait longer.",
+              "right": false
+            },
+            {
+              "text": "A retry-after value on the status monitor says when to poll.",
+              "right": true
+            }
+          ],
+          "skills": [
+            2,
+            20
+          ],
           "moves": [
             {
               "moveId": "rate-limit.api-key-quota",
@@ -4957,13 +5630,36 @@
     {
       "id": "t02-shared-contract",
       "name": "The shared contract",
+      "source": {
+        "title": "OpenAPI Specification, latest version",
+        "url": "https://spec.openapis.org/oas/latest.html"
+      },
       "opponentType": "data",
       "secondType": "speed",
-      "problem": "Three teams generate clients from your OpenAPI description. Each team finds a new surprise.",
+      "problem": "Three teams generate client code from your OpenAPI description. Each team finds a new surprise.",
       "turns": [
         {
           "threatType": "data",
           "threat": "Two operations in the description have the same operationId. The generated client calls the wrong one.",
+          "constraint": "The code generator finds each operation by its operationId.",
+          "reasons": [
+            {
+              "text": "Tools find an operation by its operationId, so it must be unique.",
+              "right": true
+            },
+            {
+              "text": "Shared schemas give each operation its own id, so names cannot clash.",
+              "right": false
+            },
+            {
+              "text": "A custom method fixes a name clash.",
+              "right": false
+            }
+          ],
+          "skills": [
+            2,
+            20
+          ],
           "moves": [
             {
               "moveId": "openapi.components",
@@ -4995,7 +5691,26 @@
         },
         {
           "threatType": "speed",
-          "threat": "Every operation defines its own Order schema. One field change takes a week, across 30 places.",
+          "threat": "Every operation defines its own copy of the Order schema. One field change takes a week, across 30 copies.",
+          "constraint": "All 30 operations use the same Order fields.",
+          "reasons": [
+            {
+              "text": "Unique operation ids make the 30 copies of Order match each other.",
+              "right": false
+            },
+            {
+              "text": "One schema in components, used with a $ref, changes in one place.",
+              "right": true
+            },
+            {
+              "text": "Extensions keep the copies in sync.",
+              "right": false
+            }
+          ],
+          "skills": [
+            2,
+            7
+          ],
           "moves": [
             {
               "moveId": "openapi.components",
@@ -5022,7 +5737,26 @@
         },
         {
           "threatType": "data",
-          "threat": "Both broken JSON and a negative quantity get 400. The generated clients show the same message for both.",
+          "threat": "Two different client mistakes get the same error code. The generated clients show the same message for both.",
+          "constraint": "The client team can map each status code to its own message.",
+          "reasons": [
+            {
+              "text": "A shared error schema gives each error its own code.",
+              "right": false
+            },
+            {
+              "text": "Both are client errors, so one code is enough.",
+              "right": false
+            },
+            {
+              "text": "The status code is what tells the two errors apart.",
+              "right": true
+            }
+          ],
+          "skills": [
+            2,
+            20
+          ],
           "moves": [
             {
               "moveId": "openapi.components",
@@ -5030,7 +5764,7 @@
               "counterattack": "You add a shared error schema, but both errors still have the same status code."
             },
             {
-              "moveId": "api-status-code.unprocessable",
+              "moveId": "status-code.client-error",
               "damage": 2,
               "counterattack": "Bad values get 422 and broken JSON gets 400, but the server must check every value."
             },
@@ -5040,11 +5774,11 @@
               "counterattack": "The auth errors are clear, but bad values still look like broken JSON."
             }
           ],
-          "modelAnswer": "Use 400 for broken syntax, and 422 for valid content that cannot be processed. Then clients can tell the two apart by the status code. The cost: the server must check every value.",
+          "modelAnswer": "Use 400 Bad Request for broken syntax. Use 422 Unprocessable Content when the request is well-formed but has semantic errors. Then clients can tell the two apart. The cost: the server must check every value.",
           "keyPoints": [
-            "400 is for a client error, like malformed syntax.",
-            "422 is for correct syntax that cannot be processed.",
-            "With 422, the server understands the content type."
+            "400 is for malformed request syntax.",
+            "422 is for a well-formed request with semantic errors.",
+            "Different codes let clients show different messages."
           ]
         }
       ]
@@ -5052,13 +5786,36 @@
     {
       "id": "t02-version-mess",
       "name": "The version mess",
+      "source": {
+        "title": "GitHub Blog: Enabling the future of GitHub's REST API with API versioning",
+        "url": "https://github.blog/developer-skills/github/to-infinity-and-beyond-enabling-the-future-of-githubs-rest-api-with-api-versioning/"
+      },
       "opponentType": "outage",
       "secondType": "data",
-      "problem": "Your API has partners on three continents, and you change it every month.",
+      "problem": "Millions of developers use your API. Sometimes you must make a breaking change, like deleting a response field.",
       "turns": [
         {
           "threatType": "outage",
-          "threat": "You will retire version 2023-01-01 next month. Partners do not know, because they never read your blog.",
+          "threat": "You will retire an old version. You announce it on the blog and by email, but some partners miss both.",
+          "constraint": "Those partners do read the responses that their code gets.",
+          "reasons": [
+            {
+              "text": "A header on each response warns the people who read responses.",
+              "right": true
+            },
+            {
+              "text": "A v2 path tells partners that the old version will end.",
+              "right": false
+            },
+            {
+              "text": "A required version warns partners about the end date.",
+              "right": false
+            }
+          ],
+          "skills": [
+            20,
+            3
+          ],
           "moves": [
             {
               "moveId": "versioning.major-version",
@@ -5090,7 +5847,26 @@
         },
         {
           "threatType": "outage",
-          "threat": "A partner app sends no api-version. Your service picks the newest version for it, and the partner app breaks.",
+          "threat": "A partner's code does not say which version it wants. It breaks when your behavior changes.",
+          "constraint": "Each partner must choose when to move to new behavior.",
+          "reasons": [
+            {
+              "text": "A version in the path keeps new behavior away from clients.",
+              "right": false
+            },
+            {
+              "text": "A required version stops the service from choosing for the client.",
+              "right": true
+            },
+            {
+              "text": "A deprecation header helps a client that sends no version.",
+              "right": false
+            }
+          ],
+          "skills": [
+            2,
+            20
+          ],
           "moves": [
             {
               "moveId": "versioning.api-version",
@@ -5122,29 +5898,53 @@
         },
         {
           "threatType": "data",
-          "threat": "Your Google-style API has the paths v1.1, v1.2 and v1.3. Clients must migrate their code for every small change.",
+          "threat": "Your API now reads the version from a request header. A partner's script sends the version as a field in the JSON body instead.",
+          "constraint": "The API reads the version only from the request headers, not from the body.",
+          "reasons": [
+            {
+              "text": "The API should look for the version in every part of the request.",
+              "right": false
+            },
+            {
+              "text": "A version in the body works, because the body comes first.",
+              "right": false
+            },
+            {
+              "text": "Headers and the body are separate parts of a request.",
+              "right": true
+            }
+          ],
+          "skills": [
+            2,
+            20
+          ],
           "moves": [
             {
               "moveId": "versioning.api-version",
-              "damage": 0,
-              "counterattack": "You add a date parameter too, and clients now track two version schemes."
-            },
-            {
-              "moveId": "versioning.major-version",
-              "damage": 2,
-              "counterattack": "Only v1 stays, updated in place, but every change to it must now be compatible."
+              "damage": 1,
+              "counterattack": "A query parameter would work too, but this API reads a header."
             },
             {
               "moveId": "versioning.deprecation-header",
-              "damage": 1,
-              "counterattack": "You warn before each removal, but clients still migrate every month."
+              "damage": 0,
+              "counterattack": "Partners get a warning header, and the script still sends no version header."
+            },
+            {
+              "moveId": "content-type.mime-type",
+              "damage": 0,
+              "counterattack": "The body is labeled JSON, but the version is still in the wrong place."
+            },
+            {
+              "moveId": "http-message.headers-and-body",
+              "damage": 2,
+              "counterattack": "The script now sends the header, but its code must change."
             }
           ],
-          "modelAnswer": "Show only the major version, v1, and ship compatible changes in place. Users then get new features with no migration. The cost: every change in v1 must stay backwards compatible.",
+          "modelAnswer": "Send the version as a request header. A header is a case-insensitive name, a colon and a value, on one line. An empty line ends the headers, and the optional body comes after it. The cost: the script must change its code.",
           "keyPoints": [
-            "Show only the major version, like v1.",
-            "No minor or patch numbers.",
-            "Compatible changes ship in place."
+            "Headers come before the body.",
+            "A header is a name, a colon and a value.",
+            "An empty line ends the headers."
           ]
         }
       ]
@@ -5152,45 +5952,87 @@
     {
       "id": "t02-renamed-field",
       "name": "The renamed field",
+      "source": {
+        "title": "Google AIP-180: Backwards compatibility",
+        "url": "https://google.aip.dev/180"
+      },
       "opponentType": "outage",
       "secondType": "data",
-      "problem": "A new developer cleans up the orders API. Three partner apps depend on it.",
+      "problem": "A new developer cleans up your API. Partner apps depend on it.",
       "turns": [
         {
           "threatType": "data",
-          "threat": "The developer changed the default genre from FICTION to NONFICTION. Old clients now save books with the wrong genre.",
+          "threat": "The developer now labels order responses as plain text, not JSON. Partner code stops reading the orders.",
+          "constraint": "The body is still the same JSON; only the label changed.",
+          "reasons": [
+            {
+              "text": "Clients decide how to handle a body from its MIME type.",
+              "right": true
+            },
+            {
+              "text": "Clients look inside the body to find its format.",
+              "right": false
+            },
+            {
+              "text": "An Accept header from the client fixes the response type for old clients.",
+              "right": false
+            }
+          ],
+          "skills": [
+            2,
+            20
+          ],
           "moves": [
             {
-              "moveId": "breaking-change.default-value",
+              "moveId": "content-type.mime-type",
               "damage": 2,
-              "counterattack": "FICTION is the default again, but the books saved this week need a fix."
+              "counterattack": "Partners read JSON again, but you must check the type on every endpoint."
+            },
+            {
+              "moveId": "content-type.negotiation",
+              "damage": 1,
+              "counterattack": "Clients that send Accept get JSON, but many old clients send no Accept header."
             },
             {
               "moveId": "breaking-change.rename",
               "damage": 0,
-              "counterattack": "You rename the genre field, which breaks clients even more."
+              "counterattack": "You rename the field back, but the content type is still wrong."
             },
             {
-              "moveId": "versioning.api-version",
-              "damage": 1,
-              "counterattack": "The change hides behind a new api-version, but Azure says not to make breaking changes at all."
-            },
-            {
-              "moveId": "problem-details.type",
+              "moveId": "openapi.components",
               "damage": 0,
-              "counterattack": "Errors are clearer, but no request fails, so nobody sees them."
+              "counterattack": "The schema is shared, but the response still says text/plain."
             }
           ],
-          "modelAnswer": "Changing a default value is a breaking change, so put FICTION back as the default. The cost: the books saved with the wrong genre must be fixed.",
+          "modelAnswer": "Send JSON as application/json. A MIME type says the nature and format of a document. Browsers use the MIME type, not the file name, to decide how to handle it. The cost: you check the type on every endpoint.",
           "keyPoints": [
-            "Default values decide the default behavior.",
-            "Changing a default breaks clients.",
-            "Do not change how defaults are serialized either."
+            "The MIME type names the format of the body.",
+            "JSON goes out as application/json.",
+            "Clients trust the MIME type to handle the body."
           ]
         },
         {
           "threatType": "outage",
           "threat": "The developer renamed customer_name to buyer_name. All three partner apps crashed the same night.",
+          "constraint": "The partner apps cannot change before tonight, and they read customer_name.",
+          "reasons": [
+            {
+              "text": "A warning header gives clients time after the field is gone.",
+              "right": false
+            },
+            {
+              "text": "Keeping the old field makes the change safe for old clients.",
+              "right": true
+            },
+            {
+              "text": "A shared schema spreads the new name more safely.",
+              "right": false
+            }
+          ],
+          "skills": [
+            20,
+            3
+          ],
           "moves": [
             {
               "moveId": "versioning.deprecation-header",
@@ -5218,6 +6060,25 @@
         {
           "threatType": "data",
           "threat": "The ip_address field now holds IPv6 values. A partner's parser fails on every new order.",
+          "constraint": "The partner's parser accepts only IPv4, and it cannot change this month.",
+          "reasons": [
+            {
+              "text": "A plan for v2 protects v1 clients today.",
+              "right": false
+            },
+            {
+              "text": "Output-only fields can change their format, because clients do not send them.",
+              "right": false
+            },
+            {
+              "text": "A changed format breaks client code, even in an output-only field.",
+              "right": true
+            }
+          ],
+          "skills": [
+            20,
+            3
+          ],
           "moves": [
             {
               "moveId": "breaking-change.default-value",
@@ -5252,6 +6113,10 @@
     {
       "id": "t02-busy-model",
       "name": "The busy model",
+      "source": {
+        "title": "Claude API: Errors",
+        "url": "https://platform.claude.com/docs/en/api/errors"
+      },
       "opponentType": "outage",
       "secondType": "speed",
       "problem": "Your support app calls the Claude API to summarize long tickets for the agents.",
@@ -5259,6 +6124,25 @@
         {
           "threatType": "speed",
           "threat": "Agents stare at a spinner for 40 seconds before the whole summary appears at once.",
+          "constraint": "Agents want to read the summary while it is being written.",
+          "reasons": [
+            {
+              "text": "Streaming shows each part of the answer as it arrives.",
+              "right": true
+            },
+            {
+              "text": "The SDK stream helper shows the text bit by bit.",
+              "right": false
+            },
+            {
+              "text": "A retry makes a slow answer arrive sooner.",
+              "right": false
+            }
+          ],
+          "skills": [
+            13,
+            3
+          ],
           "moves": [
             {
               "moveId": "llm-api.long-request",
@@ -5286,6 +6170,25 @@
         {
           "threatType": "outage",
           "threat": "On busy days, some calls fail with 529 overloaded_error. Agents see an error page and lose their work.",
+          "constraint": "The 529 is a temporary overload on the API side.",
+          "reasons": [
+            {
+              "text": "Streaming avoids overload errors.",
+              "right": false
+            },
+            {
+              "text": "A temporary overload often passes, so a retry with backoff works.",
+              "right": true
+            },
+            {
+              "text": "Your own rate limit stops the overload, even when it is on their side.",
+              "right": false
+            }
+          ],
+          "skills": [
+            13,
+            10
+          ],
           "moves": [
             {
               "moveId": "llm-api.streaming",
@@ -5317,34 +6220,1668 @@
         },
         {
           "threatType": "outage",
-          "threat": "A monthly report sets a very large max_tokens with no streaming. Some calls fail with no response at all.",
+          "threat": "After a key rotation, every summary call fails with 401 authentication_error. The app retries each call with backoff.",
+          "constraint": "The old key was revoked, so the same request cannot succeed.",
+          "reasons": [
+            {
+              "text": "Each error deserves a retry with backoff.",
+              "right": false
+            },
+            {
+              "text": "A 401 means the API is busy for a while, so waiting will help.",
+              "right": false
+            },
+            {
+              "text": "A 4xx code says the problem is in the request itself.",
+              "right": true
+            }
+          ],
+          "skills": [
+            13,
+            10
+          ],
           "moves": [
             {
               "moveId": "llm-api.retry",
-              "damage": 1,
-              "counterattack": "Retries try again, but the long, silent call can fail the same way."
-            },
-            {
-              "moveId": "rate-limit.token-bucket",
               "damage": 0,
-              "counterattack": "You spread the calls, but each one is still a long, silent request."
+              "counterattack": "The app retries for minutes, and every retry fails the same way."
             },
             {
-              "moveId": "problem-details.type",
+              "moveId": "status-code.server-error",
               "damage": 0,
-              "counterattack": "The errors are typed, but the calls still fail with no response."
+              "counterattack": "You treat it as an outage on their side, and you wait for a fix that never comes."
             },
             {
-              "moveId": "llm-api.long-request",
+              "moveId": "status-code.client-error",
               "damage": 2,
-              "counterattack": "The report streams or runs as a batch now, but the code must handle events or polling."
+              "counterattack": "The app stops retrying and reports a key problem, but someone must deploy the new key."
+            },
+            {
+              "moveId": "llm-api.streaming",
+              "damage": 0,
+              "counterattack": "The error arrives sooner, but the key is still wrong."
             }
           ],
-          "modelAnswer": "For long requests, use streaming or the Message Batches API. Some networks drop idle connections, so a long, silent call can fail. The cost: the code must handle a stream or poll for batch results.",
+          "modelAnswer": "Codes from 400 to 499 are client errors: the problem is in the request. A 401 means the client must prove who it is, and the old key cannot. So fix the key before you send again. The cost: summaries stop until the new key is live.",
           "keyPoints": [
-            "Long requests need streaming or batches.",
-            "Networks can drop idle connections.",
-            "With batches, you poll for the result."
+            "4xx codes are client errors.",
+            "401 means the client must prove who it is.",
+            "Fix the key, do not just retry."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t02-meeting-reset-keys",
+      "name": "The reset keys",
+      "kind": "meeting",
+      "person": "client",
+      "source": {
+        "title": "RubyGems Blog: API key logging leak",
+        "url": "https://blog.rubygems.org/2020/07/28/api-key-leak.html"
+      },
+      "opponentType": "outage",
+      "secondType": "security",
+      "problem": "Your team reset API keys that leaked into the access logs. A client's release script stopped, and the client calls you.",
+      "turns": [
+        {
+          "threatType": "outage",
+          "threat": "Client: Our release script broke this morning. What did you change?",
+          "constraint": "The client is not technical. Their key was one of the keys you reset.",
+          "reasons": [
+            {
+              "text": "The client needs the cause and the next step, not the system details.",
+              "right": true
+            },
+            {
+              "text": "Naming the tool that failed shows the client it was not us.",
+              "right": false
+            },
+            {
+              "text": "A full technical story builds more trust than a short one.",
+              "right": false
+            }
+          ],
+          "skills": [
+            20,
+            19
+          ],
+          "moves": [
+            {
+              "moveId": "answer.blame-logs",
+              "label": "Our logging tool had a bug, so it is not really our fault.",
+              "damage": 0,
+              "counterattack": "The client hears an excuse and trusts you less."
+            },
+            {
+              "moveId": "answer.cause-and-step",
+              "label": "Your key leaked into our logs, so we reset it. Please make a new key on your profile page.",
+              "damage": 2,
+              "counterattack": "The client fixes the script today, but must also check their releases."
+            },
+            {
+              "moveId": "answer.deep-dive",
+              "label": "Let me explain how our logs travel to the outside service.",
+              "damage": 1,
+              "counterattack": "The client gets lost in details and still has no next step."
+            }
+          ],
+          "modelAnswer": "Say what happened in one sentence, then what the client must do. Their key leaked through the logs, so you reset it. They make a new key on their profile page. The cost: you admit the mistake openly.",
+          "keyPoints": [
+            "Say what happened in one sentence.",
+            "Give the client one clear next step.",
+            "Do not hide the mistake."
+          ]
+        },
+        {
+          "threatType": "security",
+          "threat": "Client: Did anyone use our key to publish something bad?",
+          "constraint": "Your query history shows that nobody ever searched the leaked logs for keys.",
+          "reasons": [
+            {
+              "text": "A strong promise that nothing bad happened calms the client best.",
+              "right": false
+            },
+            {
+              "text": "Facts plus one careful step keep the client safe and calm.",
+              "right": true
+            },
+            {
+              "text": "Saying less protects the security team.",
+              "right": false
+            }
+          ],
+          "skills": [
+            20,
+            12
+          ],
+          "moves": [
+            {
+              "moveId": "answer.promise-safe",
+              "label": "No, you are completely safe. Nothing bad happened.",
+              "damage": 0,
+              "counterattack": "You promised more than your data shows, and the client may skip the check."
+            },
+            {
+              "moveId": "answer.maybe",
+              "label": "We do not know yet. We will tell you if we find anything.",
+              "damage": 1,
+              "counterattack": "It is honest, but the client gets no facts and no task."
+            },
+            {
+              "moveId": "answer.evidence-and-check",
+              "label": "Our query history shows nobody searched the logs for keys. To be careful, please check your recent releases.",
+              "damage": 2,
+              "counterattack": "The client feels safe for a reason, but spends an hour on the check."
+            },
+            {
+              "moveId": "answer.no-comment",
+              "label": "We cannot share security details.",
+              "damage": 0,
+              "counterattack": "The client fears the worst and calls again tomorrow."
+            }
+          ],
+          "modelAnswer": "Give the evidence you have, then the safe step. Nobody ever queried the leaked data for keys. Still, ask the client to check their releases from that time. The cost: the client spends time on a check.",
+          "keyPoints": [
+            "Share the evidence, not a promise.",
+            "Ask for one careful check.",
+            "Do not claim more safety than you can show."
+          ]
+        },
+        {
+          "threatType": "outage",
+          "threat": "Client: Our RSS reader puts the key in the URL. Will that still work?",
+          "constraint": "Your API no longer accepts API actions with a key in the query string.",
+          "reasons": [
+            {
+              "text": "Saying yes to one client once avoids a hard talk and keeps them happy.",
+              "right": false
+            },
+            {
+              "text": "An unclear answer gives you time to think.",
+              "right": false
+            },
+            {
+              "text": "A clear no with a reason and a path keeps trust and safety.",
+              "right": true
+            }
+          ],
+          "skills": [
+            20,
+            3
+          ],
+          "moves": [
+            {
+              "moveId": "answer.make-exception",
+              "label": "We can turn the old way back on for your account.",
+              "damage": 0,
+              "counterattack": "The client is happy today, but their key can leak again."
+            },
+            {
+              "moveId": "answer.check-later",
+              "label": "Let me check with the team and get back to you.",
+              "damage": 1,
+              "counterattack": "The client waits a day for an answer that you already know."
+            },
+            {
+              "moveId": "answer.breaking-with-reason",
+              "label": "Not for API actions. It is a breaking change, but keys in URLs leak. The feed will get its own key.",
+              "damage": 2,
+              "counterattack": "The client must change one setting, but their key stays out of the logs."
+            }
+          ],
+          "modelAnswer": "Say no clearly, then give the reason and the way forward. API actions no longer accept a key in the query string. It is a breaking change, but it keeps keys out of logs. The feed gets its own key. The cost: the client changes a setting.",
+          "keyPoints": [
+            "Say no to the risky old way.",
+            "Call it a breaking change, and give the reason.",
+            "Offer the safer path for the feed."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t02-meeting-rename-request",
+      "name": "The rename request",
+      "kind": "meeting",
+      "person": "client",
+      "source": {
+        "title": "Stripe Blog: APIs as infrastructure, future-proofing Stripe with versioning",
+        "url": "https://stripe.com/blog/api-versioning"
+      },
+      "opponentType": "data",
+      "secondType": "outage",
+      "problem": "A client wants your API to rename a field to match their own words. Many other businesses use the same API.",
+      "turns": [
+        {
+          "threatType": "data",
+          "threat": "Client: Please rename verified to status in the bank account response. It is one line of code.",
+          "constraint": "Other integrations read verified today, and the client is not technical.",
+          "reasons": [
+            {
+              "text": "Plain words plus a safe option help a client decide.",
+              "right": true
+            },
+            {
+              "text": "A quick yes keeps a client happy at no cost.",
+              "right": false
+            },
+            {
+              "text": "Correct technical words convince a client best.",
+              "right": false
+            }
+          ],
+          "skills": [
+            20,
+            19
+          ],
+          "moves": [
+            {
+              "moveId": "answer.contract",
+              "label": "Other code reads verified today, so a rename breaks it. We can add a new status field next to it.",
+              "damage": 2,
+              "counterattack": "The client waits for the new field, but nobody's code breaks."
+            },
+            {
+              "moveId": "answer.just-do-it",
+              "label": "Sure, we will rename it this week.",
+              "damage": 0,
+              "counterattack": "The rename breaks every integration that reads verified."
+            },
+            {
+              "moveId": "answer.flat-no",
+              "label": "No, we never change the API.",
+              "damage": 1,
+              "counterattack": "You protect the API, but the client hears a wall, not a way forward."
+            },
+            {
+              "moveId": "answer.code-words",
+              "label": "Removing a boolean field is a backwards-incompatible change under our versioning policy.",
+              "damage": 1,
+              "counterattack": "It is true, but the client does not understand the words."
+            }
+          ],
+          "modelAnswer": "Explain the contract in plain words, and offer the safe option. Code depends on verified, so renaming it breaks that code. Adding a new field is safe. The cost: the client waits for the new field.",
+          "keyPoints": [
+            "An API is a contract that other code depends on.",
+            "Renaming a field breaks that code.",
+            "Adding a new field is safe."
+          ]
+        },
+        {
+          "threatType": "outage",
+          "threat": "Client: Why can you not just tell the other businesses to update their code?",
+          "constraint": "Many businesses use the API, and each one updates on its own schedule.",
+          "reasons": [
+            {
+              "text": "An email to the other businesses is enough to make the change safe.",
+              "right": false
+            },
+            {
+              "text": "Many businesses depend on the API, so stability beats one client's wish.",
+              "right": true
+            },
+            {
+              "text": "A new version for one client costs nothing.",
+              "right": false
+            }
+          ],
+          "skills": [
+            20,
+            3
+          ],
+          "moves": [
+            {
+              "moveId": "answer.force-upgrade",
+              "label": "We will email everyone and switch next month.",
+              "damage": 0,
+              "counterattack": "Businesses that miss the email break next month."
+            },
+            {
+              "moveId": "answer.stay-stable",
+              "label": "They built on our API and expect it to keep working. So we keep old fields and add new ones.",
+              "damage": 2,
+              "counterattack": "The client accepts it, but your team keeps old fields for longer."
+            },
+            {
+              "moveId": "answer.own-version",
+              "label": "We could make a new API version just for you.",
+              "damage": 1,
+              "counterattack": "It works, but one client's wish now costs a whole version."
+            }
+          ],
+          "modelAnswer": "Explain that users expect the API to keep working with no changes on their side. Asking every user to update would not be user-friendly. So keep old fields and add new ones. The cost: old fields stay, and the code grows.",
+          "keyPoints": [
+            "Users expect the API to stay stable.",
+            "Asking everyone to update is not user-friendly.",
+            "Keep old fields, and add new ones."
+          ]
+        },
+        {
+          "threatType": "data",
+          "threat": "Client: Fine. When do we get the new status field?",
+          "constraint": "Every API change first goes through a short API review.",
+          "reasons": [
+            {
+              "text": "Skipping the review shows the client that you care.",
+              "right": false
+            },
+            {
+              "text": "A vague answer avoids a missed date.",
+              "right": false
+            },
+            {
+              "text": "A real next step lets the client plan around the review.",
+              "right": true
+            }
+          ],
+          "skills": [
+            20,
+            5
+          ],
+          "moves": [
+            {
+              "moveId": "answer.skip-review",
+              "label": "Tomorrow. We will skip the review this time.",
+              "damage": 0,
+              "counterattack": "The field ships without review, and the design may be wrong."
+            },
+            {
+              "moveId": "answer.soon",
+              "label": "Soon. We will let you know.",
+              "damage": 1,
+              "counterattack": "The client has nothing to plan with and asks again."
+            },
+            {
+              "moveId": "answer.review-then-date",
+              "label": "It goes through our short API review first. When it passes, I will confirm the ship date.",
+              "damage": 2,
+              "counterattack": "The client waits for the review, but gets a checked field and a real date."
+            }
+          ],
+          "modelAnswer": "Give the next step and a realistic date. New API changes go through a short review first, to catch errors before release. Then confirm the ship date. The cost: the client waits for the review.",
+          "keyPoints": [
+            "Give a real next step.",
+            "A short review catches design errors.",
+            "Confirm the date after the review."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t02-meeting-rate-limit",
+      "name": "The blocked sync",
+      "kind": "meeting",
+      "person": "client",
+      "source": {
+        "title": "Stripe Blog: Scaling your API with rate limiters",
+        "url": "https://stripe.com/blog/rate-limiters"
+      },
+      "opponentType": "traffic",
+      "secondType": "outage",
+      "problem": "A client's nightly sync gets 429 Too Many Requests from your API. The client calls you, upset.",
+      "turns": [
+        {
+          "threatType": "traffic",
+          "threat": "Client: Your API blocks our nightly sync. Remove the limit for us.",
+          "constraint": "The limit keeps the API up for every user, and the sync can spread out its calls.",
+          "reasons": [
+            {
+              "text": "A reason plus help turns a block into a shared plan.",
+              "right": true
+            },
+            {
+              "text": "Removing the limit for one client is a small risk.",
+              "right": false
+            },
+            {
+              "text": "Pointing to the docs answers the question fully.",
+              "right": false
+            }
+          ],
+          "skills": [
+            20,
+            19
+          ],
+          "moves": [
+            {
+              "moveId": "answer.remove-limit",
+              "label": "OK, we will turn the limit off for your account.",
+              "damage": 0,
+              "counterattack": "One sync can now slow the API for every other user."
+            },
+            {
+              "moveId": "answer.read-docs",
+              "label": "The limits are in our docs. Please read them.",
+              "damage": 1,
+              "counterattack": "It is true, but the client feels sent away."
+            },
+            {
+              "moveId": "answer.why-and-help",
+              "label": "The limit keeps the API up for everyone. Your sync can spread its calls over time, and we can help.",
+              "damage": 2,
+              "counterattack": "The client must change the sync, but every user stays safe."
+            }
+          ],
+          "modelAnswer": "Explain the reason for the limit, then offer help. A rate limit stops one user from hurting everyone else. Most clients can spread out their requests a bit more. The cost: the client changes the sync.",
+          "keyPoints": [
+            "The limit protects every user.",
+            "Most clients can spread out their calls.",
+            "Offer help to change the sync."
+          ]
+        },
+        {
+          "threatType": "outage",
+          "threat": "Client: Last week your API failed for an hour. Why should we trust these limits?",
+          "constraint": "During that incident, your servers dropped low-priority calls so that payments kept working.",
+          "reasons": [
+            {
+              "text": "Denying the outage protects the company image and keeps the client calm.",
+              "right": false
+            },
+            {
+              "text": "Owning the problem first makes the client trust the plan.",
+              "right": true
+            },
+            {
+              "text": "Changing the topic keeps the meeting calm.",
+              "right": false
+            }
+          ],
+          "skills": [
+            20,
+            10
+          ],
+          "moves": [
+            {
+              "moveId": "answer.own-it",
+              "label": "Yes, we had an incident. We dropped low-priority calls so payments kept working. Limits help keep that rare.",
+              "damage": 2,
+              "counterattack": "The client hears a hard truth, but trusts your plan more."
+            },
+            {
+              "moveId": "answer.deny",
+              "label": "The API was not really down last week.",
+              "damage": 0,
+              "counterattack": "The client knows it was, and now doubts everything you say."
+            },
+            {
+              "moveId": "answer.change-topic",
+              "label": "Let us talk about the sync, not about last week.",
+              "damage": 1,
+              "counterattack": "The client feels that you avoid the problem."
+            }
+          ],
+          "modelAnswer": "Own the incident, then link it to the plan. During incidents, you drop low-priority requests so that critical ones get through. Limits help keep that rare. The cost: you admit a weak moment.",
+          "keyPoints": [
+            "Admit the incident plainly.",
+            "Say what was protected.",
+            "Link the limits to fewer incidents."
+          ]
+        },
+        {
+          "threatType": "traffic",
+          "threat": "Client: Can we test our new sync without risk to our live traffic?",
+          "constraint": "Your test mode has the same rate limits as live mode.",
+          "reasons": [
+            {
+              "text": "Higher test limits make testing easier and still safe.",
+              "right": false
+            },
+            {
+              "text": "Watching live traffic is as good as a test.",
+              "right": false
+            },
+            {
+              "text": "Equal limits in test and live make the test result real.",
+              "right": true
+            }
+          ],
+          "skills": [
+            20,
+            8
+          ],
+          "moves": [
+            {
+              "moveId": "answer.just-ship",
+              "label": "Just run it tonight on live, and we will watch.",
+              "damage": 0,
+              "counterattack": "If the sync is still too fast, live users feel it tonight."
+            },
+            {
+              "moveId": "answer.higher-test-limit",
+              "label": "We can give you higher limits in test mode.",
+              "damage": 1,
+              "counterattack": "The test passes, but live mode still blocks the sync."
+            },
+            {
+              "moveId": "answer.same-limits",
+              "label": "Yes. Test mode has the same limits as live, so your test shows the real result.",
+              "damage": 2,
+              "counterattack": "The client tests first, so the change takes a few more days."
+            }
+          ],
+          "modelAnswer": "Offer a safe test that matches real life. Test mode and live mode use the same rate limits. So a script that passes in test meets no new limit in live. The cost: the client tests before it ships.",
+          "keyPoints": [
+            "Test mode has the same limits as live.",
+            "A passing test predicts the live result.",
+            "Test before the change goes live."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t02-meeting-version-upgrade",
+      "name": "The dated versions",
+      "kind": "meeting",
+      "person": "client",
+      "source": {
+        "title": "GitHub Blog: Enabling the future of GitHub's REST API with API versioning",
+        "url": "https://github.blog/developer-skills/github/to-infinity-and-beyond-enabling-the-future-of-githubs-rest-api-with-api-versioning/"
+      },
+      "opponentType": "outage",
+      "secondType": "data",
+      "problem": "Your API now has versions named by date. A client asks what this means for their integration.",
+      "turns": [
+        {
+          "threatType": "outage",
+          "threat": "Client: Do we have to change our integration right now?",
+          "constraint": "Today's API became the first dated version, with no change at all.",
+          "reasons": [
+            {
+              "text": "A direct answer first tells the client what is urgent.",
+              "right": true
+            },
+            {
+              "text": "A careful answer starts with the full background, so the client sees the big picture.",
+              "right": false
+            },
+            {
+              "text": "A fast update keeps every client current.",
+              "right": false
+            }
+          ],
+          "skills": [
+            20,
+            19
+          ],
+          "moves": [
+            {
+              "moveId": "answer.it-depends",
+              "label": "It depends on many things. Let me send you the docs.",
+              "damage": 1,
+              "counterattack": "The client still does not know if anything is urgent."
+            },
+            {
+              "moveId": "answer.no-change-now",
+              "label": "No. Today's API is now the first dated version, unchanged. Please start to send the version header.",
+              "damage": 2,
+              "counterattack": "The client adds one header, and nothing breaks."
+            },
+            {
+              "moveId": "answer.update-now",
+              "label": "Yes, please update everything this month.",
+              "damage": 0,
+              "counterattack": "The client rushes work that it did not need to do."
+            }
+          ],
+          "modelAnswer": "Answer the question first: no change is needed now. The current API became the first dated version, exactly as before. The client should start to send the version header. The cost: one small change for the client.",
+          "keyPoints": [
+            "Answer first: nothing breaks now.",
+            "The current API is the first version.",
+            "Start to send the version header."
+          ]
+        },
+        {
+          "threatType": "data",
+          "threat": "Client: How long can we stay on the old version?",
+          "constraint": "You support a version for at least 24 months after the next one comes out.",
+          "reasons": [
+            {
+              "text": "Promising forever makes the client trust you more.",
+              "right": false
+            },
+            {
+              "text": "A clear minimum lets the client plan the upgrade.",
+              "right": true
+            },
+            {
+              "text": "No date keeps your options open, which helps both sides.",
+              "right": false
+            }
+          ],
+          "skills": [
+            20,
+            5
+          ],
+          "moves": [
+            {
+              "moveId": "answer.forever",
+              "label": "Forever. We never retire versions.",
+              "damage": 0,
+              "counterattack": "You promised something that your policy does not say."
+            },
+            {
+              "moveId": "answer.not-decided",
+              "label": "We have not decided yet.",
+              "damage": 1,
+              "counterattack": "The client cannot plan the upgrade."
+            },
+            {
+              "moveId": "answer.at-least-24",
+              "label": "At least 24 months after a new version comes out. We announce any end on our blog and by email.",
+              "damage": 2,
+              "counterattack": "The client plans with a real date, and you must keep the promise."
+            }
+          ],
+          "modelAnswer": "Give the real promise and say how you will warn them. The old version stays for at least 24 months after a new one. Any end is announced on the blog and by email. The cost: you keep old versions that long.",
+          "keyPoints": [
+            "At least 24 months of support.",
+            "An end is announced by blog and email.",
+            "Do not promise more than the policy."
+          ]
+        },
+        {
+          "threatType": "outage",
+          "threat": "Client: What happens when you release a version with breaking changes?",
+          "constraint": "Each new version comes with a changelog, docs and an upgrade guide.",
+          "reasons": [
+            {
+              "text": "A list of breaking change types answers what they asked.",
+              "right": false
+            },
+            {
+              "text": "Honesty means warning them that calls will fail.",
+              "right": false
+            },
+            {
+              "text": "The client needs to know what stays safe and what to do next.",
+              "right": true
+            }
+          ],
+          "skills": [
+            20,
+            19
+          ],
+          "moves": [
+            {
+              "moveId": "answer.you-will-see",
+              "label": "You will see it when your calls fail.",
+              "damage": 0,
+              "counterattack": "The client hears that you do not care about their code."
+            },
+            {
+              "moveId": "answer.list-of-types",
+              "label": "Breaking changes include deleting a response field or making a parameter required.",
+              "damage": 1,
+              "counterattack": "It is correct, but the client wanted to know what to do."
+            },
+            {
+              "moveId": "answer.old-stays-guide",
+              "label": "The old version keeps working. The new one comes with a changelog, docs and an upgrade guide.",
+              "damage": 2,
+              "counterattack": "The client must still plan an upgrade, but on their own time."
+            }
+          ],
+          "modelAnswer": "Tell the client what stays safe and what help comes. The old version stays available, so nobody is forced to move at once. Each release has a changelog, docs and an upgrade guide. The cost: the client still plans an upgrade.",
+          "keyPoints": [
+            "The old version stays available.",
+            "Each release comes with an upgrade guide.",
+            "The client chooses when to move."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t02-meeting-manager-surprise",
+      "name": "The surprised manager",
+      "kind": "meeting",
+      "person": "manager",
+      "source": {
+        "title": "StaffEng: Staying aligned with authority",
+        "url": "https://staffeng.com/guides/staying-aligned-with-authority/"
+      },
+      "opponentType": "outage",
+      "secondType": "data",
+      "problem": "Some customers were charged twice after a retry bug. Your manager heard about it from support, not from you.",
+      "turns": [
+        {
+          "threatType": "outage",
+          "threat": "Manager: Why did I hear about the double charges from support, and not from you?",
+          "constraint": "You knew about the bug yesterday, and you planned to tell her after the fix.",
+          "reasons": [
+            {
+              "text": "Owning the surprise is the first step to rebuild trust.",
+              "right": true
+            },
+            {
+              "text": "Fixing a problem first is better than telling early.",
+              "right": false
+            },
+            {
+              "text": "The real fault is with the person who told her.",
+              "right": false
+            }
+          ],
+          "skills": [
+            21
+          ],
+          "moves": [
+            {
+              "moveId": "answer.fix-first",
+              "label": "I wanted to fix it first, so I did not bother you.",
+              "damage": 0,
+              "counterattack": "Your manager learns that bad news reaches her late."
+            },
+            {
+              "moveId": "answer.code-walk",
+              "label": "Let me walk you through the retry code first.",
+              "damage": 1,
+              "counterattack": "Your manager gets code, not the answer to her question."
+            },
+            {
+              "moveId": "answer.own-surprise",
+              "label": "You should have heard it from me yesterday. That was my mistake. Here is where we are now.",
+              "damage": 2,
+              "counterattack": "It is uncomfortable, but your manager trusts your next update."
+            }
+          ],
+          "modelAnswer": "Own the surprise first, then give the status. Nothing destroys trust faster than surprising your manager. Treat the surprise like an incident, and learn from it. The cost: you admit the mistake.",
+          "keyPoints": [
+            "Own the surprise first.",
+            "Surprises destroy trust fast.",
+            "Treat it as an incident to learn from."
+          ]
+        },
+        {
+          "threatType": "data",
+          "threat": "Manager: Is this a one-off, or a bigger problem?",
+          "constraint": "The support logs show that every double charge came from one app version.",
+          "reasons": [
+            {
+              "text": "A calm guess is enough while the fix is coming.",
+              "right": false
+            },
+            {
+              "text": "Data lets your manager judge the size of the problem.",
+              "right": true
+            },
+            {
+              "text": "Small numbers are not worth a manager's time.",
+              "right": false
+            }
+          ],
+          "skills": [
+            21
+          ],
+          "moves": [
+            {
+              "moveId": "answer.data",
+              "label": "The support logs show every case came from one app version. So it looks contained.",
+              "damage": 2,
+              "counterattack": "Your manager can act, but you must keep the numbers current."
+            },
+            {
+              "moveId": "answer.feeling",
+              "label": "I think it is small, but I am not sure.",
+              "damage": 1,
+              "counterattack": "Your manager gets an opinion with nothing behind it."
+            },
+            {
+              "moveId": "answer.nothing",
+              "label": "It is nothing, just a few customers.",
+              "damage": 0,
+              "counterattack": "Your manager hears doubt, and checks your work herself."
+            }
+          ],
+          "modelAnswer": "Answer with data, not only an opinion. Opinions help, but data helps even more. Say what the logs show and where the numbers come from. The cost: you must keep the data up to date.",
+          "keyPoints": [
+            "Lead with data.",
+            "Say where the numbers come from.",
+            "An opinion alone is weak."
+          ]
+        },
+        {
+          "threatType": "outage",
+          "threat": "Manager: How will I hear about the next problem in time?",
+          "constraint": "Your manager is busy, and you often meet only once a week.",
+          "reasons": [
+            {
+              "text": "More email gives your manager better information.",
+              "right": false
+            },
+            {
+              "text": "A manager should ask when she needs news.",
+              "right": false
+            },
+            {
+              "text": "A steady channel prevents the next surprise.",
+              "right": true
+            }
+          ],
+          "skills": [
+            21
+          ],
+          "moves": [
+            {
+              "moveId": "answer.ask-me",
+              "label": "Just ask me whenever you want to know.",
+              "damage": 0,
+              "counterattack": "Your manager must chase you for news again."
+            },
+            {
+              "moveId": "answer.copy-all",
+              "label": "I will copy you on every thread.",
+              "damage": 1,
+              "counterattack": "Your manager gets too much mail and misses the important line."
+            },
+            {
+              "moveId": "answer.weekly-update",
+              "label": "I will send a short weekly update with my focuses and risks, and tell you at once about big problems.",
+              "damage": 2,
+              "counterattack": "It costs you a little time each week, but there are no more surprises."
+            }
+          ],
+          "modelAnswer": "Set up a steady way to share news. A weekly email update, or a short thread with your focuses, works well. Then problems reach your manager early. The cost: a little time each week.",
+          "keyPoints": [
+            "Share your focuses on a regular schedule.",
+            "Big problems go out at once.",
+            "Do not make your manager chase news."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t02-meeting-cto-new-version",
+      "name": "A decision with the CTO",
+      "kind": "meeting",
+      "person": "cto",
+      "source": {
+        "title": "StaffEng: Present to executives",
+        "url": "https://staffeng.com/guides/present-to-executives/"
+      },
+      "opponentType": "data",
+      "secondType": "outage",
+      "problem": "You need a decision from the CTO on a key engineering plan. Time in the meeting is short.",
+      "turns": [
+        {
+          "threatType": "data",
+          "threat": "CTO: We have little time. What is this about?",
+          "constraint": "The CTO knows little about your topic, and the decision is made in this meeting.",
+          "reasons": [
+            {
+              "text": "The summary first lets the CTO follow the rest.",
+              "right": true
+            },
+            {
+              "text": "Background first helps a new listener understand.",
+              "right": false
+            },
+            {
+              "text": "Covering every slide shows that you did the work.",
+              "right": false
+            }
+          ],
+          "skills": [
+            26
+          ],
+          "moves": [
+            {
+              "moveId": "answer.history",
+              "label": "Let me start with the history of the project, step by step.",
+              "damage": 0,
+              "counterattack": "Time runs out before the CTO hears what you need."
+            },
+            {
+              "moveId": "answer.scqa",
+              "label": "Here is the situation, the problem, the question, and my answer. Then the details, if you want them.",
+              "damage": 2,
+              "counterattack": "The CTO gets the whole story at once, but you had to prepare it."
+            },
+            {
+              "moveId": "answer.slides",
+              "label": "I have many slides. Let us go through them in order.",
+              "damage": 1,
+              "counterattack": "The CTO asks unrelated questions by slide two."
+            }
+          ],
+          "modelAnswer": "Open with situation, complication, question and answer. Give the summarizing idea before the details. Then the CTO can decide in the time you have. The cost: you must prepare the opening well.",
+          "keyPoints": [
+            "Start with the answer, not the history.",
+            "Use situation, complication, question, answer.",
+            "Prepare the opening paragraph."
+          ]
+        },
+        {
+          "threatType": "outage",
+          "threat": "CTO: I think one part of your plan is wrong.",
+          "constraint": "You disagree, and the CTO decides in this meeting.",
+          "reasons": [
+            {
+              "text": "Strong pushback shows the CTO that you are sure.",
+              "right": false
+            },
+            {
+              "text": "Fighting feedback makes leaders keep their views to themselves.",
+              "right": true
+            },
+            {
+              "text": "Silent agreement is the polite way to take feedback.",
+              "right": false
+            }
+          ],
+          "skills": [
+            26
+          ],
+          "moves": [
+            {
+              "moveId": "answer.silent-yes",
+              "label": "OK, we will change it.",
+              "damage": 1,
+              "counterattack": "You keep the peace, but the CTO never hears your main fact."
+            },
+            {
+              "moveId": "answer.one-fact",
+              "label": "Thank you. One piece of data that may matter: here it is. If you still see it the same way, we follow your view.",
+              "damage": 2,
+              "counterattack": "You may lose the point, but the CTO keeps sharing views with you."
+            },
+            {
+              "moveId": "answer.fight",
+              "label": "No, that is wrong. Let me explain the plan again.",
+              "damage": 0,
+              "counterattack": "The CTO stops giving feedback, and you lose the room."
+            }
+          ],
+          "modelAnswer": "Do not fight feedback. Add one or two pieces of relevant data, then let it go. You can change minds later, after more thought. The cost: you may lose this point today.",
+          "keyPoints": [
+            "Never fight feedback in the room.",
+            "Add one or two facts, then let it go.",
+            "Change minds later, with more data."
+          ]
+        },
+        {
+          "threatType": "data",
+          "threat": "CTO: So what do you need from me?",
+          "constraint": "You came for one decision, and you have a proposal ready.",
+          "reasons": [
+            {
+              "text": "An open question shows the CTO respect and lets them lead.",
+              "right": false
+            },
+            {
+              "text": "Asking for many things at once saves meetings.",
+              "right": false
+            },
+            {
+              "text": "A clear proposal gives the CTO something to decide on.",
+              "right": true
+            }
+          ],
+          "skills": [
+            26
+          ],
+          "moves": [
+            {
+              "moveId": "answer.open-question",
+              "label": "I am not sure. What do you think we should do?",
+              "damage": 0,
+              "counterattack": "The CTO wonders if someone more senior should lead this."
+            },
+            {
+              "moveId": "answer.many-asks",
+              "label": "We need budget, two hires, a new tool and a decision.",
+              "damage": 1,
+              "counterattack": "The CTO picks the easy one, and the key decision waits."
+            },
+            {
+              "moveId": "answer.clear-ask",
+              "label": "One decision: please approve my proposal, so the team can start.",
+              "damage": 2,
+              "counterattack": "The CTO can say yes or no now, and you own the plan."
+            }
+          ],
+          "modelAnswer": "Bring a proposal and one clear ask. Do not present a question without an answer. People can align only behind a proposal. The cost: you own the proposal if it fails.",
+          "keyPoints": [
+            "Bring an answer, not only a question.",
+            "Make one clear ask.",
+            "People align behind a proposal."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t02-diff-feed-key",
+      "name": "The feed key diff",
+      "kind": "agent-diff",
+      "source": {
+        "title": "RubyGems Blog: API key logging leak",
+        "url": "https://blog.rubygems.org/2020/07/28/api-key-leak.html"
+      },
+      "opponentType": "security",
+      "secondType": "data",
+      "problem": "An agent changed how the dashboard feed finds the user. RSS readers cannot send headers.",
+      "diff": " router.get(\"/dashboard/feed\", async (req, res) => {\n-  const user = await userFromHeader(req.headers.authorization);\n+  // RSS readers cannot send headers, so read the API key from the URL.\n+  const user = await userFromApiKey(req.query.api_key);\n   res.type(\"application/rss+xml\").send(await feedFor(user));\n });",
+      "turns": [
+        {
+          "threatType": "security",
+          "threat": "The agent reads the user's full API key from the feed URL.",
+          "constraint": "The access logs keep full URLs, and this key can also publish packages.",
+          "reasons": [
+            {
+              "text": "A full API key in a URL gets stored in the logs.",
+              "right": true
+            },
+            {
+              "text": "HTTPS hides the query string, so the key stays out of the logs.",
+              "right": false
+            },
+            {
+              "text": "A feed is read-only, so its key is harmless.",
+              "right": false
+            }
+          ],
+          "skills": [
+            14,
+            12
+          ],
+          "moves": [
+            {
+              "moveId": "verdict.approve",
+              "damage": 0,
+              "counterattack": "The feed works, and every full API key in a feed URL lands in the logs."
+            },
+            {
+              "moveId": "verdict.block",
+              "damage": 2,
+              "counterattack": "The feed change waits, but no full API key goes into the logs."
+            },
+            {
+              "moveId": "verdict.ask-for-test",
+              "damage": 0,
+              "counterattack": "A test shows the feed works, and the keys still land in the logs."
+            }
+          ],
+          "modelAnswer": "Block it. The leaked keys in the real incident were sent in the query string of the feed. Access logs stored them. A full API key there can publish packages. The cost: the feed change waits.",
+          "keyPoints": [
+            "Keys in the query string end up in logs.",
+            "This key can do much more than read a feed.",
+            "Block before it ships."
+          ]
+        },
+        {
+          "threatType": "security",
+          "threat": "The agent says: RSS readers cannot send headers, so there is no other way.",
+          "constraint": "The feed only needs to read the dashboard, nothing else.",
+          "reasons": [
+            {
+              "text": "A clear reason from the agent makes the leak risk small enough to accept.",
+              "right": false
+            },
+            {
+              "text": "A feed-only key with no API access limits the harm of a leak.",
+              "right": true
+            },
+            {
+              "text": "Blocking the change is safer than changing its scope.",
+              "right": false
+            }
+          ],
+          "skills": [
+            15,
+            12
+          ],
+          "moves": [
+            {
+              "moveId": "verdict.block",
+              "damage": 1,
+              "counterattack": "No key leaks, but users of RSS readers lose their feed."
+            },
+            {
+              "moveId": "verdict.approve",
+              "damage": 0,
+              "counterattack": "The agent's reason sounds fair, and the full keys still leak."
+            },
+            {
+              "moveId": "verdict.narrow",
+              "damage": 2,
+              "counterattack": "The feed gets its own key with no API access, but users must set up the new feed link."
+            }
+          ],
+          "modelAnswer": "Narrow it. Many RSS clients cannot send authorization headers, so the feed needs a key in the URL. Give the feed its own key, with no access to the API. The cost: users set up a new feed link.",
+          "keyPoints": [
+            "Some clients really cannot send headers.",
+            "Give the feed its own key.",
+            "That key has no API access."
+          ]
+        },
+        {
+          "threatType": "data",
+          "threat": "The agent's new version uses a feed-only key. It says the logs now drop the key too.",
+          "constraint": "No test checks that the key is removed from the logs.",
+          "reasons": [
+            {
+              "text": "The agent wrote the code, so its claim is enough.",
+              "right": false
+            },
+            {
+              "text": "A feed-only key makes clean logs unimportant.",
+              "right": false
+            },
+            {
+              "text": "A claim about the logs needs evidence before you trust it.",
+              "right": true
+            }
+          ],
+          "skills": [
+            14,
+            15
+          ],
+          "moves": [
+            {
+              "moveId": "verdict.ask-for-test",
+              "damage": 2,
+              "counterattack": "The release waits for one test, but you know the logs are clean."
+            },
+            {
+              "moveId": "verdict.approve",
+              "damage": 1,
+              "counterattack": "The change ships, but nothing proves that the logs drop the key."
+            },
+            {
+              "moveId": "verdict.block",
+              "damage": 0,
+              "counterattack": "The safe version waits for no clear reason."
+            },
+            {
+              "moveId": "verdict.narrow",
+              "damage": 0,
+              "counterattack": "The change is already narrow, so the open risk stays."
+            }
+          ],
+          "modelAnswer": "Ask for a test. The team will turn the log export back on only once it is sure the keys are filtered out. So ask for proof that the logs drop the key. The cost: the release waits for one test.",
+          "keyPoints": [
+            "Ask for evidence, not a claim.",
+            "Test that the logs drop the key.",
+            "Ship once the test passes."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t02-diff-charge-retry",
+      "name": "The charge retry diff",
+      "kind": "agent-diff",
+      "source": {
+        "title": "Stripe Blog: Designing robust and predictable APIs with idempotency",
+        "url": "https://stripe.com/blog/idempotency"
+      },
+      "opponentType": "outage",
+      "secondType": "data",
+      "problem": "An agent added retries to the call that charges a customer.",
+      "diff": " async function charge(order) {\n+  for (let attempt = 1; attempt <= 3; attempt++) {\n+    try {\n       return await api.post(\"/v1/charges\", { amount: order.total, customer: order.customerId });\n+    } catch (err) {\n+      if (attempt === 3) throw err;\n+    }\n+  }\n }",
+      "turns": [
+        {
+          "threatType": "outage",
+          "threat": "The agent retries the charge call up to 3 times on any error, with no idempotency key.",
+          "constraint": "A connection can break after the charge went through, but before the reply arrives.",
+          "reasons": [
+            {
+              "text": "A retry without a key can charge the customer twice.",
+              "right": true
+            },
+            {
+              "text": "Three tries is a small number, so the risk is small.",
+              "right": false
+            },
+            {
+              "text": "A charge that failed with an error did not go through.",
+              "right": false
+            }
+          ],
+          "skills": [
+            14,
+            15
+          ],
+          "moves": [
+            {
+              "moveId": "verdict.narrow",
+              "damage": 1,
+              "counterattack": "Retries happen only when no connection opened, but timeouts still fail."
+            },
+            {
+              "moveId": "verdict.ask-for-test",
+              "damage": 0,
+              "counterattack": "The tests pass, because none of them breaks a connection after a charge."
+            },
+            {
+              "moveId": "verdict.block",
+              "damage": 2,
+              "counterattack": "The retry waits for an idempotency key, but no customer pays twice."
+            },
+            {
+              "moveId": "verdict.approve",
+              "damage": 0,
+              "counterattack": "A broken reply leads to a second charge for the same order."
+            }
+          ],
+          "modelAnswer": "Block it. The client cannot tell if the first charge went through. A retry with no key may charge twice. Ask for an idempotency key that every retry reuses. The cost: the retry waits.",
+          "keyPoints": [
+            "The client cannot know if the charge happened.",
+            "A retry without a key may charge twice.",
+            "Every retry must reuse one key."
+          ]
+        },
+        {
+          "threatType": "data",
+          "threat": "The agent now makes one Idempotency-Key per order and sends it on every try. No test makes a call fail midway.",
+          "constraint": "After a failure midway, what the server does depends on its implementation.",
+          "reasons": [
+            {
+              "text": "Code that looks right needs no test.",
+              "right": false
+            },
+            {
+              "text": "Only a test of a midway failure shows what happens.",
+              "right": true
+            },
+            {
+              "text": "One key per try is safer than one key per order.",
+              "right": false
+            }
+          ],
+          "skills": [
+            14,
+            8
+          ],
+          "moves": [
+            {
+              "moveId": "verdict.approve",
+              "damage": 1,
+              "counterattack": "It is probably right, but nobody saw a retry after a midway failure."
+            },
+            {
+              "moveId": "verdict.ask-for-test",
+              "damage": 2,
+              "counterattack": "The release waits for one test, but you know a retry charges only once."
+            },
+            {
+              "moveId": "verdict.block",
+              "damage": 0,
+              "counterattack": "A correct fix waits with no reason you can name."
+            }
+          ],
+          "modelAnswer": "Ask for a test. On a failure midway through an operation, the exact behavior depends on the implementation. So check that a retry after such a failure charges only once. The cost: the release waits for the test.",
+          "keyPoints": [
+            "The same key lets the server spot a retry.",
+            "A midway failure depends on the implementation.",
+            "Test it, and expect exactly one charge."
+          ]
+        },
+        {
+          "threatType": "outage",
+          "threat": "The final version waits longer between tries, adds random jitter, and has a test with a broken connection.",
+          "constraint": "The test fails if the key changes between tries.",
+          "reasons": [
+            {
+              "text": "Agent code needs one more test before you approve it, as a rule.",
+              "right": false
+            },
+            {
+              "text": "Jitter makes retries unsafe for payments.",
+              "right": false
+            },
+            {
+              "text": "The key, the backoff and the test cover the known risks.",
+              "right": true
+            }
+          ],
+          "skills": [
+            15,
+            8
+          ],
+          "moves": [
+            {
+              "moveId": "verdict.block",
+              "damage": 0,
+              "counterattack": "A safe change waits, and customers keep the old timeouts."
+            },
+            {
+              "moveId": "verdict.narrow",
+              "damage": 0,
+              "counterattack": "You cut the change, and you lose the backoff that protects the server."
+            },
+            {
+              "moveId": "verdict.ask-for-test",
+              "damage": 1,
+              "counterattack": "One more test adds little, and the release waits."
+            },
+            {
+              "moveId": "verdict.approve",
+              "damage": 2,
+              "counterattack": "The change ships tonight, but you now own it in production."
+            }
+          ],
+          "modelAnswer": "Approve it. Retries reuse one key, so a customer pays only once. Exponential backoff and random jitter keep many clients from hitting the server at the same moment. The cost: you own the change in production.",
+          "keyPoints": [
+            "One key makes the retries safe.",
+            "Backoff with jitter protects the server.",
+            "A real test backs the approval."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t02-diff-order-fields",
+      "name": "The order fields diff",
+      "kind": "agent-diff",
+      "source": {
+        "title": "Stripe Blog: APIs as infrastructure, future-proofing Stripe with versioning",
+        "url": "https://stripe.com/blog/api-versioning"
+      },
+      "opponentType": "data",
+      "secondType": "outage",
+      "problem": "An agent cleaned up the JSON of an order. Many partner integrations read this JSON.",
+      "diff": " function orderJson(order) {\n   return {\n     id: order.id,\n-    customer_name: order.customerName,\n+    buyer_name: order.customerName,\n+    loyalty_points: order.loyaltyPoints,\n     total: order.total,\n   };\n }",
+      "turns": [
+        {
+          "threatType": "data",
+          "threat": "Review the new loyalty_points field on its own.",
+          "constraint": "No client reads this field yet, and no old field changes with it.",
+          "reasons": [
+            {
+              "text": "Adding a new field to a response is a safe change.",
+              "right": true
+            },
+            {
+              "text": "A new field can break old clients that read the whole response.",
+              "right": false
+            },
+            {
+              "text": "New fields need a new API version.",
+              "right": false
+            }
+          ],
+          "skills": [
+            14,
+            15
+          ],
+          "moves": [
+            {
+              "moveId": "verdict.block",
+              "damage": 0,
+              "counterattack": "A safe new field waits for no reason."
+            },
+            {
+              "moveId": "verdict.approve",
+              "damage": 2,
+              "counterattack": "Clients can use the new field, and you must keep it from now on."
+            },
+            {
+              "moveId": "verdict.ask-for-test",
+              "damage": 1,
+              "counterattack": "A test adds little to a new field, and it slows the release."
+            }
+          ],
+          "modelAnswer": "Approve the new field. Adding a field that was never there before is safe. Old code does not read it, so nothing breaks. The cost: the field is now part of the contract.",
+          "keyPoints": [
+            "Adding a new field is safe.",
+            "Old code does not read it.",
+            "The field now becomes part of the contract."
+          ]
+        },
+        {
+          "threatType": "outage",
+          "threat": "Review the rename of customer_name to buyer_name.",
+          "constraint": "Partner code reads customer_name today, and there is no new API version.",
+          "reasons": [
+            {
+              "text": "Updated tests prove that the rename is safe.",
+              "right": false
+            },
+            {
+              "text": "Code that reads customer_name breaks when the field disappears.",
+              "right": true
+            },
+            {
+              "text": "A rename is safe when the data stays the same.",
+              "right": false
+            }
+          ],
+          "skills": [
+            14,
+            15
+          ],
+          "moves": [
+            {
+              "moveId": "verdict.approve",
+              "damage": 0,
+              "counterattack": "Every partner that reads customer_name breaks after the deploy."
+            },
+            {
+              "moveId": "verdict.ask-for-test",
+              "damage": 0,
+              "counterattack": "The tests pass, because the agent updated them for the new name."
+            },
+            {
+              "moveId": "verdict.narrow",
+              "damage": 1,
+              "counterattack": "Only the new field ships, but the agent still plans the rename."
+            },
+            {
+              "moveId": "verdict.block",
+              "damage": 2,
+              "counterattack": "The rename waits, and no partner code breaks."
+            }
+          ],
+          "modelAnswer": "Block the rename. Fields that were there before should stay, with the same name and type. Code that reads customer_name breaks without it. The cost: the old name stays.",
+          "keyPoints": [
+            "Old fields keep their name and type.",
+            "Removing a field breaks client code.",
+            "A rename is a remove plus an add."
+          ]
+        },
+        {
+          "threatType": "data",
+          "threat": "The agent now sends both customer_name and buyer_name, with the same value.",
+          "constraint": "customer_name keeps its name and its type, and buyer_name is new.",
+          "reasons": [
+            {
+              "text": "Two names for one value confuse every client.",
+              "right": false
+            },
+            {
+              "text": "Any change to an order response needs a new version.",
+              "right": false
+            },
+            {
+              "text": "Old fields stay, and a new field is safe to add.",
+              "right": true
+            }
+          ],
+          "skills": [
+            14,
+            15
+          ],
+          "moves": [
+            {
+              "moveId": "verdict.block",
+              "damage": 0,
+              "counterattack": "A safe change waits, and partners wait for the new name."
+            },
+            {
+              "moveId": "verdict.ask-for-test",
+              "damage": 1,
+              "counterattack": "A test adds little to a safe change, and the release waits."
+            },
+            {
+              "moveId": "verdict.approve",
+              "damage": 2,
+              "counterattack": "Partners keep working, but you now keep two names for one value."
+            }
+          ],
+          "modelAnswer": "Approve it. Fields that were there before stay, with the same name and type. Adding a new field is safe. The cost: you keep two names for one value.",
+          "keyPoints": [
+            "Old fields keep their name and type.",
+            "Adding a new field is safe.",
+            "Two names cost a little upkeep."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t02-diff-error-details",
+      "name": "The error details diff",
+      "kind": "agent-diff",
+      "source": {
+        "title": "OWASP: REST Security Cheat Sheet",
+        "url": "https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html"
+      },
+      "opponentType": "security",
+      "secondType": "data",
+      "problem": "An agent changed the API's error handler, so developers can debug faster.",
+      "diff": " app.use((err, req, res, next) => {\n-  res.status(500).json({ error: \"Internal error\" });\n+  res.status(500).json({ error: err.message, stack: err.stack, sql: err.sql });\n });",
+      "turns": [
+        {
+          "threatType": "security",
+          "threat": "Every 500 response now holds the error message, the stack and the SQL query.",
+          "constraint": "The API is public, and the release is tonight.",
+          "reasons": [
+            {
+              "text": "Call stacks and internal hints help attackers.",
+              "right": true
+            },
+            {
+              "text": "A 500 code tells attackers nothing useful.",
+              "right": false
+            },
+            {
+              "text": "Error bodies reach logged-in users, not attackers.",
+              "right": false
+            }
+          ],
+          "skills": [
+            14,
+            12
+          ],
+          "moves": [
+            {
+              "moveId": "verdict.ask-for-test",
+              "damage": 0,
+              "counterattack": "A test shows the details appear, and attackers see them too."
+            },
+            {
+              "moveId": "verdict.approve",
+              "damage": 0,
+              "counterattack": "Attackers read your call stacks and SQL from any failed call."
+            },
+            {
+              "moveId": "verdict.narrow",
+              "damage": 1,
+              "counterattack": "You drop the SQL, but the stack still reaches every client."
+            },
+            {
+              "moveId": "verdict.block",
+              "damage": 2,
+              "counterattack": "Debugging stays slow, but no client sees technical details."
+            }
+          ],
+          "modelAnswer": "Block it. Do not pass technical details, like call stacks or other internal hints, to the client. A 500 response should not reveal internal information that helps an attacker. The cost: debugging needs another way.",
+          "keyPoints": [
+            "Never send call stacks to the client.",
+            "Error bodies are visible to attackers.",
+            "Respond with a generic message."
+          ]
+        },
+        {
+          "threatType": "data",
+          "threat": "The agent's next version returns only a generic error message, with no call stack and no SQL.",
+          "constraint": "The message says that something failed, and nothing about why.",
+          "reasons": [
+            {
+              "text": "A generic message hides bugs from the team.",
+              "right": false
+            },
+            {
+              "text": "A generic message reveals no details of the failure.",
+              "right": true
+            },
+            {
+              "text": "Clients need the stack to report a bug well.",
+              "right": false
+            }
+          ],
+          "skills": [
+            15,
+            12
+          ],
+          "moves": [
+            {
+              "moveId": "verdict.approve",
+              "damage": 2,
+              "counterattack": "Clients see a generic message, but debugging needs another way."
+            },
+            {
+              "moveId": "verdict.block",
+              "damage": 0,
+              "counterattack": "A safe change waits, and the leak stays in the old version."
+            },
+            {
+              "moveId": "verdict.narrow",
+              "damage": 1,
+              "counterattack": "You ship only part of a change that is already safe."
+            }
+          ],
+          "modelAnswer": "Approve it. Respond with generic error messages, and avoid revealing details of the failure. Do not pass technical details, like call stacks, to the client. The cost: debugging needs another way.",
+          "keyPoints": [
+            "Generic error messages are the safe choice.",
+            "No call stacks go to the client.",
+            "Debugging needs another way."
+          ]
+        },
+        {
+          "threatType": "security",
+          "threat": "The agent offers one more change: return the stack when a request header asks for debug mode.",
+          "constraint": "Anyone on the internet can send that header.",
+          "reasons": [
+            {
+              "text": "A secret header name keeps the stack safe.",
+              "right": false
+            },
+            {
+              "text": "Debug details are fine when a header has to ask for them.",
+              "right": false
+            },
+            {
+              "text": "A header anyone can send gives the stack to anyone.",
+              "right": true
+            }
+          ],
+          "skills": [
+            14,
+            12
+          ],
+          "moves": [
+            {
+              "moveId": "verdict.approve",
+              "damage": 0,
+              "counterattack": "Any attacker sends the header and reads your call stacks."
+            },
+            {
+              "moveId": "verdict.ask-for-test",
+              "damage": 1,
+              "counterattack": "A test shows that the header works, and attackers can use it too."
+            },
+            {
+              "moveId": "verdict.block",
+              "damage": 2,
+              "counterattack": "Debug mode does not ship, and support must debug another way."
+            }
+          ],
+          "modelAnswer": "Block it. Do not pass technical details, like call stacks or other internal hints, to the client. Anyone can send the header, so anyone gets the stack. The cost: support must debug another way.",
+          "keyPoints": [
+            "Call stacks must not reach the client.",
+            "Anyone can send a request header.",
+            "Block the debug switch."
           ]
         }
       ]

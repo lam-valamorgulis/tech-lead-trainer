@@ -1,6 +1,7 @@
 // Battle rules (design 7, ticket #16). Pure functions: no clock, no database.
 import type { BundledCreature, BundledScenario, BundledTown } from "@/content/bundle";
-import { KEY_POINTS, kindOf, type BattleTurn } from "../content/schema.ts";
+import { KEY_POINTS, kindOf, type BattleTurn, type ScenarioKind } from "../content/schema.ts";
+import { dueKinds, type WeeklyKind } from "./battle-week.ts";
 import { caughtIds, type CatchRecord } from "./catch.ts";
 import type { LearningDay } from "./day.ts";
 import type { RecheckRecord } from "./review.ts";
@@ -10,8 +11,11 @@ export const OPPONENT_HP = 4;
 /** A battle lasts at most this many turns. */
 export const MAX_TURNS = 3;
 
-/** What the rules need from a battle the learner started: one per battle, from its turn events. */
-export type BattleRecord = { battleId: string; scenarioId: string; learningDay: LearningDay };
+/**
+ * What the rules need from a battle the learner started: one per battle, from its turn events.
+ * `kind` is the kind logged at play time. A battle from before v2 has none: it was a normal Battle.
+ */
+export type BattleRecord = { battleId: string; scenarioId: string; learningDay: LearningDay; kind?: ScenarioKind };
 
 export type WorkedExample = { creatureId: string; name: string; workedExample: BundledCreature["workedExample"] };
 
@@ -55,57 +59,66 @@ export function bestRow(turn: BattleTurn) {
  * Today's battle, or null. A 3-minute day is reviews only, and a day that already started a
  * battle gets no second one. A scenario is ready when the team can hold the creature of every
  * best move, so a well-chosen team can always win. The least-played ready scenario comes first.
+ * On a Meeting day or an Agent Diff day (the week rule, battle-week.ts) a ready Battle of that
+ * kind comes in place of the normal Battle. With none ready, the day falls back to a normal Battle.
  */
 export function nextBattle({
   town,
+  towns,
   catches,
   battles,
   today,
   committedMinutes,
-}: {
-  town: BundledTown;
-  catches: CatchRecord[];
-  battles: BattleRecord[];
+  weeklyKinds,
+}: OfferInput & {
   today: LearningDay;
   committedMinutes: 3 | 15 | 45;
+  /** The week rule's kinds, in priority order. Tests can pass their own; the app uses the default. */
+  weeklyKinds?: readonly WeeklyKind[];
 }): BattleOffer | null {
   if (committedMinutes === 3) return null;
   if (battles.some((battle) => battle.learningDay === today)) return null;
-  return readyOffers({ town, catches, battles })[0] ?? null;
+  const input = { town, towns, catches, battles };
+  // The first due kind with a ready scenario. A kind with nothing ready does not block a later one.
+  for (const kind of dueKinds({ today, battles, weeklyKinds })) {
+    const offer = readyOffers(input, kind)[0];
+    if (offer) return offer;
+  }
+  return readyOffers(input)[0] ?? null;
 }
 
+/** What a battle offer needs. `towns` are all towns: the caught creatures of earlier towns can join the team (design 7.5). */
+export type OfferInput = { town: BundledTown; towns: BundledTown[]; catches: CatchRecord[]; battles: BattleRecord[] };
+
 /**
- * Every scenario the learner can win today, as a battle offer, the least played first. A
- * scenario is ready when the team can hold the creature of every best move.
+ * Every scenario of one kind the learner can play today, as a battle offer, the least played
+ * first. A normal Battle is ready when the team can hold the creature of every best move, from
+ * this town or an earlier one. A Meeting Battle and an Agent Diff Battle (#106) need no
+ * creature: You play alone, so they have no team and no worked example.
  */
-export function readyOffers({
-  town,
-  catches,
-  battles,
-}: {
-  town: BundledTown;
-  catches: CatchRecord[];
-  battles: BattleRecord[];
-}): BattleOffer[] {
-  const caught = caughtIds(catches);
-  // A retired creature cannot join a team, even when it was caught.
-  const choices = town.creatures.filter((creature) => !creature.retired && caught.has(creature.id)).map((c) => c.id);
-  // Only normal Battles for now: Meeting Battle and Agent Diff Battle come with their own screens (#105, #106).
-  const ready = town.scenarios.filter(
-    (scenario) =>
-      !scenario.retired &&
-      kindOf(scenario) === "battle" &&
-      [...conceptsOf(scenario)].every((concept) => choices.includes(concept)),
-  );
+export function readyOffers({ town, towns, catches, battles }: OfferInput, kind: ScenarioKind = "battle"): BattleOffer[] {
   const plays = (scenario: BundledScenario) => battles.filter((battle) => battle.scenarioId === scenario.id).length;
   // A stable sort keeps file order between scenarios played equally often.
-  return [...ready]
-    .sort((a, b) => plays(a) - plays(b))
-    .map((scenario) => ({
-      scenario,
-      team: { size: Math.min(TEAM_SIZE, choices.length), choices },
-      workedExamples: workedExamplesFor(town, scenario, catches, battles),
-    }));
+  const leastPlayed = (scenarios: BundledScenario[]) => [...scenarios].sort((a, b) => plays(a) - plays(b));
+  // A Gym twin (design 7.5) repeats a threat with the Constraint reversed. A twin belongs in the
+  // Gym, next to its old scenario, so twins wait for the Gym ticket.
+  const playable = town.scenarios.filter((scenario) => !scenario.retired && kindOf(scenario) === kind && scenario.twinOf === undefined);
+  if (kind !== "battle") {
+    return leastPlayed(playable).map((scenario) => ({ scenario, team: { size: 0, choices: [] }, workedExamples: [] }));
+  }
+  const caught = caughtIds(catches);
+  // This town's creatures first, then those of earlier towns. A retired creature cannot join a team, even when it was caught.
+  const earlier = towns.filter((other) => other.number < town.number).sort((a, b) => a.number - b.number);
+  const choices = [town, ...earlier]
+    .flatMap((t) => t.creatures)
+    .filter((creature) => !creature.retired && caught.has(creature.id))
+    .map((c) => c.id);
+  const ready = playable.filter((scenario) => [...conceptsOf(scenario)].every((concept) => choices.includes(concept)));
+  return leastPlayed(ready).map((scenario) => ({
+    scenario,
+    team: { size: Math.min(TEAM_SIZE, choices.length), choices },
+    workedExamples: workedExamplesFor(town, scenario, catches, battles),
+  }));
 }
 
 /** The concepts a scenario uses: the creatures of its best moves. */

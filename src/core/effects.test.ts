@@ -69,9 +69,10 @@ describe("music loops (#94)", () => {
     expect(midiToHz(81)).toBeCloseTo(880);
   });
 
-  it("has a home-and-map loop and a battle loop, and the battle loop is faster", () => {
-    expect(Object.keys(SONGS).sort()).toEqual(["battle", "map"]);
+  it("has a home-and-map loop, a battle loop and a meeting loop; the battle loop is the fastest", () => {
+    expect(Object.keys(SONGS).sort()).toEqual(["battle", "map", "meeting"]);
     expect(SONGS.battle.bpm).toBeGreaterThan(SONGS.map.bpm);
+    expect(SONGS.battle.bpm).toBeGreaterThan(SONGS.meeting.bpm);
   });
 
   it("each loop has a lead and a bass of the same length, in whole bars of 16 steps", () => {

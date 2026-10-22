@@ -177,6 +177,113 @@ describe("battle events", () => {
     await expect(writeEvents(user.client, [checkEvent({ tickedPoints: [1, 2, 3, 1] })])).rejects.toThrow();
   });
 
+  it("store a v2 turn: the kind, the Reason by its file index, the HP lost, the Skills and the Constraint, with no typed why", async () => {
+    const turn = turnEvent({
+      whyText: undefined,
+      damage: 1,
+      battleKind: "meeting",
+      moveDamage: 2,
+      reasonIndex: 2,
+      reasonCorrect: false,
+      hpLost: 0,
+      skillIds: [3, 10],
+      constraintVariant: "main",
+    });
+    await writeEvents(user.client, [turn, turn]);
+
+    const { data } = await user.client
+      .from("battle_turn_events")
+      .select("move_id, damage, best_move, why_text, battle_kind, move_damage, reason_index, reason_correct, hp_lost, skill_ids, constraint_variant")
+      .eq("client_event_id", turn.clientEventId);
+    expect(data).toEqual([
+      {
+        move_id: "cache.ttl",
+        damage: 1,
+        best_move: true,
+        why_text: null,
+        battle_kind: "meeting",
+        move_damage: 2,
+        reason_index: 2,
+        reason_correct: false,
+        hp_lost: 0,
+        skill_ids: [3, 10],
+        constraint_variant: "main",
+      },
+    ]);
+  });
+
+  it("still store an old-shaped turn from the v1 screen: the why stays, and every v2 field is empty", async () => {
+    const turn = turnEvent();
+    await writeEvents(user.client, [turn]);
+    const { data } = await user.client
+      .from("battle_turn_events")
+      .select("why_text, battle_kind, move_damage, reason_index, reason_correct, hp_lost, skill_ids, constraint_variant")
+      .eq("client_event_id", turn.clientEventId);
+    expect(data).toEqual([
+      {
+        why_text: "The logo rarely changes, so a copy can live for an hour.",
+        battle_kind: null,
+        move_damage: null,
+        reason_index: null,
+        reason_correct: null,
+        hp_lost: null,
+        skill_ids: null,
+        constraint_variant: null,
+      },
+    ]);
+  });
+
+  it("refuse v2 turn fields out of range, and a Reason without whether it was right", async () => {
+    const bad: Partial<BattleTurnEvent>[] = [
+      { battleKind: "boss" as "battle" },
+      { reasonIndex: 3, reasonCorrect: true },
+      { reasonIndex: 1 },
+      { reasonCorrect: true },
+      { hpLost: 3 as 2 },
+      { moveDamage: 3 as 2 },
+      { skillIds: [] },
+      { skillIds: [0] },
+      { skillIds: [27] },
+      { skillIds: [3, 3] },
+      { constraintVariant: "Main line" },
+    ];
+    for (const overrides of bad) {
+      await expect(writeEvents(user.client, [turnEvent(overrides)]), JSON.stringify(overrides)).rejects.toThrow();
+      expect(eventSchema.safeParse(turnEvent(overrides)).success, JSON.stringify(overrides)).toBe(false);
+    }
+  });
+
+  it("refuse a Skill list with an empty entry in it", async () => {
+    // The endpoint schema refuses this before it reaches the table. The table refuses it too.
+    const turn = turnEvent({ skillIds: [3, null as unknown as number] });
+    expect(eventSchema.safeParse(turn).success).toBe(false);
+    await expect(writeEvents(user.client, [turn])).rejects.toThrow();
+  });
+
+  it("let the endpoint schema accept the old shape and the v2 shape", () => {
+    expect(eventSchema.safeParse(turnEvent()).success).toBe(true);
+    const v2 = turnEvent({ whyText: undefined, battleKind: "battle", moveDamage: 2, reasonIndex: 0, reasonCorrect: true, hpLost: 2, skillIds: [3], constraintVariant: "main" });
+    expect(eventSchema.safeParse(v2).success).toBe(true);
+    // A why that is given still needs words.
+    expect(eventSchema.safeParse(turnEvent({ whyText: "  " })).success).toBe(false);
+  });
+
+  it("store the kind and the Faints at the end of a v2 battle, and leave them empty in the old shape", async () => {
+    const v2 = battleEvent({ battleKind: "agent-diff", team: ["you"], result: "lost", faints: 1 });
+    const old = battleEvent();
+    await writeEvents(user.client, [v2, old]);
+    const { data } = await user.client
+      .from("battle_events")
+      .select("client_event_id, battle_kind, faints")
+      .in("client_event_id", [v2.clientEventId, old.clientEventId])
+      .order("id");
+    expect(data).toEqual([
+      { client_event_id: v2.clientEventId, battle_kind: "agent-diff", faints: 1 },
+      { client_event_id: old.clientEventId, battle_kind: null, faints: null },
+    ]);
+    await expect(writeEvents(user.client, [battleEvent({ faints: 4 })])).rejects.toThrow();
+  });
+
   it("refuse a self-check event that the endpoint schema does not accept", () => {
     expect(eventSchema.safeParse(checkEvent({ tickedPoints: [2, 2] })).success).toBe(false);
     expect(eventSchema.safeParse(checkEvent({ tickedPoints: [0] })).success).toBe(false);

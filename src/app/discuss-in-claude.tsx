@@ -1,9 +1,7 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
-import { itemCard } from "@/content";
-import type { BattleState } from "@/core/battle";
-import { CLAUDE_NEW_CHAT, discussPackage, teachBackItems } from "@/core/discuss";
+import { CLAUDE_NEW_CHAT } from "@/core/discuss";
 import { postEvents } from "@/lib/events/post-events";
 import type { BattleEventFields } from "@/lib/events/write-events";
 import { copyAndOpenClaude } from "./claude-copy";
@@ -12,20 +10,20 @@ import { keepAboveKeyboard } from "./keyboard";
 type CopyState = "copying" | "copied" | "failed";
 
 /**
- * "Discuss in Claude" (design 10, UI rule 12) and the teach-back. One tap copies the battle and
+ * "Discuss in Claude" (design 10, UI rule 17) and the teach-back. One tap copies the battle and
  * opens a new Claude chat. When the copy fails, a text box shows the package for a manual copy.
  * After the chat, the learner writes 2 sentences from memory.
  */
 export function DiscussInClaude({
-  battle,
-  whys,
-  ticks,
+  pack,
+  teachBackItems,
   eventFields,
   onDone,
 }: {
-  battle: BattleState;
-  whys: Record<number, string>;
-  ticks: Record<number, number[]>;
+  /** Builds the package. It runs inside the tap, so it can also save what the package says. */
+  pack: () => string;
+  /** The review items the 2 sentences come back at. */
+  teachBackItems: string[];
   eventFields: () => BattleEventFields;
   onDone: () => void;
 }) {
@@ -45,7 +43,7 @@ export function DiscussInClaude({
   function discuss() {
     if (tapped.current) return;
     tapped.current = true;
-    const pkg = discussPackage({ battle, whys, ticks, itemOf: itemCard });
+    const pkg = pack();
     setText(pkg);
     const copy = copyAndOpenClaude(pkg);
     if (!copy) {
@@ -63,7 +61,7 @@ export function DiscussInClaude({
         type: "battle-teach-back",
         clientEventId: crypto.randomUUID(),
         ...eventFields(),
-        itemIds: teachBackItems(battle),
+        itemIds: teachBackItems,
         firstSentence,
         secondSentence,
       },

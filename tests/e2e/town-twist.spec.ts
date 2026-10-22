@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
-import { catchItems } from "../support/battle";
+import { expect, test } from "@playwright/test";
+import { battlePanel, catchItems, nextTurn, playMove } from "../support/battle";
 import { local, signInNewUser } from "../support/e2e";
 import { sql } from "../support/local-admin";
 
@@ -12,12 +12,6 @@ async function moveToTown2(email: string) {
   await sql(local, "update profiles set program_start_date = current_date - 40 where user_id = (select id from auth.users where email = $1)", [
     email,
   ]);
-}
-
-async function playTurn(page: Page, move: string, why: string) {
-  await page.getByLabel(move).check();
-  await page.getByLabel("Why this move?").fill(why);
-  await page.getByRole("button", { name: "Make the move" }).click();
 }
 
 test("the first learning day in town 2 shows the new town screen once, then the day goes on as usual", async ({ page }) => {
@@ -102,7 +96,8 @@ test("a two-type opponent shows both types, and each turn shows the type that at
   try {
     await moveToTown2(user.email);
     // Caught today, so today has no catch and no review: the battle comes first.
-    await catchItems(user.email, ["rate-limit", "api-key"]);
+    // Proxy is a town 1 creature: it can join a town 2 team (design 7.5).
+    await catchItems(user.email, ["rate-limit", "api-key", "proxy"]);
     await page.goto("/");
     await page.getByRole("button", { name: "Start Town 2" }).click();
     await page.getByRole("button", { name: "15 minutes" }).click();
@@ -123,23 +118,24 @@ test("a two-type opponent shows both types, and each turn shows the type that at
     expect(accessibility.violations).toEqual([]);
     await page.getByLabel("Rate limit").check();
     await page.getByLabel("API key").check();
+    await page.getByLabel("Proxy").check();
     await page.getByRole("button", { name: "Start the battle" }).click();
 
+    // A v1 scenario has no Constraint and no Reasons: a move plays at once (#103).
     await expect(page.getByRole("heading", { name: "Turn 1 of 3" })).toBeFocused();
     await expect(page.getByText("This turn attacks with: Traffic")).toBeVisible();
-    await playTurn(page, "Quota (Rate limit)", "A quota stops one partner from using all the capacity.");
-    await expect(page.getByText("Strong hit · 2 ●●")).toBeVisible();
-    await page.getByRole("button", { name: "See the model answer" }).click();
-    await page.getByRole("button", { name: "Next turn" }).click();
+    await expect(battlePanel(page).getByText("Constraint")).toHaveCount(0);
+    await playMove(page, "Quota (Rate limit)");
+    await expect(battlePanel(page).getByText("Strong hit · 2 ●●")).toBeVisible();
+    await nextTurn(page);
 
     await expect(page.getByRole("heading", { name: "Turn 2 of 3" })).toBeFocused();
     await expect(page.getByText("This turn attacks with: Security")).toBeVisible();
     const turnCheck = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
     expect(turnCheck.violations).toEqual([]);
-    await playTurn(page, "Key rotation (API key)", "A leaked key must stop working at once.");
-    await expect(page.getByText("Opponent HP 0 of 4")).toBeVisible();
-    await page.getByRole("button", { name: "See the model answer" }).click();
-    await page.getByRole("button", { name: "See how it ended" }).click();
+    await playMove(page, "Key rotation (API key)");
+    await expect(page.getByText("Opponent HP 0 of 4")).toBeAttached();
+    await nextTurn(page, true);
     await expect(page.getByRole("heading", { name: "You won!" })).toBeVisible();
 
     await expect

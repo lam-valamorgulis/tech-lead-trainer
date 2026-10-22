@@ -1,4 +1,5 @@
 import { bestRow, creatureOf, OPPONENT_HP } from "../core/battle.ts";
+import { AGENT_SPECIES, OPPONENT_SPECIES } from "../core/sprite.ts";
 import {
   AGENT_VERDICTS,
   glossarySchema,
@@ -73,15 +74,25 @@ export function checkContent(input: ContentInput): Problem[] {
   return problems;
 }
 
-/** Each concept is its own species (design 9, rule 19), so no two creatures share a sprite, in any town. */
+/**
+ * Each concept is its own species (design 9, rule 19), so no two creatures share a sprite, in any
+ * town. The species of the Battle opponents (#103) and of the AI agent (#106) are not creatures,
+ * so no creature takes them.
+ */
 function spriteProblems(towns: Town[]): Problem[] {
   const owner = new Map<number, string>();
+  const opponentOf = new Map(Object.entries(OPPONENT_SPECIES).map(([type, species]) => [species, type]));
   const problems: Problem[] = [];
   for (const town of towns) {
     for (const creature of town.creatures) {
       if (creature.sprite === undefined) continue;
       const first = owner.get(creature.sprite);
-      if (first) {
+      const opponent = opponentOf.get(creature.sprite);
+      if (opponent) {
+        problems.push({ where: itemLabel(town, creature), message: `Sprite ${creature.sprite} is the Battle opponent of type ${opponent}. Pick another species.` });
+      } else if (creature.sprite === AGENT_SPECIES) {
+        problems.push({ where: itemLabel(town, creature), message: `Sprite ${creature.sprite} is the AI agent of the Agent Diff Battle. Pick another species.` });
+      } else if (first) {
         problems.push({ where: itemLabel(town, creature), message: `Sprite ${creature.sprite} is already used by ${first}. Each creature has its own sprite.` });
       } else {
         owner.set(creature.sprite, creature.id);
@@ -255,6 +266,7 @@ function townProblems(town: Town, allTowns: Town[]): Problem[] {
     problems.push(...scenarioProblems(town, scenario, moves));
     problems.push(...twistProblems(town, scenario));
     problems.push(...v2ScenarioProblems(town, scenario, allTowns));
+    problems.push(...twinProblems(town, scenario));
   }
 
   return problems;
@@ -367,7 +379,7 @@ function v2ScenarioProblems(town: Town, scenario: Scenario, allTowns: Town[]): P
   if (kind !== "agent-diff" && scenario.diff !== undefined) {
     problems.push({ where: `${at}.diff`, message: "Only an Agent Diff Battle has a diff." });
   }
-  const v2 = kind !== "battle" || scenario.turns.some(isV2Turn);
+  const v2 = kind !== "battle" || scenario.twinOf !== undefined || scenario.turns.some(isV2Turn);
   if (!v2) return problems;
 
   if (scenario.source === undefined) {
@@ -401,6 +413,41 @@ function v2ScenarioProblems(town: Town, scenario: Scenario, allTowns: Town[]): P
     if (!usesEarlierTown) {
       problems.push({ where: at, message: `From Town 2 on, one turn's best move must be a move of a creature from an earlier town.` });
     }
+  }
+  return problems;
+}
+
+/**
+ * A Gym twin (design 7.5): the same situation as another scenario of its town, with the Constraint
+ * reversed. So it has the same opponent type and kind, and at least one turn with the same threat
+ * where the best move is a different one. Without that, the Gym would only replay the old answer.
+ */
+function twinProblems(town: Town, scenario: Scenario): Problem[] {
+  if (scenario.twinOf === undefined) return [];
+  const at = `${town.id}.${scenario.id}.twinOf`;
+  if (scenario.twinOf === scenario.id) return [{ where: at, message: "A twin points to another scenario, not to itself." }];
+  const original = town.scenarios.find((s) => s.id === scenario.twinOf);
+  if (!original) return [{ where: at, message: `${scenario.twinOf} is not a scenario of ${town.id}. A twin points to a scenario of its own town.` }];
+
+  // A chain or a cycle of twins would hide every scenario in it, because the app does not offer twins.
+  if (original.twinOf !== undefined) return [{ where: at, message: "A twin points to a normal scenario, not to another twin." }];
+  if (original.retired) return [{ where: at, message: `${original.id} is retired. A twin points to a scenario the app still offers.` }];
+
+  const problems: Problem[] = [];
+  if (original.opponentType !== scenario.opponentType) {
+    problems.push({ where: at, message: `A twin has the same opponent type as ${original.id}: ${original.opponentType}.` });
+  }
+  if (kindOf(original) !== kindOf(scenario)) {
+    problems.push({ where: at, message: `A twin is the same kind of battle as ${original.id}: ${kindOf(original)}.` });
+  }
+  const pairs = scenario.turns.flatMap((turn) => original.turns.filter((old) => old.threat === turn.threat).map((old) => [old, turn]));
+  if (pairs.length === 0) {
+    problems.push({ where: at, message: `A twin has at least one turn with the same threat as a turn of ${original.id}.` });
+  } else if (!pairs.some(([old, turn]) => bestRow(old).moveId !== bestRow(turn).moveId)) {
+    problems.push({
+      where: at,
+      message: `On a turn with the same threat as ${original.id}, the twin needs another best move. Reverse the Constraint so the best move changes.`,
+    });
   }
   return problems;
 }

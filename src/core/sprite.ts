@@ -1,6 +1,22 @@
 // Creature art (design 9 rules 18 and 19, ticket #99). Pure functions: no browser.
+import type { OpponentType } from "../content/schema.ts";
 import type { CreatureStatus } from "./catch.ts";
 import type { Stage } from "./review.ts";
+
+/**
+ * The species that plays the opponent of a Battle, by its type (#103). An opponent is a problem,
+ * not a concept, so no creature may use these species (the content check refuses it). Each one
+ * fits its type: a long serpent for Traffic, a bat for Speed, a spider for Security, a crab
+ * holding its shell for Data, a bug for Outage.
+ */
+export const OPPONENT_SPECIES: Record<OpponentType, number> = { traffic: 11, speed: 14, security: 53, data: 45, outage: 15 };
+
+/**
+ * The species of the AI agent, the opponent of an Agent Diff Battle (#106): a small blue creature
+ * with antennae like network nodes. The approved prototype used species 33, which a Town 2
+ * creature now has. Like the opponents above, no creature may use it.
+ */
+export const AGENT_SPECIES = 3;
 
 /** The pack's sprites are 64 x 64 pixels. They grow by a whole number, with no smoothing. */
 export const SPRITE_PIXELS = 64;

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BattleEndRecord, BattleRecord, CheckRecord, TurnRecord } from "@/core/battle";
 import type { TeachBackRecord } from "@/core/discuss";
+import type { ScenarioKind } from "@/content/schema";
 import { pendingEvents } from "./events/post-events";
 import { selectAll } from "./select-all";
 
@@ -23,6 +24,8 @@ type TurnRow = {
   turn_number: number;
   move_id: string | null;
   best_move: boolean;
+  /** Null: a turn from before v2, always a normal Battle. */
+  battle_kind: ScenarioKind | null;
   learning_day: string;
 };
 type EndRow = { client_event_id: string; battle_id: string; result: "won" | "lost"; learning_day: string };
@@ -43,6 +46,9 @@ type TeachBackRow = {
   second_sentence: string;
   learning_day: string;
 };
+
+/** A turn with the kind of battle it was logged with. The week rule reads the kind (#105). */
+type KindTurn = TurnRecord & { kind?: ScenarioKind };
 
 /** Saved rows first, then the events still waiting to reach the server, which count as today's. */
 function withWaiting<Row extends { client_event_id: string }, Event extends { clientEventId: string }, Out>(
@@ -69,7 +75,7 @@ export async function loadBattleHistory(client: SupabaseClient, today: string): 
     selectAll((from, to) =>
       client
         .from("battle_turn_events")
-        .select("client_event_id, battle_id, scenario_id, turn_number, move_id, best_move, learning_day")
+        .select("client_event_id, battle_id, scenario_id, turn_number, move_id, best_move, battle_kind, learning_day")
         .order("occurred_at")
         .order("id")
         .range(from, to)
@@ -106,7 +112,8 @@ export async function loadBattleHistory(client: SupabaseClient, today: string): 
   const turns = withWaiting(
     turnRows,
     waitingTurns,
-    (row): TurnRecord => ({
+    (row): KindTurn => ({
+      kind: row.battle_kind ?? undefined,
       battleId: row.battle_id,
       scenarioId: row.scenario_id,
       turnNumber: row.turn_number,
@@ -114,7 +121,8 @@ export async function loadBattleHistory(client: SupabaseClient, today: string): 
       bestMove: row.best_move,
       learningDay: row.learning_day,
     }),
-    (event): TurnRecord => ({
+    (event): KindTurn => ({
+      kind: event.battleKind,
       battleId: event.battleId,
       scenarioId: event.scenarioId,
       turnNumber: event.turnNumber,
@@ -165,10 +173,15 @@ export async function loadBattleHistory(client: SupabaseClient, today: string): 
       learningDay: today,
     }),
   );
-  // One record per battle. The first turn of a battle tells its day.
+  // One record per battle. The first turn of a battle tells its day and its kind.
   const battles = [
     ...new Map(
-      [...turns].reverse().map((turn) => [turn.battleId, { battleId: turn.battleId, scenarioId: turn.scenarioId, learningDay: turn.learningDay }]),
+      [...turns]
+        .reverse()
+        .map((turn): [string, BattleRecord] => [
+          turn.battleId,
+          { battleId: turn.battleId, scenarioId: turn.scenarioId, learningDay: turn.learningDay, kind: turn.kind },
+        ]),
     ).values(),
   ];
   return { battles, turns, ends, checks, teachBacks };
