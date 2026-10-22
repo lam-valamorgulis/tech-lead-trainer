@@ -25,6 +25,7 @@
       "id": "client-server",
       "name": "Client and server",
       "sprite": 2,
+      "systemNode": "browser",
       "lesson": {
         "screens": [
           {
@@ -232,6 +233,7 @@
       "id": "http-message",
       "name": "HTTP message",
       "sprite": 6,
+      "systemNode": "browser-cdn",
       "lesson": {
         "screens": [
           {
@@ -485,6 +487,7 @@
       "id": "http-method",
       "name": "HTTP method",
       "sprite": 18,
+      "systemNode": "browser-cdn",
       "lesson": {
         "screens": [
           {
@@ -737,6 +740,7 @@
       "id": "status-code",
       "name": "Status code",
       "sprite": 22,
+      "systemNode": "browser-cdn",
       "lesson": {
         "screens": [
           {
@@ -1036,6 +1040,7 @@
       "id": "content-type",
       "name": "Content type",
       "sprite": 4,
+      "systemNode": "browser-cdn",
       "lesson": {
         "screens": [
           {
@@ -1244,6 +1249,7 @@
       "id": "stateless-http",
       "name": "Stateless HTTP",
       "sprite": 10,
+      "systemNode": "api",
       "lesson": {
         "screens": [
           {
@@ -1452,6 +1458,7 @@
       "id": "cookie",
       "name": "Cookie",
       "sprite": 21,
+      "systemNode": "browser",
       "lesson": {
         "screens": [
           {
@@ -1749,6 +1756,7 @@
       "id": "proxy",
       "name": "Proxy",
       "sprite": 31,
+      "systemNode": "cdn",
       "lesson": {
         "screens": [
           {
@@ -1957,6 +1965,7 @@
       "id": "dns",
       "name": "DNS",
       "sprite": 24,
+      "systemNode": "browser",
       "lesson": {
         "screens": [
           {
@@ -2165,6 +2174,7 @@
       "id": "http-version",
       "name": "HTTP versions",
       "sprite": 5,
+      "systemNode": "browser-cdn",
       "lesson": {
         "screens": [
           {
@@ -2420,6 +2430,7 @@
       "id": "tls",
       "name": "TLS",
       "sprite": 41,
+      "systemNode": "browser-cdn",
       "lesson": {
         "screens": [
           {
@@ -2675,6 +2686,7 @@
       "id": "hsts",
       "name": "HSTS",
       "sprite": 1,
+      "systemNode": "browser",
       "lesson": {
         "screens": [
           {
@@ -2881,6 +2893,7 @@
       "id": "mixed-content",
       "name": "Mixed content",
       "sprite": 28,
+      "systemNode": "browser",
       "lesson": {
         "screens": [
           {
@@ -3090,6 +3103,7 @@
       "id": "same-origin-policy",
       "name": "Same-origin policy",
       "sprite": 13,
+      "systemNode": "browser",
       "lesson": {
         "screens": [
           {
@@ -3299,6 +3313,7 @@
       "id": "cors",
       "name": "CORS",
       "sprite": 27,
+      "systemNode": "browser",
       "lesson": {
         "screens": [
           {

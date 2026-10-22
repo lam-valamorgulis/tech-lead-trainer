@@ -315,6 +315,8 @@ export function fixtureTwistTown() {
     number: 2,
     name: "Fixture Town Two",
     twist: { kind: "two-types" },
+    // Its creatures name no System Map node, so they sit at the town's node (#112).
+    systemNode: "api",
     // Seam C shows the Town Intro (#98) here: on the first day of a new town, as in real use.
     intro: {
       title: "How an API keeps partners safe",
@@ -447,6 +449,7 @@ export function fixtureTownV2(): Town {
       {
         ...cache,
         sprite: 12,
+        systemNode: "cache",
         lesson: fixtureLesson("Cache", "A cache keeps a copy of a response, so the next visit loads faster."),
         tradeOff: {
           id: "cache.trade-off.fresh-prices",
@@ -473,6 +476,7 @@ export function fixtureTownV2(): Town {
       {
         ...cookie,
         sprite: 7,
+        systemNode: "browser",
         lesson: fixtureLesson("Cookie", "A cookie is small data the browser sends back."),
         tradeOff: {
           id: "cookie.trade-off.sign-in",
@@ -487,6 +491,7 @@ export function fixtureTownV2(): Town {
       {
         ...proxy,
         sprite: 30,
+        systemNode: "cdn",
         tradeOff: {
           id: "proxy.trade-off.near-visitors",
           situation: "Visitors on another continent wait for every image.",

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { badges } from "@/core/gym";
 import { currentTownNumber } from "@/core/roadmap";
 import { BadgeList } from "../badge-list";
@@ -18,6 +19,10 @@ export function MapScreen({ programStartDate }: { programStartDate: string }) {
     <>
       <p className="lead">Tap a town to open it.</p>
       <TownBoard current={currentTownNumber(programStartDate, day.today)} />
+      {/* Design 6.2: the System Map is its own screen; the map of the 12 towns stays. */}
+      <Link href="/map/system" className="button button-quiet system-map-link">
+        System Map
+      </Link>
       <section className="stack" aria-labelledby="badges-title">
         <h2 id="badges-title">Badges</h2>
         {earned === null ? <p className="lead">We could not load your badges. Check your connection.</p> : <BadgeList earned={earned} />}

@@ -69,6 +69,7 @@ All text is plain text, as above. Only a `diagram` and a `diff` may have line br
 | --- | --- | --- |
 | `intro` | The Town Intro, shown on the town's first day (design 6.1) | `title`, `screens` (1 or more texts), one `diagram`, one `source` |
 | `skills` | The tech lead Skills the town adds | 1 or 2 Skill ids |
+| `systemNode` | The System Map node of each creature of the town that names none | One node id, see "System Map" below |
 
 ### Creature and move
 
@@ -76,10 +77,25 @@ All text is plain text, as above. Only a `diagram` and a `diff` may have line br
 | --- | --- | --- | --- |
 | `lesson` | creature and move | What the learner reads before the catch question (design 6.3) | Exactly 3 `screens`. Each screen has a `text` of at most 50 words and an optional `diagram`. `answerScreen` (0, 1 or 2) is the screen that holds the catch answer. One `source` for the whole Lesson |
 | `sprite` | creature | The species number in the creature art pack | A whole number from 1. No two creatures share one, in any town. Display only: changing it does not change the content hash |
+| `systemNode` | creature | Where the creature sits on the System Map | One node id, see "System Map" below. Display only |
 | `tradeOff` | creature | The hard trade-off question for Stage 3 (design 6.5) | 3 `options`, see "Scored cards" below |
 | `decisionCards` | creature | Decision Cards for review (design 6.4) | Each has 2 `options`, see "Scored cards" below |
 
 The old `card` stays. Review and "Discuss in Claude" still use it. A Lesson is added next to it.
+
+### System Map
+
+The System Map (design 6.2) is one web system. Each caught creature sits at its node. The node ids are in `src/content/system-nodes.ts`, and an id never changes its meaning.
+
+| Node ids | What they are |
+| --- | --- |
+| `browser`, `cdn`, `api`, `cache`, `database`, `queue` | The 6 places, from the top down: the path of one request |
+| `browser-cdn`, `cdn-api`, `api-cache`, `cache-database`, `database-queue` | The link between two places next to each other |
+| `ring` | The outer ring: for towns that are not one part of the system, such as Testing, Security or Tech lead decisions |
+
+- The app uses the creature's `systemNode`, else the town's `systemNode`, else `ring`.
+- A node is display only, like a sprite. It is not in the content hash, and a change to it needs no fact check.
+- Place a creature where its idea lives in a real system. For example, a cookie lives in the browser, and TLS protects the link between the browser and the CDN.
 
 ### Scored cards: Decision Cards and trade-off questions
 
