@@ -18,6 +18,18 @@ export function spritePath(species: number, side: SpriteSide, palette: Palette):
   return `/sprites/monsters/monster-${species}-${side}${palette === "alt" ? "-alt" : ""}.png`;
 }
 
+/**
+ * The portraits of people (design 9 rule 18): 64 px pictures from peb's "64px portraits" pack in
+ * public/sprites/portraits. The learner is portrait 3, as in the approved prototype.
+ */
+export const PORTRAIT_COUNT = 15;
+export const LEARNER_PORTRAIT = 3;
+
+/** The file of one portrait in public/sprites/portraits. */
+export function portraitPath(portrait: number): string {
+  return `/sprites/portraits/portrait-${portrait}.png`;
+}
+
 /** How the Field Guide draws a creature (design 9 rule 19): caught in colour, seen in grey, not met as a black shape. */
 export type SpriteLook = "color" | "grey" | "shadow";
 
