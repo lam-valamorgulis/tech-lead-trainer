@@ -76,6 +76,9 @@ test("the tracking screen shows every number on one screen, and scrolls cleanly 
     await expect(fieldGuide).toHaveText(["Seen: 1", "Caught: 1", "Fully evolved: 0"].join(""));
     await expect(screen.getByRole("list", { name: "Badges" })).toContainText(/Town 1: Fixture Town · \d{1,2} \w{3} \d{4}/);
     await expect(screen.getByText("Town 1: Fixture Town · 100% (1 of 1 turns)")).toBeVisible();
+    // The seeded turn is a v1 turn with no Skills logged, so the Trainer Card has met none (#110).
+    await expect(screen.getByText("Skills met: 0 of 26")).toBeVisible();
+    await expect(screen.getByRole("link", { name: "Open your Trainer Card" })).toHaveAttribute("href", "/tracking/trainer-card");
     await expect(screen.getByRole("list", { name: "Weakest creatures this week" })).toHaveText("Cache");
 
     const badgesGoal = screen.getByRole("checkbox", { name: "12 badges (1 of 12)" });
@@ -95,7 +98,7 @@ test("the tracking screen shows every number on one screen, and scrolls cleanly 
       const overlaps = sections.slice(1).filter((box, i) => box.top < sections[i].bottom).length;
       return { sections: sections.length, overlaps, wide: document.documentElement.scrollWidth > window.innerWidth };
     });
-    expect(layout).toEqual({ sections: 8, overlaps: 0, wide: false });
+    expect(layout).toEqual({ sections: 9, overlaps: 0, wide: false });
 
     const accessibility = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
     expect(accessibility.violations).toEqual([]);

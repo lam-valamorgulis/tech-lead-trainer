@@ -1245,4 +1245,65 @@ a[aria-current="page"] {
   font-size: 13px;
   line-height: 1.2;
   overflow-wrap: anywhere;
+/* Trainer Card (#110, design 9 rule 18): the learner's portrait in a cream pixel frame, as in the prototype. */
+.trainer-card-link {
+  align-self: flex-start;
+  padding: 0 var(--space);
+}
+
+.trainer-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space);
+}
+
+.portrait-frame {
+  flex: none;
+  background: #fbf7e9;
+  border: 4px solid #070a16;
+  border-radius: 4px;
+  padding: 4px;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.3);
+}
+
+.portrait-art {
+  display: block;
+  image-rendering: pixelated;
+}
+
+.trainer-card-name,
+.trainer-card-met {
+  margin: 0 0 4px;
+}
+
+/* The 26 Skills. A Skill met has a solid edge; one never met is grey with a dashed edge and says "Not met yet". */
+.skill-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.skill {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border: 2px solid var(--color-success);
+  border-radius: 4px;
+}
+
+.skill-rate {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.skill-not-met {
+  color: var(--color-muted);
+  border: 2px dashed var(--color-line);
+}
+
+.skill-not-met .skill-rate {
+  font-weight: 400;
 }
