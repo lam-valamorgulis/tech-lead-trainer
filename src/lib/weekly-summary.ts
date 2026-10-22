@@ -131,37 +131,37 @@ async function summaryOfWeek(
   weekStart: LearningDay,
   timeZone: string,
 ): Promise<StoredWeeklySummary | null> {
-  const summaryAt = summaryMoment(weekStart, timeZone).toISOString();
-  const lastWeekStart = addDays(weekStart, -7);
-  const lastSummaryAt = summaryMoment(lastWeekStart, timeZone).toISOString();
-  const logOf = <Row>(table: string, columns: string, from: LearningDay, to: LearningDay, before: string, kinds?: readonly string[]) =>
+  const thisWeek = logWindow(weekStart, timeZone);
+  const lastWeek = logWindow(addDays(weekStart, -7), timeZone);
+  const logOf = <Row>(table: string, columns: string, window: LogWindow, kinds?: readonly string[]) =>
     selectAll((start, end) => {
       let query = admin
         .from(table)
         .select(columns)
         .eq("user_id", userId)
-        .gte("learning_day", from)
-        .lte("learning_day", to)
-        .lt("occurred_at", before);
+        .gte("learning_day", window.from)
+        .lte("learning_day", window.to)
+        .lt("occurred_at", window.before);
       if (kinds) query = query.in("item_kind", kinds);
       return query.order("id").range(start, end).returns<Row[]>();
     });
-  const sunday = addDays(weekStart, 6);
-  const lastSunday = addDays(weekStart, -1);
   // Sessions first: an empty week, which every timer run checks again, then costs one read.
   // One day more for sessions: a session counts for the day it started.
-  const sessions = await logOf<SnapshotRow>("session_events", "session_id, occurred_at, learning_day, active_seconds", lastSunday, sunday, summaryAt);
+  const sessions = await logOf<SnapshotRow>("session_events", "session_id, occurred_at, learning_day, active_seconds", {
+    ...thisWeek,
+    from: addDays(weekStart, -1),
+  });
   if (!sessions.some((row) => row.learning_day >= weekStart)) return null;
 
   const turnColumns = "scenario_id, turn_number, best_move, constraint_variant, learning_day";
   const cardColumns = "item_id, item_kind, learning_day, choice_correct, reason_correct";
   const [reviews, turns, lastWeekTurns, cards, lastWeekCards] = await Promise.all([
     // A Decision Card or trade-off row (#109) has no grade.
-    logOf<{ item_id: string; learning_day: string; grade: ReviewRecord["grade"] | null }>("review_events", "item_id, learning_day, grade", weekStart, sunday, summaryAt),
-    logOf<TurnRow>("battle_turn_events", turnColumns, weekStart, sunday, summaryAt),
-    logOf<TurnRow>("battle_turn_events", turnColumns, lastWeekStart, lastSunday, lastSummaryAt),
-    logOf<CardRow>("review_events", cardColumns, weekStart, sunday, summaryAt, CARD_KINDS),
-    logOf<CardRow>("review_events", cardColumns, lastWeekStart, lastSunday, lastSummaryAt, CARD_KINDS),
+    logOf<{ item_id: string; learning_day: string; grade: ReviewRecord["grade"] | null }>("review_events", "item_id, learning_day, grade", thisWeek),
+    logOf<TurnRow>("battle_turn_events", turnColumns, thisWeek),
+    logOf<TurnRow>("battle_turn_events", turnColumns, lastWeek),
+    logOf<CardRow>("review_events", cardColumns, thisWeek, CARD_KINDS),
+    logOf<CardRow>("review_events", cardColumns, lastWeek, CARD_KINDS),
   ]);
 
   const summary = weeklySummary({
@@ -173,7 +173,14 @@ async function summaryOfWeek(
     creatureOf,
     conceptOfTurn: turnConcept,
   });
-  return { ...summary, summaryAt };
+  return { ...summary, summaryAt: thisWeek.before };
+}
+
+/** The log rows one week's summary counts: its learning days, before its Sunday 20:00 home time. */
+type LogWindow = { from: LearningDay; to: LearningDay; before: string };
+
+function logWindow(monday: LearningDay, timeZone: string): LogWindow {
+  return { from: monday, to: addDays(monday, 6), before: summaryMoment(monday, timeZone).toISOString() };
 }
 
 type TurnRow = { scenario_id: string; turn_number: number; best_move: boolean; constraint_variant: string | null; learning_day: string };

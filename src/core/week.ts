@@ -142,8 +142,8 @@ export function compareWithLastWeek({ thisWeek, lastWeek }: WeekRate): RateChang
   return { kind: points > 0 ? "up" : points < 0 ? "down" : "same", percent, lastPercent, points };
 }
 
-/** For example "67% (2 of 3 turns), up 17 points from 50% last week". `unit` is "turn" or "card". */
-export function formatWeekRate(rate: WeekRate, unit: string): string {
+/** For example "67% (2 of 3 turns), up 17 points from 50% last week". */
+export function formatWeekRate(rate: WeekRate, unit: "turn" | "card"): string {
   const change = compareWithLastWeek(rate);
   const count = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
   if (change.kind === "none") {
